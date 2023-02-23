@@ -1,6 +1,6 @@
 {
-    "C_Cpp.intelliSenseEngine": "default",
-    "C_Cpp.autocomplete": "default",
+    "C_Cpp.intelliSenseEngine": "Disabled",
+    "C_Cpp.autocomplete": "Disabled",
     "clangd.arguments": [
         "--header-insertion=never"
     ],
