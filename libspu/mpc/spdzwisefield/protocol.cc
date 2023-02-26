@@ -14,20 +14,19 @@
 
 #include "libspu/mpc/spdzwisefield/protocol.h"
 
-#include "libspu/mpc/spdzwisefield/arithmetic.h"
-#include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/common/ab_api.h"
 #include "libspu/mpc/common/ab_kernels.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
+#include "libspu/mpc/spdzwisefield/arithmetic.h"
+#include "libspu/mpc/spdzwisefield/type.h"
 
 namespace spu::mpc {
 
 std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
     const RuntimeConfig& conf,
     const std::shared_ptr<yacl::link::Context>& lctx) {
-  
   spdzwisefield::registerTypes();
 
   auto obj = std::make_unique<Object>("SPDZWISEFIELD");
@@ -49,8 +48,6 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   // register arithmetic & binary kernels
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
-
 }
 
-
-}  // namespace spu::mpc::spdzwisefield
+}  // namespace spu::mpc

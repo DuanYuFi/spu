@@ -33,20 +33,23 @@
 
 namespace spu::mpc::spdzwisefield {
 
-ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) {}
+ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  SPU_TRACE_MPC_LEAF(ctx, in);
+  auto* comm = ctx->getState<Communicator>();
+}
 
-ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) {
+ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
 
   auto* comm = ctx->getState<Communicator>();
-  const auto field = in_ty->field();
+  const auto field = in.eltype().as<AShrTy>()->field();
 
   return DISPATCH_ALL_FIELDS(field, "_", [&]() {
     using AShrT = ring2k_t;
     using PShrT = ring2k_t;
 
-    ArrayRef out(makeType<AShrTy>(field), in.numel());
-    auto _in = ArrayView<std::array<AShrT, 2>>(in);
+    ArrayRef out(makeType<Pub2kTy>(field), in.numel());
+    auto _in = ArrayView<std::array<AShrT, 4>>(in);
     auto _out = ArrayView<PShrT>(out);
 
     std::vector<AShrT> x2(in.numel());
