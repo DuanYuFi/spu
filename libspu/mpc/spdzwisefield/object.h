@@ -24,8 +24,11 @@
 #include "libspu/mpc/aby3/protocol.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/object.h"
+#include "libspu/mpc/spdzwisefield/utils.h"
 
 namespace spu::mpc {
+
+typedef std::array<uint128_t, 2> Share;
 
 class SpdzWiseFieldState : public State {
   // aby3 for semi-honest protocol
@@ -33,7 +36,7 @@ class SpdzWiseFieldState : public State {
 
   std::shared_ptr<yacl::link::Context> lctx_;
   // share of global mac key
-  uint128_t key_;
+  Share key_;
 
   // triples to be verified
   std::unique_ptr<std::vector<ArrayRef>> stored_triples_;
@@ -47,6 +50,8 @@ class SpdzWiseFieldState : public State {
   // default in FM128
   const FieldType field_ = FM128;
 
+  using Field = MersennePrimeField;
+
  public:
   static constexpr char kBindName[] = "SpdzWiseFieldState";
   explicit SpdzWiseFieldState(RuntimeConfig conf,
@@ -54,14 +59,21 @@ class SpdzWiseFieldState : public State {
     lctx_ = lctx;
     stored_triples_ = std::make_unique<std::vector<ArrayRef>>();
     honest_ = makeAby3Protocol(conf, lctx_);
+    auto tmp = ArrayView<Share>(honest_->call("rand_a", 1));
+    key_ = tmp[0];
   }
 
-  uint128_t key() const { return key_; }
+  Share key() const { return key_; }
 
   size_t k() const { return k_; }
 
   size_t s() const { return s_; }
 
   std::vector<ArrayRef>* stored_triples() { return stored_triples_.get(); }
+
+  template <typename Ret = ArrayRef, typename... Args>
+  Ret call(const std::string_view& name, Args&&... args) {
+    return honest_->call(name, std::forward<Args>(args)...);
+  }
 };
 }  // namespace spu::mpc

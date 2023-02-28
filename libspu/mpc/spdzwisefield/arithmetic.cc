@@ -35,7 +35,52 @@ namespace spu::mpc::spdzwisefield {
 
 ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+
   auto* comm = ctx->getState<Communicator>();
+  auto* honest_state = ctx->getState<SpdzWiseFieldState>();
+  auto* prg_state = ctx->getState<PrgState>();
+  const auto key = honest_state->key();
+  const auto field = in.eltype().as<Ring2k>()->field();
+
+  auto rank = comm->getRank();
+
+  using U = uint128_t;
+  using Field = MersennePrimeField;
+
+  // get the input share from semi-honest protocol
+  ArrayRef honest_out = honest_state->call("p2a", in);
+
+  ArrayRef out(makeType<AShrTy>(field), in.numel());
+  ArrayView _in = ArrayView<U>(in);
+  ArrayView _out = ArrayView<std::array<U, 4>>(out);
+  ArrayView _honest_out = ArrayView<std::array<U, 2>>(honest_out);
+
+  // get the share of mac. [[mac]] = [[x]] * [[key]]
+  std::vector<U> r0(in.numel());
+  std::vector<U> r1(in.numel());
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+  pforeach(0, in.numel(), [&](int64_t idx) {
+    // r0[idx] = (_in[idx][0] * key[0]) +  //
+    //           (_in[idx][0] * key[1]) +  //
+    //           (_in[idx][1] * key[0]) +  //
+    //           (r0[idx] - r1[idx]);
+    r0[idx] = Field::add(Field::mul(_in[idx][0], key[0]),  //
+                         Field::mul(_in[idx][0], key[1]),  //
+                         Field::mul(_in[idx][1], key[0]),  //
+                         Field::sub(r0[idx], r1[idx]));    //
+  });
+
+  r1 = comm->rotate<U>(r0, "p2a");  // comm => 1, k
+
+  pforeach(0, in.numel(), [&](int64_t idx) {  //
+    _out[idx][0] = _honest_out[idx][0];       //
+    _out[idx][1] = _honest_out[idx][1];       //
+    _out[idx][2] = r0[idx];                   //
+    _out[idx][3] = r1[idx];
+  });
+
+  return out;
 }
 
 ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
@@ -44,28 +89,27 @@ ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   auto* comm = ctx->getState<Communicator>();
   const auto field = in.eltype().as<AShrTy>()->field();
 
-  return DISPATCH_ALL_FIELDS(field, "_", [&]() {
-    using AShrT = ring2k_t;
-    using PShrT = ring2k_t;
+  using ring2k_t = uint128_t;
+  using Field = MersennePrimeField;
 
-    ArrayRef out(makeType<Pub2kTy>(field), in.numel());
-    auto _in = ArrayView<std::array<AShrT, 4>>(in);
-    auto _out = ArrayView<PShrT>(out);
+  ArrayRef out(makeType<Pub2kTy>(field), in.numel());
+  auto _in = ArrayView<std::array<ring2k_t, 4>>(in);
+  auto _out = ArrayView<ring2k_t>(out);
 
-    std::vector<AShrT> x2(in.numel());
+  std::vector<AShrT> x2(in.numel());
 
-    pforeach(0, in.numel(), [&](int64_t idx) {  //
-      x2[idx] = _in[idx][1];
-    });
-
-    auto x3 = comm->rotate<AShrT>(x2, "a2p");
-
-    pforeach(0, in.numel(), [&](int64_t idx) {
-      _out[idx] = _in[idx][0] + _in[idx][1] + x3[idx];
-    });
-
-    return out;
+  pforeach(0, in.numel(), [&](int64_t idx) {  //
+    x2[idx] = _in[idx][1];
   });
+
+  auto x3 = comm->rotate<AShrT>(x2, "a2p");
+
+  pforeach(0, in.numel(), [&](int64_t idx) {
+    // _out[idx] = _in[idx][0] + _in[idx][1] + x3[idx];
+    _out[idx] = Field::add(_in[idx][0], _in[idx][1], x3[idx]);
+  });
+
+  return out;
 }
 
 }  // namespace spu::mpc::spdzwisefield

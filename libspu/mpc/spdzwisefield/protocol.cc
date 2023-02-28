@@ -20,6 +20,7 @@
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/arithmetic.h"
+#include "libspu/mpc/spdzwisefield/object.h"
 #include "libspu/mpc/spdzwisefield/type.h"
 
 namespace spu::mpc {
@@ -46,6 +47,7 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   regABKernels(obj.get());
 
   // register arithmetic & binary kernels
+  obj->addState<SpdzWiseFieldState>(conf, lctx);
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
 }
