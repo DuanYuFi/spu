@@ -38,4 +38,58 @@ class A2P : public UnaryKernel {
   ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
 };
 
+////////////////////////////////////////////////////////////////////
+// add family
+////////////////////////////////////////////////////////////////////
+class AddAA : public BinaryKernel {
+ public:
+  static constexpr char kBindName[] = "add_aa";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                const ArrayRef& rhs) const override;
+};
+
+class AddAP : public BinaryKernel {
+ public:
+  static constexpr char kBindName[] = "add_ap";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                const ArrayRef& rhs) const override;
+};
+
+////////////////////////////////////////////////////////////////////
+// multiply family
+////////////////////////////////////////////////////////////////////
+class MulAA : public BinaryKernel {
+ public:
+  static constexpr char kBindName[] = "mul_aa";
+
+  ce::CExpr latency() const override { return ce::Const(1); }
+
+  ce::CExpr comm() const override { return ce::K() * ce::Const(2); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                const ArrayRef& rhs) const override;
+};
+
+class MulAP : public BinaryKernel {
+ public:
+  static constexpr char kBindName[] = "mul_ap";
+
+  ce::CExpr latency() const override { return ce::Const(1); }
+
+  ce::CExpr comm() const override { return ce::K() * ce::Const(2); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                const ArrayRef& rhs) const override;
+};
+
 }  // namespace spu::mpc::spdzwisefield
