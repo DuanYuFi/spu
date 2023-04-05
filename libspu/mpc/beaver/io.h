@@ -14,19 +14,23 @@
 
 #pragma once
 
-#include "libspu/core/array_ref.h"
-#include "libspu/core/parallel_utils.h"
-#include "libspu/core/type_util.h"
+#include "libspu/mpc/io_interface.h"
 
 namespace spu::mpc::beaver {
-ArrayRef getShare(const ArrayRef& in, int64_t share_idx);
 
-ArrayRef getFirstShare(const ArrayRef& in);
+class BeaverIo final : public BaseIo {
+ public:
+  using BaseIo::BaseIo;
 
-ArrayRef getSecondShare(const ArrayRef& in);
+  std::vector<ArrayRef> toShares(const ArrayRef& raw, Visibility vis,
+                                 int owner_rank) const override;
 
-ArrayRef makeAShare(const ArrayRef& s1, const ArrayRef& s2, FieldType field,
-                    int owner_rank = -1);
+  ArrayRef fromShares(const std::vector<ArrayRef>& shares) const override;
 
-PtType calcBShareBacktype(size_t nbits);
+  std::vector<ArrayRef> makeBitSecret(const ArrayRef& in) const override;
+  bool hasBitSecretSupport() const override { return true; }
+};
+
+std::unique_ptr<BeaverIo> makeBeaverIo(FieldType field, size_t npc);
+
 }  // namespace spu::mpc::beaver

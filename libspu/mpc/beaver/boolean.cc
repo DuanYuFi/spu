@@ -28,6 +28,45 @@
 
 namespace spu::mpc::beaver {
 
+void CommonTypeB::evaluate(KernelEvalContext* ctx) const {
+  const Type& lhs = ctx->getParam<Type>(0);
+  const Type& rhs = ctx->getParam<Type>(1);
+
+  SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+
+  const size_t lhs_nbits = lhs.as<BShrTy>()->nbits();
+  const size_t rhs_nbits = rhs.as<BShrTy>()->nbits();
+
+  const size_t out_nbits = std::max(lhs_nbits, rhs_nbits);
+  const PtType out_btype = calcBShareBacktype(out_nbits);
+
+  ctx->setOutput(makeType<BShrTy>(out_btype, out_nbits));
+}
+
+void CastTypeB::evaluate(KernelEvalContext* ctx) const {
+  const auto& in = ctx->getParam<ArrayRef>(0);
+  const auto& to_type = ctx->getParam<Type>(1);
+
+  SPU_TRACE_MPC_LEAF(ctx, in, to_type);
+
+  ArrayRef out(to_type, in.numel());
+  DISPATCH_UINT_PT_TYPES(in.eltype().as<BShrTy>()->getBacktype(), "_", [&]() {
+    using InT = ScalarT;
+    DISPATCH_UINT_PT_TYPES(to_type.as<BShrTy>()->getBacktype(), "_", [&]() {
+      using OutT = ScalarT;
+      auto _in = ArrayView<std::array<InT, 2>>(in);
+      auto _out = ArrayView<std::array<OutT, 2>>(out);
+
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        _out[idx][0] = static_cast<OutT>(_in[idx][0]);
+        _out[idx][1] = static_cast<OutT>(_in[idx][1]);
+      });
+    });
+  });
+
+  ctx->setOutput(out);
+}
+
 ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
 
@@ -35,28 +74,32 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   const PtType btype = in.eltype().as<BShrTy>()->getBacktype();
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
-  using BShrT = ScalarT;
-  using PShrT = ring2k_t;
+  return DISPATCH_UINT_PT_TYPES(btype, "aby3.b2p", [&]() {
+    using BShrT = ScalarT;
+    return DISPATCH_ALL_FIELDS(field, "_", [&]() {
+      using PShrT = ring2k_t;
 
-  ArrayRef out(makeType<Pub2kTy>(field), in.numel());
+      ArrayRef out(makeType<Pub2kTy>(field), in.numel());
 
-  auto _in = ArrayView<std::array<BShrT, 2>>(in);
-  auto _out = ArrayView<PShrT>(out);
+      auto _in = ArrayView<std::array<BShrT, 2>>(in);
+      auto _out = ArrayView<PShrT>(out);
 
-  // using spu::mpc::aby3::getShareAs;
+      // using spu::mpc::aby3::getShareAs;
 
-  std::vector<BShrT> x2(in.numel());
+      std::vector<BShrT> x2(in.numel());
 
-  pforeach(0, in.numel(), [&](int64_t idx) {  //
-    x2[idx] = _in[idx][1];
+      pforeach(0, in.numel(), [&](int64_t idx) {  //
+        x2[idx] = _in[idx][1];
+      });
+      auto x3 = comm->rotate<BShrT>(x2, "b2p");  // comm => 1, k
+
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        _out[idx] = static_cast<PShrT>(_in[idx][0] ^ _in[idx][1] ^ x3[idx]);
+      });
+
+      return out;
+    });
   });
-  auto x3 = comm->rotate<BShrT>(x2, "b2p");  // comm => 1, k
-
-  pforeach(0, in.numel(), [&](int64_t idx) {
-    _out[idx] = static_cast<PShrT>(_in[idx][0] ^ _in[idx][1] ^ x3[idx]);
-  });
-
-  return out;
 }
 
 ArrayRef P2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
@@ -66,28 +109,30 @@ ArrayRef P2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   const auto* in_ty = in.eltype().as<Pub2kTy>();
   const auto field = in_ty->field();
 
-  auto _in = ArrayView<ring2k_t>(in);
-  const size_t nbits = _in.maxBitWidth();
+  return DISPATCH_ALL_FIELDS(field, "_", [&]() {
+    auto _in = ArrayView<ring2k_t>(in);
+    const size_t nbits = _in.maxBitWidth();
+    const PtType btype = calcBShareBacktype(nbits);
+    return DISPATCH_UINT_PT_TYPES(btype, "_", [&]() {
+      using BShrT = ScalarT;
+      ArrayRef out(makeType<BShrTy>(btype, nbits), in.numel());
+      auto _out = ArrayView<std::array<BShrT, 2>>(out);
 
-  const PtType btype = PT_U128;
-
-  using BShrT = ScalarT;
-  ArrayRef out(makeType<BShrTy>(btype, nbits), in.numel());
-  auto _out = ArrayView<std::array<BShrT, 2>>(out);
-
-  pforeach(0, in.numel(), [&](int64_t idx) {
-    if (comm->getRank() == 0) {
-      _out[idx][0] = static_cast<BShrT>(_in[idx]);
-      _out[idx][1] = 0U;
-    } else if (comm->getRank() == 1) {
-      _out[idx][0] = 0U;
-      _out[idx][1] = 0U;
-    } else {
-      _out[idx][0] = 0U;
-      _out[idx][1] = static_cast<BShrT>(_in[idx]);
-    }
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        if (comm->getRank() == 0) {
+          _out[idx][0] = static_cast<BShrT>(_in[idx]);
+          _out[idx][1] = 0U;
+        } else if (comm->getRank() == 1) {
+          _out[idx][0] = 0U;
+          _out[idx][1] = 0U;
+        } else {
+          _out[idx][0] = 0U;
+          _out[idx][1] = static_cast<BShrT>(_in[idx]);
+        }
+      });
+      return out;
+    });
   });
-  return out;
 }
 
 ArrayRef AndBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
@@ -97,25 +142,30 @@ ArrayRef AndBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   const auto* lhs_ty = lhs.eltype().as<BShrTy>();
   const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
 
-  using RhsT = ring2k_t;
-  auto _rhs = ArrayView<RhsT>(rhs);
-  const size_t rhs_nbits = _rhs.maxBitWidth();
-  const size_t out_nbits = std::min(lhs_ty->nbits(), rhs_nbits);
-  const PtType out_btype = PT_U128;
+  return DISPATCH_ALL_FIELDS(rhs_ty->field(), "_", [&]() {
+    using RhsT = ring2k_t;
+    auto _rhs = ArrayView<RhsT>(rhs);
+    const size_t rhs_nbits = _rhs.maxBitWidth();
+    const size_t out_nbits = std::min(lhs_ty->nbits(), rhs_nbits);
+    const PtType out_btype = calcBShareBacktype(out_nbits);
 
-  using LhsT = ScalarT;
-  auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+    return DISPATCH_UINT_PT_TYPES(lhs_ty->getBacktype(), "_", [&]() {
+      using LhsT = ScalarT;
+      auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+      return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+        using OutT = ScalarT;
 
-  using OutT = ScalarT;
+        ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
+        auto _out = ArrayView<std::array<OutT, 2>>(out);
+        pforeach(0, lhs.numel(), [&](int64_t idx) {
+          _out[idx][0] = _lhs[idx][0] & _rhs[idx];
+          _out[idx][1] = _lhs[idx][1] & _rhs[idx];
+        });
 
-  ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
-  auto _out = ArrayView<std::array<OutT, 2>>(out);
-  pforeach(0, lhs.numel(), [&](int64_t idx) {
-    _out[idx][0] = _lhs[idx][0] & _rhs[idx];
-    _out[idx][1] = _lhs[idx][1] & _rhs[idx];
+        return out;
+      });
+    });
   });
-
-  return out;
 }
 
 ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
@@ -130,51 +180,312 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   const auto* rhs_ty = rhs.eltype().as<BShrTy>();
 
   const size_t out_nbits = std::max(lhs_ty->nbits(), rhs_ty->nbits());
-  const PtType out_btype = PT_U128;
+  const PtType out_btype = calcBShareBacktype(out_nbits);
   ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
 
-  using RhsT = ScalarT;
-  auto _rhs = ArrayView<std::array<RhsT, 2>>(rhs);
+  return DISPATCH_UINT_PT_TYPES(rhs_ty->getBacktype(), "_", [&]() {
+    using RhsT = ScalarT;
+    auto _rhs = ArrayView<std::array<RhsT, 2>>(rhs);
+    return DISPATCH_UINT_PT_TYPES(lhs_ty->getBacktype(), "_", [&]() {
+      using LhsT = ScalarT;
+      auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+      return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+        using OutT = ScalarT;
 
-  using LhsT = ScalarT;
-  auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+        ArrayRef trusted_triples = beaver_state->get_bin_triples(
+            ctx->caller(), out_btype, out_nbits, lhs.numel());
 
-  using OutT = ScalarT;
+        std::vector<std::array<LhsT, 2>> to_be_open(lhs.numel() * 2);
+        pforeach(0, lhs.numel(), [&](uint64_t idx) {
+          to_be_open[idx * 2][0] = _lhs[idx][0] ^ trusted_triples[idx][0][0];
+          to_be_open[idx * 2][1] = _lhs[idx][1] ^ trusted_triples[idx][0][1];
 
-  std::vector<beaver::BinaryTriple> trusted_triples =
-      beaver_state->get_bin_triples(ctx->caller(), lhs.numel());
+          to_be_open[idx * 2 + 1][0] =
+              _rhs[idx][0] ^ trusted_triples[idx][1][0];
+          to_be_open[idx * 2 + 1][1] =
+              _rhs[idx][1] ^ trusted_triples[idx][1][1];
+        });
 
-  std::vector<std::array<LhsT, 2>> to_be_open(lhs.numel() * 2);
-  pforeach(0, lhs.numel(), [&](uint64_t idx) {
-    to_be_open[idx * 2][0] = _lhs[idx][0] ^ trusted_triples[idx][0][0];
-    to_be_open[idx * 2][1] = _lhs[idx][1] ^ trusted_triples[idx][0][1];
+        auto opened = ctx->caller()->call("B2P", to_be_open);
+        auto _opened = ArrayView<OutT>(opened);
 
-    to_be_open[idx * 2 + 1][0] = _rhs[idx][0] ^ trusted_triples[idx][1][0];
-    to_be_open[idx * 2 + 1][1] = _rhs[idx][1] ^ trusted_triples[idx][1][1];
+        auto _out = ArrayView<std::array<OutT, 2>>(out);
+        auto rank = comm->getRank();
+
+        pforeach(0, lhs.numel(), [&](uint64_t idx) {
+          auto d = _opened[idx * 2];
+          auto e = _opened[idx * 2 + 1];
+          _out[idx][0] =
+              d & _rhs[idx][0] ^ e & _lhs[idx][0] ^ trusted_triples[idx][2][0];
+          _out[idx][1] =
+              d & _rhs[idx][1] ^ e & _lhs[idx][1] ^ trusted_triples[idx][2][1];
+
+          if (rank == 0) {
+            _out[idx][0] ^= (d & e);
+          }
+          if (rank == 2) {
+            _out[idx][1] ^= (d & e);
+          }
+        });
+        return out;
+      });
+    });
+  });
+}
+
+ArrayRef XorBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                     const ArrayRef& rhs) const {
+  SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+
+  const auto* lhs_ty = lhs.eltype().as<BShrTy>();
+  const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
+
+  return DISPATCH_ALL_FIELDS(rhs_ty->field(), "_", [&]() {
+    using RhsT = ring2k_t;
+    auto _rhs = ArrayView<RhsT>(rhs);
+
+    const size_t rhs_nbits = _rhs.maxBitWidth();
+    const size_t out_nbits = std::max(lhs_ty->nbits(), rhs_nbits);
+    const PtType out_btype = calcBShareBacktype(out_nbits);
+    ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
+
+    return DISPATCH_UINT_PT_TYPES(lhs_ty->getBacktype(), "_", [&]() {
+      using LhsT = ScalarT;
+      auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+
+      return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+        using OutT = ScalarT;
+
+        auto _out = ArrayView<std::array<OutT, 2>>(out);
+        pforeach(0, lhs.numel(), [&](int64_t idx) {
+          _out[idx][0] = _lhs[idx][0] ^ _rhs[idx];
+          _out[idx][1] = _lhs[idx][1] ^ _rhs[idx];
+        });
+        return out;
+      });
+    });
+  });
+}
+
+ArrayRef XorBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                     const ArrayRef& rhs) const {
+  SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+
+  const auto* lhs_ty = lhs.eltype().as<BShrTy>();
+  const auto* rhs_ty = rhs.eltype().as<BShrTy>();
+
+  const size_t out_nbits = std::max(lhs_ty->nbits(), rhs_ty->nbits());
+  const PtType out_btype = calcBShareBacktype(out_nbits);
+
+  return DISPATCH_UINT_PT_TYPES(rhs_ty->getBacktype(), "_", [&]() {
+    using RhsT = ScalarT;
+    auto _rhs = ArrayView<std::array<RhsT, 2>>(rhs);
+
+    return DISPATCH_UINT_PT_TYPES(lhs_ty->getBacktype(), "_", [&]() {
+      using LhsT = ScalarT;
+      auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+
+      return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+        using OutT = ScalarT;
+
+        ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
+        auto _out = ArrayView<std::array<OutT, 2>>(out);
+
+        pforeach(0, lhs.numel(), [&](int64_t idx) {
+          _out[idx][0] = _lhs[idx][0] ^ _rhs[idx][0];
+          _out[idx][1] = _lhs[idx][1] ^ _rhs[idx][1];
+        });
+        return out;
+      });
+    });
+  });
+}
+
+ArrayRef LShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
+                       size_t bits) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, bits);
+
+  const auto* in_ty = in.eltype().as<BShrTy>();
+
+  // TODO: the hal dtype should tell us about the max number of possible bits.
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+  const size_t out_nbits = std::min(in_ty->nbits() + bits, SizeOf(field) * 8);
+  const PtType out_btype = calcBShareBacktype(out_nbits);
+
+  return DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using InT = ScalarT;
+
+    return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+      using OutT = ScalarT;
+
+      ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), in.numel());
+
+      auto _in = ArrayView<std::array<InT, 2>>(in);
+      auto _out = ArrayView<std::array<OutT, 2>>(out);
+
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        _out[idx][0] = static_cast<OutT>(_in[idx][0]) << bits;
+        _out[idx][1] = static_cast<OutT>(_in[idx][1]) << bits;
+      });
+
+      return out;
+    });
+  });
+}
+
+ArrayRef RShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
+                       size_t bits) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, bits);
+
+  const auto* in_ty = in.eltype().as<BShrTy>();
+
+  bits = std::min(in_ty->nbits(), bits);
+  size_t out_nbits = in_ty->nbits();
+  out_nbits -= std::min(out_nbits, bits);
+  const PtType out_btype = calcBShareBacktype(out_nbits);
+
+  return DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using InT = ScalarT;
+
+    return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+      using OutT = ScalarT;
+
+      ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), in.numel());
+
+      auto _in = ArrayView<std::array<InT, 2>>(in);
+      auto _out = ArrayView<std::array<OutT, 2>>(out);
+
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        _out[idx][0] = static_cast<OutT>(_in[idx][0] >> bits);
+        _out[idx][1] = static_cast<OutT>(_in[idx][1] >> bits);
+      });
+
+      return out;
+    });
+  });
+}
+
+ArrayRef ARShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
+                        size_t bits) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, bits);
+
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+  const auto* in_ty = in.eltype().as<BShrTy>();
+
+  // arithmetic right shift expects to work on ring, or the behaviour is
+  // undefined.
+  SPU_ENFORCE(in_ty->nbits() == SizeOf(field) * 8, "in.type={}, field={}",
+              in.eltype(), field);
+  const PtType out_btype = in_ty->getBacktype();
+  const size_t out_nbits = in_ty->nbits();
+
+  return DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using T = std::make_signed_t<ScalarT>;
+    ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), in.numel());
+
+    auto _in = ArrayView<std::array<T, 2>>(in);
+    auto _out = ArrayView<std::array<T, 2>>(out);
+
+    pforeach(0, in.numel(), [&](int64_t idx) {
+      _out[idx][0] = _in[idx][0] >> bits;
+      _out[idx][1] = _in[idx][1] >> bits;
+    });
+
+    return out;
+  });
+}
+
+ArrayRef BitrevB::proc(KernelEvalContext* ctx, const ArrayRef& in, size_t start,
+                       size_t end) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, start, end);
+
+  SPU_ENFORCE(start <= end && end <= 128);
+
+  const auto* in_ty = in.eltype().as<BShrTy>();
+  const size_t out_nbits = std::max(in_ty->nbits(), end);
+  const PtType out_btype = calcBShareBacktype(out_nbits);
+
+  return DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using InT = ScalarT;
+
+    return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+      using OutT = ScalarT;
+
+      ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), in.numel());
+
+      auto _in = ArrayView<std::array<InT, 2>>(in);
+      auto _out = ArrayView<std::array<OutT, 2>>(out);
+
+      auto bitrev_fn = [&](OutT el) -> OutT {
+        OutT tmp = 0U;
+        for (size_t idx = start; idx < end; idx++) {
+          if (el & ((OutT)1 << idx)) {
+            tmp |= (OutT)1 << (end - 1 - idx + start);
+          }
+        }
+
+        OutT mask = ((OutT)1U << end) - ((OutT)1U << start);
+        return (el & ~mask) | tmp;
+      };
+
+      pforeach(0, in.numel(), [&](int64_t idx) {
+        _out[idx][0] = bitrev_fn(static_cast<OutT>(_in[idx][0]));
+        _out[idx][1] = bitrev_fn(static_cast<OutT>(_in[idx][1]));
+      });
+
+      return out;
+    });
+  });
+}
+
+void BitIntlB::evaluate(KernelEvalContext* ctx) const {
+  const auto& in = ctx->getParam<ArrayRef>(0);
+  const size_t stride = ctx->getParam<size_t>(1);
+
+  SPU_TRACE_MPC_LEAF(ctx, in, stride);
+
+  const auto* in_ty = in.eltype().as<BShrTy>();
+  const size_t nbits = in_ty->nbits();
+  SPU_ENFORCE(absl::has_single_bit(nbits));
+
+  ArrayRef out = in.clone();
+  DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using T = ScalarT;
+    auto _in = ArrayView<std::array<T, 2>>(in);
+    auto _out = ArrayView<std::array<T, 2>>(out);
+
+    pforeach(0, in.numel(), [&](int64_t idx) {
+      _out[idx][0] = BitIntl<T>(_in[idx][0], stride, nbits);
+      _out[idx][1] = BitIntl<T>(_in[idx][1], stride, nbits);
+    });
   });
 
-  auto opened = ctx->caller()->call("B2P", to_be_open);
-  auto _opened = ArrayView<OutT>(opened);
+  ctx->setOutput(out);
+}
 
-  auto _out = ArrayView<std::array<OutT, 2>>(out);
-  auto rank = comm->getRank();
+void BitDeintlB::evaluate(KernelEvalContext* ctx) const {
+  const auto& in = ctx->getParam<ArrayRef>(0);
+  const size_t stride = ctx->getParam<size_t>(1);
 
-  pforeach(0, lhs.numel(), [&](uint64_t idx) {
-    auto d = _opened[idx * 2];
-    auto e = _opened[idx * 2 + 1];
-    _out[idx][0] =
-        d & _rhs[idx][0] ^ e & _lhs[idx][0] ^ trusted_triples[idx][2][0];
-    _out[idx][1] =
-        d & _rhs[idx][1] ^ e & _lhs[idx][1] ^ trusted_triples[idx][2][1];
+  SPU_TRACE_MPC_LEAF(ctx, in, stride);
 
-    if (rank == 0) {
-      _out[idx][0] ^= (d & e);
-    }
-    if (rank == 2) {
-      _out[idx][1] ^= (d & e);
-    }
+  const auto* in_ty = in.eltype().as<BShrTy>();
+  const size_t nbits = in_ty->nbits();
+  SPU_ENFORCE(absl::has_single_bit(nbits));
+
+  ArrayRef out = in.clone();
+  DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using T = ScalarT;
+    auto _in = ArrayView<std::array<T, 2>>(in);
+    auto _out = ArrayView<std::array<T, 2>>(out);
+
+    pforeach(0, in.numel(), [&](int64_t idx) {
+      _out[idx][0] = BitDeintl<T>(_in[idx][0], stride, nbits);
+      _out[idx][1] = BitDeintl<T>(_in[idx][1], stride, nbits);
+    });
   });
-  return out;
+
+  ctx->setOutput(out);
 }
 
 }  // namespace spu::mpc::beaver
