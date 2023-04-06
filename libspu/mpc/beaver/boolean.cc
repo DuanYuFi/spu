@@ -192,18 +192,20 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
       return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
         using OutT = ScalarT;
 
-        ArrayRef trusted_triples = beaver_state->get_bin_triples(
+        ArrayRef trusted_triples = beaver_state->gen_bin_triples(
             ctx->caller(), out_btype, out_nbits, lhs.numel());
+        auto _trusted_triples =
+            ArrayView<std::array<std::array<OutT, 2>, 3>>(trusted_triples);
 
         std::vector<std::array<LhsT, 2>> to_be_open(lhs.numel() * 2);
         pforeach(0, lhs.numel(), [&](uint64_t idx) {
-          to_be_open[idx * 2][0] = _lhs[idx][0] ^ trusted_triples[idx][0][0];
-          to_be_open[idx * 2][1] = _lhs[idx][1] ^ trusted_triples[idx][0][1];
+          to_be_open[idx * 2][0] = _lhs[idx][0] ^ _trusted_triples[idx][0][0];
+          to_be_open[idx * 2][1] = _lhs[idx][1] ^ _trusted_triples[idx][0][1];
 
           to_be_open[idx * 2 + 1][0] =
-              _rhs[idx][0] ^ trusted_triples[idx][1][0];
+              _rhs[idx][0] ^ _trusted_triples[idx][1][0];
           to_be_open[idx * 2 + 1][1] =
-              _rhs[idx][1] ^ trusted_triples[idx][1][1];
+              _rhs[idx][1] ^ _trusted_triples[idx][1][1];
         });
 
         auto opened = ctx->caller()->call("B2P", to_be_open);
@@ -216,9 +218,9 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
           auto d = _opened[idx * 2];
           auto e = _opened[idx * 2 + 1];
           _out[idx][0] =
-              d & _rhs[idx][0] ^ e & _lhs[idx][0] ^ trusted_triples[idx][2][0];
+              d & _rhs[idx][0] ^ e & _lhs[idx][0] ^ _trusted_triples[idx][2][0];
           _out[idx][1] =
-              d & _rhs[idx][1] ^ e & _lhs[idx][1] ^ trusted_triples[idx][2][1];
+              d & _rhs[idx][1] ^ e & _lhs[idx][1] ^ _trusted_triples[idx][2][1];
 
           if (rank == 0) {
             _out[idx][0] ^= (d & e);
