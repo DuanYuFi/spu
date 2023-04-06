@@ -22,6 +22,7 @@
 #include "libspu/core/trace.h"
 #include "libspu/mpc/beaver/state.h"
 #include "libspu/mpc/beaver/type.h"
+#include "libspu/mpc/beaver/value.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"

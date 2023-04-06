@@ -112,6 +112,12 @@ enum ProtocolKind {
   // The famous [Cheetah](https://eprint.iacr.org/2022/207) protocol, a very
   // fast 2PC protocol.
   CHEETAH = 4;
+
+  // A famous nPC protocol with active security, which implemented with 3PC
+  // setting here. [BEAVER](https://eprint.iacr.org/2016/944)
+  // Note that this protocol is only finished in binary part, and the arithmetic
+  // part is still same as ABY3.
+  BEAVER = 5;
 }
 
 // The spu Value proto, used for spu value serialization.

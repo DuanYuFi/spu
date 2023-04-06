@@ -19,6 +19,8 @@
 #include "libspu/core/prelude.h"
 #include "libspu/mpc/aby3/io.h"
 #include "libspu/mpc/aby3/protocol.h"
+#include "libspu/mpc/beaver/io.h"
+#include "libspu/mpc/beaver/protocol.h"
 #include "libspu/mpc/cheetah/io.h"
 #include "libspu/mpc/cheetah/protocol.h"
 #include "libspu/mpc/ref2k/ref2k.h"
@@ -43,6 +45,9 @@ std::unique_ptr<Object> Factory::CreateCompute(
     case ProtocolKind::CHEETAH: {
       return makeCheetahProtocol(conf, lctx);
     }
+    case ProtocolKind::BEAVER: {
+      return makeBeaverProtocol(conf, lctx);
+    }
     default: {
       SPU_THROW("Invalid protocol kind {}", conf.protocol());
     }
@@ -64,6 +69,9 @@ std::unique_ptr<IoInterface> Factory::CreateIO(const RuntimeConfig& conf,
     }
     case ProtocolKind::CHEETAH: {
       return cheetah::makeCheetahIo(conf.field(), npc);
+    }
+    case ProtocolKind::BEAVER: {
+      return beaver::makeBeaverIo(conf.field(), npc);
     }
     default: {
       SPU_THROW("Invalid protocol kind {}", conf.protocol());

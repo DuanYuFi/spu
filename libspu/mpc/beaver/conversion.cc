@@ -246,52 +246,54 @@ std::pair<ArrayRef, ArrayRef> bit_split(const ArrayRef& in) {
 
   ArrayRef lo(out_type, in.numel());
   ArrayRef hi(out_type, in.numel());
-  using InT = ScalarT;
-  auto _in = ArrayView<std::array<InT, 2>>(in);
-  DISPATCH_UINT_PT_TYPES(out_backtype, "_", [&]() {
-    using OutT = ScalarT;
-    auto _lo = ArrayView<std::array<OutT, 2>>(lo);
-    auto _hi = ArrayView<std::array<OutT, 2>>(hi);
+  DISPATCH_UINT_PT_TYPES(in_ty->getBacktype(), "_", [&]() {
+    using InT = ScalarT;
+    auto _in = ArrayView<std::array<InT, 2>>(in);
+    DISPATCH_UINT_PT_TYPES(out_backtype, "_", [&]() {
+      using OutT = ScalarT;
+      auto _lo = ArrayView<std::array<OutT, 2>>(lo);
+      auto _hi = ArrayView<std::array<OutT, 2>>(hi);
 
-    if constexpr (sizeof(InT) <= 8) {
-      pforeach(0, in.numel(), [&](int64_t idx) {
-        constexpr uint64_t S = 0x5555555555555555;  // 01010101
-        const InT M = (InT(1) << (in_nbits / 2)) - 1;
+      if constexpr (sizeof(InT) <= 8) {
+        pforeach(0, in.numel(), [&](int64_t idx) {
+          constexpr uint64_t S = 0x5555555555555555;  // 01010101
+          const InT M = (InT(1) << (in_nbits / 2)) - 1;
 
-        uint64_t r0 = _in[idx][0];
-        uint64_t r1 = _in[idx][1];
-        _lo[idx][0] = pext_u64(r0, S) & M;
-        _hi[idx][0] = pext_u64(r0, ~S) & M;
-        _lo[idx][1] = pext_u64(r1, S) & M;
-        _hi[idx][1] = pext_u64(r1, ~S) & M;
-      });
-    } else {
-      pforeach(0, in.numel(), [&](int64_t idx) {
-        InT r0 = _in[idx][0];
-        InT r1 = _in[idx][1];
-        // algorithm:
-        //      0101010101010101
-        // swap  ^^  ^^  ^^  ^^
-        //      0011001100110011
-        // swap   ^^^^    ^^^^
-        //      0000111100001111
-        // swap     ^^^^^^^^
-        //      0000000011111111
-        for (int k = 0; k + 1 < Log2Ceil(in_nbits); k++) {
-          InT keep = static_cast<InT>(kKeepMasks[k]);
-          InT move = static_cast<InT>(kSwapMasks[k]);
-          int shift = 1 << k;
+          uint64_t r0 = _in[idx][0];
+          uint64_t r1 = _in[idx][1];
+          _lo[idx][0] = pext_u64(r0, S) & M;
+          _hi[idx][0] = pext_u64(r0, ~S) & M;
+          _lo[idx][1] = pext_u64(r1, S) & M;
+          _hi[idx][1] = pext_u64(r1, ~S) & M;
+        });
+      } else {
+        pforeach(0, in.numel(), [&](int64_t idx) {
+          InT r0 = _in[idx][0];
+          InT r1 = _in[idx][1];
+          // algorithm:
+          //      0101010101010101
+          // swap  ^^  ^^  ^^  ^^
+          //      0011001100110011
+          // swap   ^^^^    ^^^^
+          //      0000111100001111
+          // swap     ^^^^^^^^
+          //      0000000011111111
+          for (int k = 0; k + 1 < Log2Ceil(in_nbits); k++) {
+            InT keep = static_cast<InT>(kKeepMasks[k]);
+            InT move = static_cast<InT>(kSwapMasks[k]);
+            int shift = 1 << k;
 
-          r0 = (r0 & keep) ^ ((r0 >> shift) & move) ^ ((r0 & move) << shift);
-          r1 = (r1 & keep) ^ ((r1 >> shift) & move) ^ ((r1 & move) << shift);
-        }
-        InT mask = (InT(1) << (in_nbits / 2)) - 1;
-        _lo[idx][0] = static_cast<OutT>(r0) & mask;
-        _hi[idx][0] = static_cast<OutT>(r0 >> (in_nbits / 2)) & mask;
-        _lo[idx][1] = static_cast<OutT>(r1) & mask;
-        _hi[idx][1] = static_cast<OutT>(r1 >> (in_nbits / 2)) & mask;
-      });
-    }
+            r0 = (r0 & keep) ^ ((r0 >> shift) & move) ^ ((r0 & move) << shift);
+            r1 = (r1 & keep) ^ ((r1 >> shift) & move) ^ ((r1 & move) << shift);
+          }
+          InT mask = (InT(1) << (in_nbits / 2)) - 1;
+          _lo[idx][0] = static_cast<OutT>(r0) & mask;
+          _hi[idx][0] = static_cast<OutT>(r0 >> (in_nbits / 2)) & mask;
+          _lo[idx][1] = static_cast<OutT>(r1) & mask;
+          _hi[idx][1] = static_cast<OutT>(r1 >> (in_nbits / 2)) & mask;
+        });
+      }
+    });
   });
 
   return std::make_pair(hi, lo);

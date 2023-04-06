@@ -92,10 +92,8 @@ std::vector<ArrayRef> BeaverIo::makeBitSecret(const ArrayRef& in) const {
     std::vector<BShrT> r1(numel);
 
     uint64_t counter = 0;
-    yacl::crypto::FillPseudoRandom(kCryptoType, yacl::crypto::RandSeed(),
-                                   kAesIV, counter, absl::MakeSpan(r0));
-    yacl::crypto::FillPseudoRandom(kCryptoType, yacl::crypto::RandSeed(),
-                                   kAesIV, counter, absl::MakeSpan(r1));
+    yacl::crypto::PrgAesCtr(yacl::crypto::RandSeed(), absl::MakeSpan(r0));
+    yacl::crypto::PrgAesCtr(yacl::crypto::RandSeed(), absl::MakeSpan(r1));
 
     auto _s0 = ArrayView<std::array<BShrT, 2>>(shares[0]);
     auto _s1 = ArrayView<std::array<BShrT, 2>>(shares[1]);
