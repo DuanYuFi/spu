@@ -73,6 +73,22 @@ class BShrTy : public TypeImpl<BShrTy, TypeObject, Secret, BShare> {
   }
 };
 
+class BinTripleTy : public TypeImpl<BinTripleTy, RingTy> {
+  using Base = TypeImpl<BinTripleTy, RingTy>;
+
+  PtType field_;
+
+ public:
+  using Base::Base;
+  static std::string_view getStaticId() { return "beaver.Triple"; }
+
+  explicit BinTripleTy(PtType field) { field_ = field; }
+
+  PtType field() const { return field_; }
+
+  size_t size() const override { return 6 * SizeOf(PtTypeToField(field_)); }
+};
+
 void registerTypes();
 
 }  // namespace spu::mpc::beaver

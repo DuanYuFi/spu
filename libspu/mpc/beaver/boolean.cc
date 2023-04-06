@@ -193,7 +193,7 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
         using OutT = ScalarT;
 
         ArrayRef trusted_triples = beaver_state->gen_bin_triples(
-            ctx->caller(), out_btype, out_nbits, lhs.numel());
+            ctx->caller(), out_btype, lhs.numel());
         auto _trusted_triples =
             ArrayView<std::array<std::array<OutT, 2>, 3>>(trusted_triples);
 

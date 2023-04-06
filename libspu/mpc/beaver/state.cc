@@ -113,7 +113,7 @@ void BeaverState::gen_arith_triples(
 // TODO: deal with return value and caller function.
 
 ArrayRef BeaverState::gen_bin_triples(
-    Object* ctx, PtType out_type, size_t nbits, size_t size,
+    Object* ctx, PtType out_type, size_t size,
     size_t batch_size = BeaverState::batch_size_,
     size_t bucket_size = BeaverState::bucket_size_) {
   auto* comm = ctx->getState<Communicator>();
@@ -121,9 +121,10 @@ ArrayRef BeaverState::gen_bin_triples(
 
   size_t rank = comm->getRank();
 
-  int64_t triples_needed = SizeOf(PtTypeToField(out_type)) * size /
-                               sizeof(typename beaver::BTDataType) -
-                           trusted_triples_bin_->size();
+  int compress =
+      sizeof(typename beaver::BTDataType) / SizeOf(PtTypeToField(out_type));
+  int need = (size - 1) / compress + 1;
+  int64_t triples_needed = need - trusted_triples_bin_->size();
 
   if (triples_needed > 0) {
     size_t num_per_batch = batch_size * bucket_size + bucket_size;
@@ -217,7 +218,31 @@ ArrayRef BeaverState::gen_bin_triples(
     }
   }
 
-  ArrayRef out(makeType<beaver::BShrTy>(out_type, nbits), size);
+  return DISPATCH_UINT_PT_TYPES(out_type, "_", [&]() {
+    using OutT = ScalarT;
+
+    size_t size_bit = sizeof(OutT) * 8;
+    OutT mask = (1 << size_bit) - 1;
+
+    ArrayRef out(makeType<beaver::BinTripleTy>(out_type), size);
+    auto out_view = ArrayView<std::array<std::array<OutT, 2>, 3>>(out);
+
+    pforeach(0, size, [&](uint64_t idx) {
+      int row = idx / compress;
+      int col = idx % compress;
+      auto& [a, b, c] = out_view[idx];
+      const auto [x, y, z] = trusted_triples_bin_->at(row);
+
+      a[0] = (x[0] >> (size_bit * col)) & mask;
+      a[1] = (x[1] >> (size_bit * col)) & mask;
+      b[0] = (y[0] >> (size_bit * col)) & mask;
+      b[1] = (y[1] >> (size_bit * col)) & mask;
+      c[0] = (z[0] >> (size_bit * col)) & mask;
+      c[1] = (z[1] >> (size_bit * col)) & mask;
+    });
+
+    return out;
+  });
 }
 
 /*

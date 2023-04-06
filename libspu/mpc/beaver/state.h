@@ -82,8 +82,7 @@ class BeaverState : public State {
   //                        size_t batch_size = BeaverState::batch_size_,
   //                        size_t bucket_size = BeaverState::bucket_size_);
 
-  ArrayRef gen_bin_triples(Object* ctx, PtType out_type, size_t nbits,
-                           size_t size,
+  ArrayRef gen_bin_triples(Object* ctx, PtType out_type, size_t size,
                            size_t batch_size = BeaverState::batch_size_,
                            size_t bucket_size = BeaverState::bucket_size_);
 
