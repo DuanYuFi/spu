@@ -55,6 +55,7 @@ std::unique_ptr<Object> makeBeaverProtocol(
   obj->regKernel<beaver::P2A>();
   obj->regKernel<beaver::A2P>();
   obj->regKernel<beaver::NotA>();
+  obj->regKernel<beaver::RandA>();
   obj->regKernel<beaver::AddAP>();
   obj->regKernel<beaver::AddAA>();
   obj->regKernel<beaver::MulAP>();
@@ -87,6 +88,7 @@ std::unique_ptr<Object> makeBeaverProtocol(
   obj->regKernel<beaver::BitrevB>();
   obj->regKernel<beaver::BitIntlB>();
   obj->regKernel<beaver::BitDeintlB>();
-  obj->regKernel<beaver::RandA>();
+
+  return obj;
 }
 }  // namespace spu::mpc

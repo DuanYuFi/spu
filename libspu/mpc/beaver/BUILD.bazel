@@ -38,15 +38,26 @@ spu_cc_library(
     ],
 )
 
-# spu_cc_test(
-#     name = "protocol_test",
-#     srcs = ["protocol_test.cc"],
-#     deps = [
-#         ":protocol",
-#         "//libspu/mpc:api_test",
-#         "//libspu/mpc/common:ab_api_test",
-#     ],
-# )
+spu_cc_test(
+    name = "protocol_test",
+    srcs = ["protocol_test.cc"],
+    deps = [
+        ":protocol",
+        "//libspu/mpc:api_test",
+        "//libspu/mpc/common:ab_api_test",
+    ],
+)
+
+spu_cc_test(
+    name = "state_test",
+    srcs = ["state_test.cc"],
+    deps = [
+        ":protocol",
+        ":state",
+        "//libspu/mpc/utils:simulate",
+        "@com_google_googletest//:gtest",
+    ],
+)
 
 spu_cc_library(
     name = "arithmetic",
@@ -97,9 +108,11 @@ spu_cc_library(
 
 spu_cc_library(
     name = "state",
+    srcs = ["state.cc"],
     hdrs = ["state.h"],
     deps = [
-        ":type"
+        ":type",
+        "//libspu/mpc/common:communicator",
     ],
 )
 

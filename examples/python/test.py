@@ -34,7 +34,7 @@ args = parser.parse_args()
 with open(args.config, "r") as file:
     conf = json.load(file)
 
-
+print(conf["devices"]["SPU"]["config"]["runtime_config"]["protocol"])
 conf["devices"]["SPU"]["config"]["runtime_config"]["protocol"] = "BEAVER"
 
 ppd.init(conf["nodes"], conf["devices"])

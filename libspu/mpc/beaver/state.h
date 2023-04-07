@@ -17,7 +17,6 @@
 #include <complex>
 #include <vector>
 
-#include "yacl/crypto/utils/rand.h"
 #include "yacl/link/link.h"
 
 #include "libspu/core/array_ref.h"

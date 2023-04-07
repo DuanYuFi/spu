@@ -1,0 +1,325 @@
+Loading: 
+Loading: 0 packages loaded
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'tf_runtime' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'llvm-raw' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'com_google_absl' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'pybind11_bazel' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'com_google_protobuf' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'com_google_googletest' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'com_github_gflags_gflags' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'com_github_grpc_grpc' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'zlib' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'rules_python' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'pybind11' because it already exists.
+DEBUG: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/third_party/repo.bzl:132:14: 
+Warning: skipping import of repository 'upb' because it already exists.
+Analyzing: target //examples/python/utils:nodectl (0 packages loaded, 0 targets configured)
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/BUILD:293:11: in cc_library rule @xla//xla:util: Target '@xla//xla:util' violates visibility of target '@tsl//tsl/lib/math:math_util'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:165:11: in cc_library rule @xla//xla/stream_executor:allocator_stats: Target '@xla//xla/stream_executor:allocator_stats' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:201:11: in cc_library rule @xla//xla/stream_executor:device_memory: Target '@xla//xla/stream_executor:device_memory' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:577:11: in cc_library rule @xla//xla/stream_executor:host_or_device_scalar: Target '@xla//xla/stream_executor:host_or_device_scalar' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:29:11: in cc_library rule @xla//xla/stream_executor:stream_executor_headers: Target '@xla//xla/stream_executor:stream_executor_headers' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:89:11: in cc_library rule @xla//xla/stream_executor:launch_dim: Target '@xla//xla/stream_executor:launch_dim' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:125:11: in cc_library rule @xla//xla/stream_executor:device_description: Target '@xla//xla/stream_executor:device_description' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:125:11: in cc_library rule @xla//xla/stream_executor:device_description: Target '@xla//xla/stream_executor:device_description' violates visibility of target '@tsl//tsl/lib/math:math_util'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:562:11: in cc_library rule @xla//xla/stream_executor:blas: Target '@xla//xla/stream_executor:blas' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:207:11: in cc_library rule @xla//xla/stream_executor:device_options: Target '@xla//xla/stream_executor:device_options' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:224:11: in cc_library rule @xla//xla/stream_executor:fft: Target '@xla//xla/stream_executor:fft' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:140:11: in cc_library rule @xla//xla/stream_executor:kernel_spec: Target '@xla//xla/stream_executor:kernel_spec' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:232:11: in cc_library rule @xla//xla/stream_executor:platform: Target '@xla//xla/stream_executor:platform' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:253:11: in cc_library rule @xla//xla/stream_executor:rng: Target '@xla//xla/stream_executor:rng' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:587:11: in cc_library rule @xla//xla/stream_executor:event: Target '@xla//xla/stream_executor:event' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:668:11: in cc_library rule @xla//xla/stream_executor:dnn: Target '@xla//xla/stream_executor:dnn' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:668:11: in cc_library rule @xla//xla/stream_executor:dnn: Target '@xla//xla/stream_executor:dnn' violates visibility of target '@tsl//tsl/lib/strings:proto_serialization'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:345:11: in cc_library rule @xla//xla/stream_executor:multi_platform_manager: Target '@xla//xla/stream_executor:multi_platform_manager' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:467:11: in cc_library rule @xla//xla/stream_executor:kernel: Target '@xla//xla/stream_executor:kernel' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:286:11: in cc_library rule @xla//xla/stream_executor:executor_cache: Target '@xla//xla/stream_executor:executor_cache' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:364:11: in cc_library rule @xla//xla/stream_executor:stream_executor_internal: Target '@xla//xla/stream_executor:stream_executor_internal' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:713:11: in cc_library rule @xla//xla/stream_executor:temporary_device_memory: Target '@xla//xla/stream_executor:temporary_device_memory' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:388:11: in cc_library rule @xla//xla/stream_executor:stream_executor_pimpl_header: Target '@xla//xla/stream_executor:stream_executor_pimpl_header' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:694:11: in cc_library rule @xla//xla/stream_executor:temporary_memory_manager: Target '@xla//xla/stream_executor:temporary_memory_manager' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:528:11: in cc_library rule @xla//xla/stream_executor:timer: Target '@xla//xla/stream_executor:timer' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/BUILD:421:16: in cc_library rule @xla//xla/stream_executor:stream_executor_pimpl: Target '@xla//xla/stream_executor:stream_executor_pimpl' violates visibility of target '@xla//xla/stream_executor/platform:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/cuda/BUILD:41:11: in cc_library rule @xla//xla/stream_executor/cuda:cuda_platform_id: Target '@xla//xla/stream_executor/cuda:cuda_platform_id' violates visibility of target '@xla//xla/stream_executor:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/host/BUILD:19:11: in cc_library rule @xla//xla/stream_executor/host:host_platform_id: Target '@xla//xla/stream_executor/host:host_platform_id' violates visibility of target '@xla//xla/stream_executor:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/stream_executor/rocm/BUILD:143:11: in cc_library rule @xla//xla/stream_executor/rocm:rocm_platform_id: Target '@xla//xla/stream_executor/rocm:rocm_platform_id' violates visibility of target '@xla//xla/stream_executor:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3741:11: in cc_library rule @xla//xla/service:computation_placer: Target '@xla//xla/service:computation_placer' violates visibility of target '@xla//xla/stream_executor:stream_executor'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3741:11: in cc_library rule @xla//xla/service:computation_placer: Target '@xla//xla/service:computation_placer' violates visibility of target '@xla//xla/stream_executor:platform'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3741:11: in cc_library rule @xla//xla/service:computation_placer: Target '@xla//xla/service:computation_placer' violates visibility of target '@xla//xla/stream_executor/cuda:cuda_platform_id'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3741:11: in cc_library rule @xla//xla/service:computation_placer: Target '@xla//xla/service:computation_placer' violates visibility of target '@xla//xla/stream_executor/host:host_platform_id'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3741:11: in cc_library rule @xla//xla/service:computation_placer: Target '@xla//xla/service:computation_placer' violates visibility of target '@xla//xla/stream_executor/rocm:rocm_platform_id'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/tsl/tsl/lib/gtl/BUILD:101:11: in linkstatic attribute of cc_library rule @tsl//tsl/lib/gtl:map_util: setting 'linkstatic=1' is recommended if there are no object files
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/client/BUILD:46:11: in cc_library rule @xla//xla/client:padding: Target '@xla//xla/client:padding' violates visibility of target '@tsl//tsl/lib/math:math_util'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/gpu/BUILD:54:17: in cc_library rule @xla//xla/service/gpu:backend_configs_cc_impl: Target '@xla//xla/service/gpu:backend_configs_cc_impl' violates visibility of alias '@xla//xla/stream_executor:dnn_proto_cc' referring to target '@xla//xla/stream_executor:dnn_proto_cc_headers_only'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/gpu/BUILD:54:17: in cc_library rule @xla//xla/service/gpu:backend_configs_cc_headers_only: Target '@xla//xla/service/gpu:backend_configs_cc_headers_only' violates visibility of target '@xla//xla/stream_executor:dnn_proto_cc_headers_only'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:3305:11: in cc_library rule @xla//xla/service:dot_merger: Target '@xla//xla/service:dot_merger' violates visibility of target '@xla//xla/service/graphcycles:graphcycles'. Continuing because --nocheck_visibility is active
+WARNING: /root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/external/xla/xla/service/BUILD:419:11: in cc_library rule @xla//xla/service:dump: Target '@xla//xla/service:dump' violates visibility of target '@tsl//tsl/lib/strings:proto_serialization'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:algebraic_simplifier'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:batch_dot_simplification'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:batchnorm_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:bitcast_dtypes_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:call_inliner'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:cholesky_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:conditional_simplifier'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:conditional_to_select'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:convolution_group_converter'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:dot_decomposer'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:dot_merger'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:float_normalization'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:hlo_constant_folding'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:hlo_dce'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:hlo_pass_pipeline'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:map_inliner'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:operand_upcaster'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:qr_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:reshape_mover'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:result_caster'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:scatter_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:sort_simplifier'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:triangular_solve_expander'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:while_loop_simplifier'. Continuing because --nocheck_visibility is active
+WARNING: /home/admin/secretflow/spu_myfork/libspu/compiler/front_end/BUILD.bazel:17:15: in cc_library rule //libspu/compiler/front_end:hlo_importer: Target '//libspu/compiler/front_end:hlo_importer' violates visibility of target '@xla//xla/service:zero_sized_hlo_elimination'. Continuing because --nocheck_visibility is active
+INFO: Analyzed target //examples/python/utils:nodectl (0 packages loaded, 0 targets configured).
+INFO: Found 1 target...
+[0 / 2] [Prepa] BazelWorkspaceStatusAction stable-status.txt
+[1 / 4] Compiling libspu/mpc/beaver/protocol.cc; 1s processwrapper-sandbox
+[2 / 4] [Prepa] Linking spu/libspu.so
+[2 / 4] Linking spu/libspu.so; 1s processwrapper-sandbox
+Target //examples/python/utils:nodectl up-to-date:
+  bazel-bin/examples/python/utils/nodectl
+INFO: Elapsed time: 12.212s, Critical Path: 11.82s
+INFO: 3 processes: 1 internal, 2 processwrapper-sandbox.
+INFO: Build completed successfully, 3 total actions
+INFO: Running command line: bazel-bin/examples/python/utils/nodectl up
+INFO: Build completed successfully, 3 total actions
+[2023-04-07 02:52:21,934] [Process-1] Starting grpc server at 127.0.0.1:9920
+[2023-04-07 02:52:21,936] [Process-2] Starting grpc server at 127.0.0.1:9921
+[2023-04-07 02:52:21,938] [Process-3] Starting grpc server at 127.0.0.1:9922
+[2023-04-07 02:52:21,940] [Process-4] Starting grpc server at 127.0.0.1:9923
+[2023-04-07 02:52:21,943] [Process-5] Starting grpc server at 127.0.0.1:9924
+[2023-04-07 02:52:25,418] [Process-2] Run : builtin_spu_init at node:1
+[2023-04-07 02:52:25,418] [Process-1] Run : builtin_spu_init at node:0
+[2023-04-07 02:52:25,418] [Process-3] Run : builtin_spu_init at node:2
+I0407 02:52:25.426710  2192 external/com_github_brpc_brpc/src/brpc/server.cpp:1107] Server[yacl::link::internal::ReceiverServiceImpl] is serving on port=9930.
+I0407 02:52:25.427116  2192 external/com_github_brpc_brpc/src/brpc/server.cpp:1110] Check out http://6cd766c57e0c:9930 in web browser.
+I0407 02:52:25.428524  2193 external/com_github_brpc_brpc/src/brpc/server.cpp:1107] Server[yacl::link::internal::ReceiverServiceImpl] is serving on port=9931.
+I0407 02:52:25.428789  2193 external/com_github_brpc_brpc/src/brpc/server.cpp:1110] Check out http://6cd766c57e0c:9931 in web browser.
+I0407 02:52:25.428863  2194 external/com_github_brpc_brpc/src/brpc/server.cpp:1107] Server[yacl::link::internal::ReceiverServiceImpl] is serving on port=9932.
+I0407 02:52:25.429405  2194 external/com_github_brpc_brpc/src/brpc/server.cpp:1110] Check out http://6cd766c57e0c:9932 in web browser.
+I0407 02:52:25.527858  2233 external/com_github_brpc_brpc/src/brpc/socket.cpp:2344] Checking Socket{id=0 addr=127.0.0.1:9931} (0x7fd23c0ea000)
+I0407 02:52:25.528113  2219 external/com_github_brpc_brpc/src/brpc/socket.cpp:2404] Revived Socket{id=0 addr=127.0.0.1:9931} (0x7fd23c0ea000) (Connectable)
+[2023-04-07 02:52:26,440] [Process-3] spu-runtime (SPU) initialized
+[2023-04-07 02:52:26,440] [Process-1] spu-runtime (SPU) initialized
+[2023-04-07 02:52:26,440] [Process-2] spu-runtime (SPU) initialized
+[2023-04-07 02:52:26,445] [Process-4] Run : data_from_alice at node:3
+[2023-04-07 02:52:26,450] [Process-5] Run : data_from_bob at node:4
+[2023-04-07 02:52:26,455] [Process-4] Run : make_shares at node:3
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+[2023-04-07 02:52:26,469] [Process-4] RunR: builtin_fetch_meta at node:3
+[2023-04-07 02:52:26,472] [Process-5] Run : make_shares at node:4
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+[2023-04-07 02:52:26,486] [Process-5] RunR: builtin_fetch_meta at node:4
+[2023-04-07 02:52:26,527] [Process-1] Run : builtin_spu_run at node:0
+[2023-04-07 02:52:26,527] [Process-2] Run : builtin_spu_run at node:1
+[2023-04-07 02:52:26,528] [Process-3] Run : builtin_spu_run at node:2
+[2023-04-07 02:52:26,531] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:52:26,532] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:52:26,533] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:52:26,534] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:52:26,535] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:52:26,536] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:52:26,543] [Process-1] RunR: builtin_fetch_meta at node:0
+[2023-04-07 02:52:26,545] [Process-1] RunR: builtin_fetch_object at node:0
+[2023-04-07 02:52:26,546] [Process-2] RunR: builtin_fetch_object at node:1
+[2023-04-07 02:52:26,548] [Process-3] RunR: builtin_fetch_object at node:2
+[2023-04-07 02:53:15,378] [Process-3] Run : builtin_spu_init at node:2
+[2023-04-07 02:53:15,378] [Process-3] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:15,379] [Process-2] Run : builtin_spu_init at node:1
+[2023-04-07 02:53:15,379] [Process-2] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:15,380] [Process-1] Run : builtin_spu_init at node:0
+[2023-04-07 02:53:15,380] [Process-1] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:15,382] [Process-4] Run : data_from_alice at node:3
+[2023-04-07 02:53:15,385] [Process-5] Run : data_from_bob at node:4
+[2023-04-07 02:53:15,388] [Process-4] Run : make_shares at node:3
+[2023-04-07 02:53:15,390] [Process-4] RunR: builtin_fetch_meta at node:3
+[2023-04-07 02:53:15,392] [Process-5] Run : make_shares at node:4
+[2023-04-07 02:53:15,394] [Process-5] RunR: builtin_fetch_meta at node:4
+[2023-04-07 02:53:15,432] [Process-2] Run : builtin_spu_run at node:1
+[2023-04-07 02:53:15,432] [Process-3] Run : builtin_spu_run at node:2
+[2023-04-07 02:53:15,432] [Process-1] Run : builtin_spu_run at node:0
+[2023-04-07 02:53:15,434] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:15,434] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:15,435] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:15,435] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:15,437] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:15,437] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:15,443] [Process-1] RunR: builtin_fetch_meta at node:0
+[2023-04-07 02:53:15,444] [Process-1] RunR: builtin_fetch_object at node:0
+[2023-04-07 02:53:15,446] [Process-2] RunR: builtin_fetch_object at node:1
+[2023-04-07 02:53:15,447] [Process-3] RunR: builtin_fetch_object at node:2
+[2023-04-07 02:53:32,904] [Process-1] Run : builtin_spu_init at node:0
+[2023-04-07 02:53:32,904] [Process-2] Run : builtin_spu_init at node:1
+[2023-04-07 02:53:32,904] [Process-1] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:32,904] [Process-2] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:32,905] [Process-3] Run : builtin_spu_init at node:2
+[2023-04-07 02:53:32,905] [Process-3] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:32,908] [Process-4] Run : data_from_alice at node:3
+[2023-04-07 02:53:32,910] [Process-5] Run : data_from_bob at node:4
+[2023-04-07 02:53:32,913] [Process-4] Run : make_shares at node:3
+[2023-04-07 02:53:32,915] [Process-4] RunR: builtin_fetch_meta at node:3
+[2023-04-07 02:53:32,918] [Process-5] Run : make_shares at node:4
+[2023-04-07 02:53:32,919] [Process-5] RunR: builtin_fetch_meta at node:4
+[2023-04-07 02:53:32,958] [Process-2] Run : builtin_spu_run at node:1
+[2023-04-07 02:53:32,958] [Process-1] Run : builtin_spu_run at node:0
+[2023-04-07 02:53:32,958] [Process-3] Run : builtin_spu_run at node:2
+[2023-04-07 02:53:32,959] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:32,960] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:32,960] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:32,961] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:32,962] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:32,962] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:32,971] [Process-1] RunR: builtin_fetch_meta at node:0
+[2023-04-07 02:53:32,973] [Process-1] RunR: builtin_fetch_object at node:0
+[2023-04-07 02:53:32,975] [Process-2] RunR: builtin_fetch_object at node:1
+[2023-04-07 02:53:32,976] [Process-3] RunR: builtin_fetch_object at node:2
+[2023-04-07 02:53:56,568] [Process-1] Run : builtin_spu_init at node:0
+[2023-04-07 02:53:56,569] [Process-1] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:56,569] [Process-2] Run : builtin_spu_init at node:1
+[2023-04-07 02:53:56,569] [Process-2] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:56,570] [Process-3] Run : builtin_spu_init at node:2
+[2023-04-07 02:53:56,570] [Process-3] spu-runtime (SPU) already exist, reuse it
+[2023-04-07 02:53:56,572] [Process-4] Run : data_from_alice at node:3
+[2023-04-07 02:53:56,575] [Process-5] Run : data_from_bob at node:4
+[2023-04-07 02:53:56,579] [Process-4] Run : make_shares at node:3
+[2023-04-07 02:53:56,581] [Process-4] RunR: builtin_fetch_meta at node:3
+[2023-04-07 02:53:56,584] [Process-5] Run : make_shares at node:4
+[2023-04-07 02:53:56,586] [Process-5] RunR: builtin_fetch_meta at node:4
+[2023-04-07 02:53:56,624] [Process-3] Run : builtin_spu_run at node:2
+[2023-04-07 02:53:56,625] [Process-2] Run : builtin_spu_run at node:1
+[2023-04-07 02:53:56,625] [Process-1] Run : builtin_spu_run at node:0
+[2023-04-07 02:53:56,626] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:56,626] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:56,627] [Process-4] RunR: builtin_fetch_object at node:3
+[2023-04-07 02:53:56,628] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:56,629] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:56,629] [Process-5] RunR: builtin_fetch_object at node:4
+[2023-04-07 02:53:56,635] [Process-1] RunR: builtin_fetch_meta at node:0
+[2023-04-07 02:53:56,636] [Process-1] RunR: builtin_fetch_object at node:0
+[2023-04-07 02:53:56,638] [Process-2] RunR: builtin_fetch_object at node:1
+[2023-04-07 02:53:56,639] [Process-3] RunR: builtin_fetch_object at node:2
+Traceback (most recent call last):
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/examples/python/utils/nodectl.py", line 58, in <module>
+    worker.join()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/popen_fork.py", line 47, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+KeyboardInterrupt
+Process Process-4:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/spu/utils/distributed.py", line 209, in serve
+    server.wait_for_termination()
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_server.py", line 986, in wait_for_termination
+    return _common.wait(self._state.termination_event.wait,
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 150, in wait
+    _wait_once(wait_fn, MAXIMUM_WAIT_TIMEOUT, spin_cb)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 112, in _wait_once
+    wait_fn(timeout=timeout)
+  File "/usr/lib64/python3.8/threading.py", line 558, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/lib64/python3.8/threading.py", line 306, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
+Process Process-2:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/spu/utils/distributed.py", line 209, in serve
+    server.wait_for_termination()
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_server.py", line 986, in wait_for_termination
+    return _common.wait(self._state.termination_event.wait,
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 150, in wait
+    _wait_once(wait_fn, MAXIMUM_WAIT_TIMEOUT, spin_cb)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 112, in _wait_once
+    wait_fn(timeout=timeout)
+  File "/usr/lib64/python3.8/threading.py", line 558, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/lib64/python3.8/threading.py", line 306, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
+Process Process-5:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/spu/utils/distributed.py", line 209, in serve
+    server.wait_for_termination()
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_server.py", line 986, in wait_for_termination
+    return _common.wait(self._state.termination_event.wait,
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 150, in wait
+    _wait_once(wait_fn, MAXIMUM_WAIT_TIMEOUT, spin_cb)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 112, in _wait_once
+    wait_fn(timeout=timeout)
+  File "/usr/lib64/python3.8/threading.py", line 558, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/lib64/python3.8/threading.py", line 306, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
+Process Process-3:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/spu/utils/distributed.py", line 209, in serve
+    server.wait_for_termination()
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_server.py", line 986, in wait_for_termination
+    return _common.wait(self._state.termination_event.wait,
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 150, in wait
+    _wait_once(wait_fn, MAXIMUM_WAIT_TIMEOUT, spin_cb)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 112, in _wait_once
+    wait_fn(timeout=timeout)
+  File "/usr/lib64/python3.8/threading.py", line 558, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/lib64/python3.8/threading.py", line 306, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
+Process Process-1:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/local/lib/python3.8/site-packages/multiprocess/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/spulib/spu/utils/distributed.py", line 209, in serve
+    server.wait_for_termination()
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_server.py", line 986, in wait_for_termination
+    return _common.wait(self._state.termination_event.wait,
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 150, in wait
+    _wait_once(wait_fn, MAXIMUM_WAIT_TIMEOUT, spin_cb)
+  File "/root/.cache/bazel/_bazel_root/406d1bf571f8d07f62aab3ea0778c80f/execroot/spulib/bazel-out/k8-opt/bin/examples/python/utils/nodectl.runfiles/com_github_grpc_grpc/src/python/grpcio/grpc/_common.py", line 112, in _wait_once
+    wait_fn(timeout=timeout)
+  File "/usr/lib64/python3.8/threading.py", line 558, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/lib64/python3.8/threading.py", line 306, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
