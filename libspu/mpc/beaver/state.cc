@@ -19,8 +19,6 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
   auto* comm = ctx->getState<Communicator>();
   auto* prg = ctx->getState<PrgState>();
 
-  size_t rank = comm->getRank();
-
   int compress =
       sizeof(typename beaver::BTDataType) / SizeOf(PtTypeToField(out_type));
   int need = (size - 1) / compress + 1;
@@ -28,102 +26,41 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
 
   if (triples_needed > 0) {
     size_t num_per_batch = batch_size * bucket_size + bucket_size;
-    size_t num_batches = (triples_needed + num_per_batch - 1) / num_per_batch;
+    size_t num_batches = (triples_needed - 1) / batch_size + 1;
 
     std::vector<beaver::BinaryTriple> new_triples(num_per_batch * num_batches);
 
-    if (rank == 0) {
-      std::vector<beaver::BTDataType> r1(num_per_batch * num_batches),
-          r2(num_per_batch * num_batches);
+    std::vector<beaver::BTDataType> r0(num_per_batch * num_batches),
+        r1(num_per_batch * num_batches);
 
-      std::vector<beaver::BTDataType> buffer_next(num_per_batch * num_batches *
-                                                  3);
+    std::array<std::vector<beaver::BTDataType>, 2> a, b, c;
+    a[0].resize(num_per_batch * num_batches);
+    a[1].resize(num_per_batch * num_batches);
+    b[0].resize(num_per_batch * num_batches);
+    b[1].resize(num_per_batch * num_batches);
+    c[0].resize(num_per_batch * num_batches);
+    c[1].resize(num_per_batch * num_batches);
 
-      prg->fillPriv(absl::MakeSpan(r1));
-      prg->fillPriv(absl::MakeSpan(r2));
+    prg->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+    prg->fillPrssPair(absl::MakeSpan(a[0]), absl::MakeSpan(a[1]));
+    prg->fillPrssPair(absl::MakeSpan(b[0]), absl::MakeSpan(b[1]));
 
-      auto share_a_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, false, true)
-              .first;
+    pforeach(0, num_per_batch * num_batches, [&](int64_t idx) {
+      r0[idx] = (a[0][idx] & b[0][idx]) ^  //
+                (a[0][idx] & b[1][idx]) ^  //
+                (a[1][idx] & b[0][idx]) ^  //
+                (r0[idx] ^ r1[idx]);
+    });
 
-      auto share_b_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, false, true)
-              .first;
+    r1 = comm->rotate<beaver::BTDataType>(r0, "mulaa");  // comm => 1, k
 
-      auto share_c_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, false, true)
-              .first;
+    pforeach(0, num_per_batch * num_batches, [&](int64_t idx) {
+      new_triples[idx] = {a[0][idx], a[1][idx], b[0][idx],
+                          b[1][idx], r0[idx],   r1[idx]};
+    });
 
-      auto share_a = ArrayView<beaver::BTDataType>(share_a_);
-      auto share_b = ArrayView<beaver::BTDataType>(share_b_);
-      auto share_c = ArrayView<beaver::BTDataType>(share_c_);
-
-      // for (auto i = 0u; i < r1.size(); i++) {
-      //   std::cout << "r1[" << i << "] = " << r1[i] << std::endl;
-      //   std::cout << "r2[" << i << "] = " << r2[i] << std::endl;
-      // }
-
-      pforeach(0, num_batches * num_per_batch, [&](uint64_t idx) {
-        new_triples[idx][0][0] = share_a[idx];
-        new_triples[idx][0][1] = r1[idx] ^ share_a[idx];
-        new_triples[idx][1][0] = share_b[idx];
-        new_triples[idx][1][1] = r2[idx] ^ share_b[idx];
-        new_triples[idx][2][0] = share_c[idx];
-        new_triples[idx][2][1] = (r1[idx] & r2[idx]) ^ share_c[idx];
-
-        buffer_next[idx * 3] = new_triples[idx][0][1];
-        buffer_next[idx * 3 + 1] = new_triples[idx][1][1];
-        buffer_next[idx * 3 + 2] = new_triples[idx][2][1];
-      });
-
-      comm->sendAsync<beaver::BTDataType>(1, buffer_next,
-                                          "cut-and-choose send");
-    }
-
-    else if (rank == 1) {
-      prg->genPrssPair(FM128, num_per_batch * num_batches * 3);
-
-      std::vector<beaver::BTDataType> buffer_prev =
-          comm->recv<beaver::BTDataType>(0, "cut-and-choose recv");
-
-      pforeach(0, num_batches * num_per_batch, [&](uint64_t idx) {
-        new_triples[idx][0][0] = buffer_prev[idx * 3];
-        new_triples[idx][1][0] = buffer_prev[idx * 3 + 1];
-        new_triples[idx][2][0] = buffer_prev[idx * 3 + 2];
-
-        new_triples[idx][0][1] = 0;
-        new_triples[idx][1][1] = 0;
-        new_triples[idx][2][1] = 0;
-      });
-    }
-
-    else {
-      auto share_a_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, true, false)
-              .second;
-
-      auto share_b_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, true, false)
-              .second;
-
-      auto share_c_ =
-          prg->genPrssPair(FM128, num_per_batch * num_batches, true, false)
-              .second;
-
-      auto share_a = ArrayView<beaver::BTDataType>(share_a_);
-      auto share_b = ArrayView<beaver::BTDataType>(share_b_);
-      auto share_c = ArrayView<beaver::BTDataType>(share_c_);
-
-      pforeach(0, num_batches * num_per_batch, [&](uint64_t idx) {
-        new_triples[idx][0][1] = share_a[idx];
-        new_triples[idx][1][1] = share_b[idx];
-        new_triples[idx][2][1] = share_c[idx];
-
-        new_triples[idx][0][0] = 0;
-        new_triples[idx][1][0] = 0;
-        new_triples[idx][2][0] = 0;
-      });
-    }
+    trusted_triples_bin_->resize(trusted_triples_bin_->size() +
+                                 num_per_batch * num_batches);
 
     for (size_t i = 0; i < num_batches; i++) {
       auto trusted_triples =

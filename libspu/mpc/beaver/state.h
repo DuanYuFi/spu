@@ -50,7 +50,7 @@ class BeaverState : public State {
   const FieldType field_ = FM128;
 
  public:
-  const static size_t batch_size_ = 64000;
+  const static size_t batch_size_ = 1000;
   const static size_t bucket_size_ = 4;
 
   static constexpr char kBindName[] = "Beaver";
@@ -75,20 +75,9 @@ class BeaverState : public State {
     return trusted_triples_bin_.get();
   }
 
-  // void gen_arith_triples(Object* ctx,
-  //                        std::vector<beaver::ArithmeticTriple>* triples,
-  //                        size_t num_triples,
-  //                        size_t batch_size = BeaverState::batch_size_,
-  //                        size_t bucket_size = BeaverState::bucket_size_);
-
   ArrayRef gen_bin_triples(Object* ctx, PtType out_type, size_t size,
                            size_t batch_size = BeaverState::batch_size_,
                            size_t bucket_size = BeaverState::bucket_size_);
-
-  // std::vector<beaver::ArithmeticTriple> cut_and_choose(
-  //     Object* ctx,
-  //     typename std::vector<beaver::ArithmeticTriple>::iterator data,
-  //     size_t batch_size, size_t bucket_size, size_t C);
 
   std::vector<beaver::BinaryTriple> cut_and_choose(
       Object* ctx, typename std::vector<beaver::BinaryTriple>::iterator data,

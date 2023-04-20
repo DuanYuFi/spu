@@ -32,7 +32,21 @@ RuntimeConfig makeConfig(FieldType field) {
 
 }  // namespace
 
-TEST(CutAndChooseTest, BinaryCAC) {
+using CACOpTestParams = std::tuple<int, PtType, size_t>;
+class CutAndChooseTest : public ::testing::TestWithParam<CACOpTestParams> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Beaver, CutAndChooseTest,
+    testing::Combine(testing::Values(1000000),          //
+                     testing::Values(PtType::PT_U32,    //
+                                     PtType::PT_U64,    //
+                                     PtType::PT_U128),  //
+                     testing::Values(3)),               //
+    [](const testing::TestParamInfo<CutAndChooseTest::ParamType>& p) {
+      return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
+    });
+
+TEST_P(CutAndChooseTest, BinaryCAC) {
   using spu::mpc::beaver::BinaryTriple;
   using spu::mpc::beaver::BTDataType;
 
@@ -40,10 +54,11 @@ TEST(CutAndChooseTest, BinaryCAC) {
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
-  const int batch_size = 5;
-  const int bucket_size = 5;
+  const int batch_size = 10000;
+  const int bucket_size = 4;
 
-  const int test_size = 5;
+  const int test_size = std::get<0>(GetParam());
+  PtType type = std::get<1>(GetParam());
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
@@ -51,27 +66,30 @@ TEST(CutAndChooseTest, BinaryCAC) {
     auto* state = obj->getState<BeaverState>();
     auto* comm = obj->getState<Communicator>();
 
-    PtType type = PT_U32;
-    auto ret = state->gen_bin_triples(obj.get(), type, test_size, batch_size,
-                                      bucket_size);
-    auto _ret = ArrayView<std::array<std::array<uint32_t, 2>, 3>>(ret);
-    std::vector<uint32_t> send_buffer(test_size * 3);
+    DISPATCH_UINT_PT_TYPES(type, "_", [&]() {
+      using T = ScalarT;
 
-    for (int i = 0; i < test_size; i++) {
-      send_buffer[i * 3] = _ret[i][0][1];
-      send_buffer[i * 3 + 1] = _ret[i][1][1];
-      send_buffer[i * 3 + 2] = _ret[i][2][1];
-    }
+      auto ret = state->gen_bin_triples(obj.get(), type, test_size, batch_size,
+                                        bucket_size);
+      auto _ret = ArrayView<std::array<std::array<T, 2>, 3>>(ret);
+      std::vector<T> send_buffer(test_size * 3);
 
-    auto recv_buffer = comm->rotate<uint32_t>(send_buffer, "b2p");
+      for (int i = 0; i < test_size; i++) {
+        send_buffer[i * 3] = _ret[i][0][1];
+        send_buffer[i * 3 + 1] = _ret[i][1][1];
+        send_buffer[i * 3 + 2] = _ret[i][2][1];
+      }
 
-    for (int i = 0; i < test_size; i++) {
-      auto a = (recv_buffer[i * 3] ^ _ret[i][0][0] ^ _ret[i][0][1]);
-      auto b = (recv_buffer[i * 3 + 1] ^ _ret[i][1][0] ^ _ret[i][1][1]);
-      auto c = (recv_buffer[i * 3 + 2] ^ _ret[i][2][0] ^ _ret[i][2][1]);
+      auto recv_buffer = comm->rotate<T>(send_buffer, "b2p");
 
-      EXPECT_EQ(a & b, c);
-    }
+      for (int i = 0; i < test_size; i++) {
+        auto a = (recv_buffer[i * 3] ^ _ret[i][0][0] ^ _ret[i][0][1]);
+        auto b = (recv_buffer[i * 3 + 1] ^ _ret[i][1][0] ^ _ret[i][1][1]);
+        auto c = (recv_buffer[i * 3 + 2] ^ _ret[i][2][0] ^ _ret[i][2][1]);
+
+        EXPECT_EQ(a & b, c);
+      }
+    });
   });
 }
 
