@@ -9,7 +9,7 @@ inline uint64_t MersennePrimeField::modp(uint64_t a) {
   return res;
 }
 
-inline uint64_t MersennePrimeField::modp_128(uint128_t a) {
+inline uint64_t MersennePrimeField::modp(uint128_t a) {
   uint64_t higher, middle, lower;
   higher = (a >> (2 * PRIME_EXP));
   middle = (a >> PRIME_EXP) & PR;
@@ -27,9 +27,9 @@ inline uint64_t MersennePrimeField::neg(uint64_t a) {
 }
 
 template <typename... Args>
-constexpr uint64_t MersennePrimeField::add(Args... args) {
+uint64_t MersennePrimeField::add(Args... args) {
   static_assert(sizeof...(args) > 1, "add needs at least two arguments");
-  return modp(args + ...);
+  return modp((args + ...));
 }
 
 inline uint64_t MersennePrimeField::sub(uint64_t a, uint64_t b) {

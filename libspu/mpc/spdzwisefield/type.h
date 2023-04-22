@@ -27,33 +27,60 @@ class AShrTy : public TypeImpl<AShrTy, RingTy, Secret, AShare> {
   size_t size() const override { return SizeOf(GetStorageType(field_)) * 4; }
 };
 
-class BShrTy : public TypeImpl<BShrTy, RingTy, Secret, BShare> {
-  using Base = TypeImpl<BShrTy, RingTy, Secret, BShare>;
-
-  static constexpr size_t kDefaultNumBits = std::numeric_limits<size_t>::max();
+class BShrTy : public TypeImpl<BShrTy, TypeObject, Secret, BShare> {
+  using Base = TypeImpl<BShrTy, TypeObject, Secret, BShare>;
+  PtType back_type_ = PT_INVALID;
 
  public:
   using Base::Base;
-  explicit BShrTy(FieldType field, size_t nbits = kDefaultNumBits) {
-    field_ = field;
-    nbits_ = nbits == kDefaultNumBits ? SizeOf(field) * 8 : nbits;
-    YACL_ENFORCE(nbits_ <= SizeOf(field) * 8);
+  explicit BShrTy(PtType back_type, size_t nbits) {
+    SPU_ENFORCE(SizeOf(back_type) * 8 >= nbits,
+                "backtype={} has not enough bits={}", back_type, nbits);
+    back_type_ = back_type;
+    nbits_ = nbits;
   }
+
+  PtType getBacktype() const { return back_type_; }
 
   static std::string_view getStaticId() { return "spdzwisefield.BShr"; }
 
   void fromString(std::string_view detail) override {
     auto comma = detail.find_first_of(',');
-    auto field_str = detail.substr(0, comma);
+    auto back_type_str = detail.substr(0, comma);
     auto nbits_str = detail.substr(comma + 1);
-    YACL_ENFORCE(FieldType_Parse(std::string(field_str), &field_),
-                 "parse failed from={}", detail);
+    SPU_ENFORCE(PtType_Parse(std::string(back_type_str), &back_type_),
+                "parse failed from={}", detail);
     nbits_ = std::stoul(std::string(nbits_str));
-  };
+  }
 
   std::string toString() const override {
-    return fmt::format("{},{}", FieldType_Name(field()), nbits_);
+    return fmt::format("{},{}", PtType_Name(back_type_), nbits_);
   }
+
+  size_t size() const override { return SizeOf(back_type_) * 2; }
+
+  bool equals(TypeObject const* other) const override {
+    auto const* derived_other = dynamic_cast<BShrTy const*>(other);
+    SPU_ENFORCE(derived_other);
+    return getBacktype() == derived_other->getBacktype() &&
+           nbits() == derived_other->nbits();
+  }
+};
+
+class BinTripleTy : public TypeImpl<BinTripleTy, RingTy> {
+  using Base = TypeImpl<BinTripleTy, RingTy>;
+
+  PtType field_;
+
+ public:
+  using Base::Base;
+  static std::string_view getStaticId() { return "beaver.Triple"; }
+
+  explicit BinTripleTy(PtType field) { field_ = field; }
+
+  PtType field() const { return field_; }
+
+  size_t size() const override { return 6 * SizeOf(PtTypeToField(field_)); }
 };
 
 void registerTypes();

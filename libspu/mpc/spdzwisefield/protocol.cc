@@ -20,7 +20,9 @@
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/arithmetic.h"
-#include "libspu/mpc/spdzwisefield/object.h"
+#include "libspu/mpc/spdzwisefield/boolean.h"
+#include "libspu/mpc/spdzwisefield/conversion.h"
+#include "libspu/mpc/spdzwisefield/state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
 
 namespace spu::mpc {
@@ -32,13 +34,26 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
 
   auto obj = std::make_unique<Object>("SPDZWISEFIELD");
 
-  obj->addState<Z2kState>(conf.field());
-
   // add communicator
   obj->addState<Communicator>(lctx);
 
   // register random states & kernels.
   obj->addState<PrgState>(lctx);
+
+  obj->addState<BeaverState>(lctx);
+
+  auto* prg_state = obj->getState<PrgState>();
+  std::vector<uint64_t> r0(1);
+  std::vector<uint64_t> r1(1);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+  std::array<uint64_t, 2> key;
+
+  key[0] = r0[0];
+  key[1] = r1[0];
+
+  obj->addState<SpdzWiseFieldState>(lctx, key, conf.field());
 
   // register public kernels.
   regPub2kKernels(obj.get());
@@ -47,9 +62,30 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   regABKernels(obj.get());
 
   // register arithmetic & binary kernels
-  obj->addState<SpdzWiseFieldState>(conf, lctx);
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
+
+  obj->regKernel<spdzwisefield::CommonTypeB>();
+  obj->regKernel<spdzwisefield::CastTypeB>();
+  obj->regKernel<spdzwisefield::B2P>();
+  obj->regKernel<spdzwisefield::P2B>();
+  obj->regKernel<common::AddBB>();
+  // obj->regKernel<spdzwisefield::A2B>();
+  // obj->regKernel<spdzwisefield::B2ASelector>();
+  // obj->regKernel<aby3::B2AByOT>();
+  // obj->regKernel<spdzwisefield::B2AByPPA>();
+  obj->regKernel<spdzwisefield::AndBP>();
+  obj->regKernel<spdzwisefield::AndBB>();
+  obj->regKernel<spdzwisefield::XorBP>();
+  obj->regKernel<spdzwisefield::XorBB>();
+  obj->regKernel<spdzwisefield::LShiftB>();
+  obj->regKernel<spdzwisefield::RShiftB>();
+  obj->regKernel<spdzwisefield::ARShiftB>();
+  obj->regKernel<spdzwisefield::BitrevB>();
+  obj->regKernel<spdzwisefield::BitIntlB>();
+  obj->regKernel<spdzwisefield::BitDeintlB>();
+
+  return obj;
 }
 
 }  // namespace spu::mpc

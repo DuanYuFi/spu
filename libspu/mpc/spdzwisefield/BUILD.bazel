@@ -20,7 +20,7 @@ spu_cc_library(
     name = "aby3",
     deps = [
         ":io",
-        ":protocol",
+        "//libspu/mpc/aby3:protocol",
     ],
 )
 
@@ -47,19 +47,32 @@ spu_cc_test(
     ],
 )
 
+spu_cc_test(
+    name = "state_test",
+    srcs = ["state_test.cc"],
+    deps = [
+        ":protocol",
+        ":state",
+        "//libspu/mpc/utils:simulate",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 spu_cc_library(
     name = "arithmetic",
     srcs = ["arithmetic.cc"],
     hdrs = ["arithmetic.h"],
     deps = [
-        ":ot",
+        ":utils",
         ":type",
         ":value",
+        ":state",
         "//libspu/core:trace",
         "//libspu/mpc/common:ab_api",
         "//libspu/mpc/common:communicator",
         "//libspu/mpc/common:prg_state",
         "//libspu/mpc/utils:circuits",
+        "//libspu/mpc/aby3:type",
     ],
 )
 
@@ -76,6 +89,81 @@ spu_cc_library(
 spu_cc_test(
     name = "type_test",
     srcs = ["type_test.cc"],
+    deps = [
+        ":type",
+    ],
+)
+
+spu_cc_library(
+    name = "boolean",
+    srcs = ["boolean.cc"],
+    hdrs = ["boolean.h"],
+    deps = [
+        ":type",
+        ":value",
+        ":state", 
+        "//libspu/core:platform_utils",
+        "//libspu/mpc/common:ab_api",
+        "//libspu/mpc/common:communicator",
+        "//libspu/mpc/common:prg_state",
+    ],
+)
+
+spu_cc_library(
+    name = "conversion",
+    srcs = ["conversion.cc"],
+    hdrs = ["conversion.h"],
+    deps = [
+        ":value",
+        ":type",
+        ":state",
+        "//libspu/core:platform_utils",
+        "//libspu/mpc/common:ab_api",
+        "//libspu/mpc/common:communicator",
+        "//libspu/mpc/common:prg_state",
+        "//libspu/mpc/utils:circuits",
+    ],
+)
+
+spu_cc_library(
+    name = "state",
+    srcs = ["state.cc"],
+    hdrs = ["state.h"],
+    deps = [
+        ":type",
+        ":utils",
+        "//libspu/mpc/aby3:protocol",
+        "//libspu/mpc/common:prg_state",
+        "//libspu/mpc/common:communicator",
+    ],
+)
+
+spu_cc_library(
+    name = "value",
+    srcs = ["value.cc"],
+    hdrs = ["value.h"],
+    deps = [
+        ":type",
+        "//libspu/core",
+        "//libspu/mpc/utils:ring_ops",
+    ],
+)
+
+spu_cc_library(
+    name = "io",
+    srcs = ["io.cc"],
+    hdrs = ["io.h"],
+    deps = [
+        ":type",
+        ":value",
+        "//libspu/mpc:io_interface",
+    ],
+)
+
+spu_cc_library(
+    name = "utils",
+    srcs = ["utils.cc"],
+    hdrs = ["utils.h"],
     deps = [
         ":type",
     ],
