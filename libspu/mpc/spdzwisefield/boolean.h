@@ -15,8 +15,8 @@
 #pragma once
 
 #include "libspu/core/array_ref.h"
-#include "libspu/mpc/spdzwisefield/value.h"
 #include "libspu/mpc/kernel.h"
+#include "libspu/mpc/spdzwisefield/value.h"
 
 namespace spu::mpc::spdzwisefield {
 

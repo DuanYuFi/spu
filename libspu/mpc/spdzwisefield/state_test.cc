@@ -54,7 +54,7 @@ TEST_P(CutAndChooseTest, BinaryCAC) {
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
-  const int batch_size = 10000;
+  const int batch_size = 20000;
   const int bucket_size = 4;
 
   const int test_size = std::get<0>(GetParam());

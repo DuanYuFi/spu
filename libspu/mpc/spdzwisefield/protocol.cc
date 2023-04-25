@@ -25,6 +25,8 @@
 #include "libspu/mpc/spdzwisefield/state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
 
+// TODO: In open stage for malicious setting, I think it should
+// communicate two elements for the consistence.
 namespace spu::mpc {
 
 std::unique_ptr<Object> makeSpdzWiseFieldProtocol(

@@ -240,4 +240,76 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   return res;
 }
 
+// ArrayRef EdabitState::gen_edabits(Object* ctx, PtType out_type, size_t size,
+//                                   size_t batch_size, size_t bucket_size) {
+//   SPU_ENFORCE(out_type == PT_U64, "Edabit only supports u64 output type");
+//   return ArrayRef();
+//   // auto* comm = ctx->getState<Communicator>();
+// }
+
+// std::vector<conversion::Edabit> EdabitState::cut_and_choose(
+//     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
+//     size_t batch_size, size_t bucket_size, size_t C) {
+//   return std::vector<conversion::Edabit>();
+// }
+
+std::vector<BitStream> full_adder_with_check(
+    Object* ctx, const std::vector<BitStream>& lhs,
+    const std::vector<BitStream>& rhs) {
+  SPU_ENFORCE(lhs.size() == rhs.size(), "lhs and rhs must have same size");
+
+  size_t size = (lhs.size() - 1) / 64 + 1;
+  size_t nbits = lhs[0].size();
+
+  std::vector<std::array<bool, 2>> c(lhs.size(), {false, false});
+  std::vector<BitStream> result(lhs.size() + 1);
+
+  for (uint64_t i = 0; i < nbits; i++) {
+    ArrayRef inner_lhs(makeType<spdzwisefield::BShrTy>(PT_U64, 64), size);
+    ArrayRef inner_rhs(makeType<spdzwisefield::BShrTy>(PT_U64, 64), size);
+
+    auto _inner_lhs = ArrayView<std::array<uint64_t, 2>>(inner_lhs);
+    auto _inner_rhs = ArrayView<std::array<uint64_t, 2>>(inner_rhs);
+
+    pforeach(0, size, [&](uint64_t idx) {
+      auto& lhs_val = _inner_lhs[idx];
+      auto& rhs_val = _inner_rhs[idx];
+
+      for (uint64_t j = 0; j < 64; j++) {
+        lhs_val[0] |= (lhs[idx * 64 + j][i][0] ^ c[idx * 64 + j][0]) << j;
+        lhs_val[1] |= (lhs[idx * 64 + j][i][1] ^ c[idx * 64 + j][1]) << j;
+
+        rhs_val[0] |= (rhs[idx * 64 + j][i][0] ^ c[idx * 64 + j][0]) << j;
+        rhs_val[1] |= (rhs[idx * 64 + j][i][1] ^ c[idx * 64 + j][1]) << j;
+
+        result[idx * 64 + j][i][0] = lhs[idx * 64 + j][i][0] ^
+                                     rhs[idx * 64 + j][i][0] ^
+                                     c[idx * 64 + j][0];
+
+        result[idx * 64 + j][i][1] = lhs[idx * 64 + j][i][1] ^
+                                     rhs[idx * 64 + j][i][1] ^
+                                     c[idx * 64 + j][1];
+      }
+    });
+
+    auto res = ctx->call("and_bb", inner_lhs, inner_rhs);
+
+    pforeach(0, size, [&](uint64_t idx) {
+      auto& res_val = _inner_lhs[idx];
+
+      for (uint64_t j = 0; j < 64; j++) {
+        c[idx * 64 + j][0] = (res_val[0] >> j) & 1;
+        c[idx * 64 + j][1] = (res_val[1] >> j) & 1;
+      }
+    });
+  }
+
+  pforeach(0, lhs.size(), [&](uint64_t idx) {
+    result[idx][nbits][0] = c[idx][0];
+    result[idx][nbits][1] = c[idx][1];
+  });
+
+  return result;
+}
+
 }  // namespace spu::mpc

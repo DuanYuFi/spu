@@ -143,8 +143,8 @@ namespace conversion {
 
 using AShareType = uint64_t;
 using BShareType = bool;
-using ArithmeticShare = std::array<uint64_t, 2>;
-using BinaryShare = std::array<AShareType, 2>;
+using ArithmeticShare = std::array<AShareType, 2>;
+using BinaryShare = std::array<BShareType, 2>;
 
 struct Edabit {
   ArithmeticShare ashare;
@@ -177,13 +177,18 @@ class EdabitState : public State {
     trusted_edabits_ = std::make_unique<std::vector<conversion::Edabit>>();
   }
 
-  ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
-                       size_t batch_size = EdabitState::batch_size_,
-                       size_t bucket_size = EdabitState::bucket_size_);
+  // ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
+  //                      size_t batch_size = EdabitState::batch_size_,
+  //                      size_t bucket_size = EdabitState::bucket_size_);
 
-  std::vector<conversion::Edabit> cut_and_choose(
-      Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
-      size_t batch_size, size_t bucket_size, size_t C);
+  // std::vector<conversion::Edabit> cut_and_choose(
+  //     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
+  //     size_t batch_size, size_t bucket_size, size_t C);
 };
+
+using BitStream = std::vector<conversion::BinaryShare>;
+std::vector<BitStream> full_adder_with_check(Object* ctx,
+                                             const std::vector<BitStream>& lhs,
+                                             const std::vector<BitStream>& rhs);
 
 }  // namespace spu::mpc
