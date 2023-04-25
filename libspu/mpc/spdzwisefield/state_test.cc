@@ -69,8 +69,19 @@ TEST_P(CutAndChooseTest, BinaryCAC) {
     DISPATCH_UINT_PT_TYPES(type, "_", [&]() {
       using T = ScalarT;
 
+      auto before = comm->getStats();
+
       auto ret = state->gen_bin_triples(obj.get(), type, test_size, batch_size,
                                         bucket_size);
+
+      auto cost = comm->getStats() - before;
+
+      if (comm->getRank() == 0) {
+        std::cout << "cost: " << cost.comm / (double)(1024 * 1024) << std::endl;
+        std::cout << "Left: " << state->trusted_triples_bin()->size()
+                  << std::endl;
+      }
+
       auto _ret = ArrayView<std::array<std::array<T, 2>, 3>>(ret);
       std::vector<T> send_buffer(test_size * 3);
 

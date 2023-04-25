@@ -30,10 +30,11 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
 
     std::vector<beaver::BinaryTriple> new_triples(num_per_batch * num_batches);
 
-    std::vector<beaver::BTDataType> r0(num_per_batch * num_batches),
-        r1(num_per_batch * num_batches);
+    std::vector<beaver::BTDataType> r0(num_per_batch * num_batches);
+    std::vector<beaver::BTDataType> r1(num_per_batch * num_batches);
 
     std::array<std::vector<beaver::BTDataType>, 2> a, b, c;
+
     a[0].resize(num_per_batch * num_batches);
     a[1].resize(num_per_batch * num_batches);
     b[0].resize(num_per_batch * num_batches);
@@ -52,15 +53,13 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
                 (r0[idx] ^ r1[idx]);
     });
 
-    r1 = comm->rotate<beaver::BTDataType>(r0, "mulaa");  // comm => 1, k
+    r1 = comm->rotate<beaver::BTDataType>(r0, "cacbin");  // comm => 1, k
 
     pforeach(0, num_per_batch * num_batches, [&](int64_t idx) {
-      new_triples[idx] = {a[0][idx], a[1][idx], b[0][idx],
-                          b[1][idx], r0[idx],   r1[idx]};
+      new_triples[idx][0] = {a[0][idx], a[1][idx]};
+      new_triples[idx][1] = {b[0][idx], b[1][idx]};
+      new_triples[idx][2] = {r0[idx], r1[idx]};
     });
-
-    trusted_triples_bin_->resize(trusted_triples_bin_->size() +
-                                 num_per_batch * num_batches);
 
     for (size_t i = 0; i < num_batches; i++) {
       auto trusted_triples =
@@ -119,7 +118,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   std::vector<uint64_t> r1(1);
 
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
-  auto r2 = comm->rotate<uint64_t>(r1, "a2p");
+  auto r2 = comm->rotate<uint64_t>(r1, "cacbin");
 
   uint64_t seed = r0[0] + r1[0] + r2[0];
 
@@ -139,7 +138,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
     send_buffer[idx * 3 + 2] = data[idx][2][1];
   });
 
-  auto recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "b2p");
+  auto recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
 
   pforeach(0, C, [&](uint64_t idx) {
     beaver::BTDataType a =
@@ -173,7 +172,8 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   });
 
   recv_buffer.resize(batch_size * (bucket_size - 1) * 2);
-  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "b2p");
+
+  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
 
   std::vector<beaver::BTDataType> _opened2(batch_size * (bucket_size - 1) * 2);
 
@@ -226,7 +226,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   });
 
   recv_buffer.resize(batch_size * (bucket_size - 1));
-  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "TripleVerify");
+  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
 
   pforeach(0, batch_size * (bucket_size - 1), [&](uint64_t idx) {
     assert((z[idx][0] ^ z[idx][1] ^ recv_buffer[idx]) == 0);

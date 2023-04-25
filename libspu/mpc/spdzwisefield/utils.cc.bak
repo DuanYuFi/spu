@@ -26,29 +26,10 @@ uint64_t MersennePrimeField::neg(uint64_t a) {
   }
 }
 
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b) {
-  uint64_t res = a + b;
-  if (res >= PR) {
-    res -= PR;
-  }
-  return res;
-}
-
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c) {
-  uint64_t res = a + b + c;
-  if (res >= PR) {
-    res -= PR;
-  }
-  return res;
-}
-
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c,
-                                 uint64_t d) {
-  uint64_t res = a + b + c + d;
-  if (res >= PR) {
-    res -= PR;
-  }
-  return res;
+template <typename... Args>
+uint64_t MersennePrimeField::add(Args... args) {
+  static_assert(sizeof...(args) > 1, "add needs at least two arguments");
+  return modp((args + ...));
 }
 
 uint64_t MersennePrimeField::sub(uint64_t a, uint64_t b) {

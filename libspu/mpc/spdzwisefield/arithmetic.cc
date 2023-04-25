@@ -51,8 +51,8 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
   // get the input share from semi-honest protocol
   ArrayRef honest_out(makeType<HAShrTy>(field), in.numel());
-  ArrayView _honest_out = ArrayView<std::array<U, 2>>(honest_out);
-  ArrayView _in = ArrayView<U>(in);
+  auto _honest_out = ArrayView<std::array<U, 2>>(honest_out);
+  auto _in = ArrayView<U>(in);
 
   pforeach(0, in.numel(), [&](int64_t idx) {
     _honest_out[idx][0] = rank == 0 ? _in[idx] : 0;
@@ -77,7 +77,7 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   }
 
   ArrayRef out(makeType<AShrTy>(field), in.numel());
-  ArrayView _out = ArrayView<std::array<U, 4>>(out);
+  auto _out = ArrayView<std::array<U, 4>>(out);
 
   // get the share of mac. [[mac]] = [[x]] * [[key]]
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));

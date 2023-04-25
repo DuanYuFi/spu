@@ -28,12 +28,16 @@
 
 namespace spu::mpc {
 
+/*
+ * Beaver binary Related
+ */
+
 namespace beaver {
 
 using BTDataType = uint128_t;  // binary triple data type
 
-typedef std::array<BTDataType, 2> BinRss3PC;
-typedef std::array<BinRss3PC, 3> BinaryTriple;
+using BinRss3PC = std::array<BTDataType, 2>;
+using BinaryTriple = std::array<BinRss3PC, 3>;
 
 enum CutAndChooseType {
   ARITH_TRIPLE = 1,
@@ -51,20 +55,19 @@ class BeaverState : public State {
   const FieldType field_ = FM128;
 
  public:
-  const static size_t batch_size_ = 1000;
+  const static size_t batch_size_ = 10000;
   const static size_t bucket_size_ = 4;
 
   static constexpr char kBindName[] = "Beaver";
 
   explicit BeaverState(std::shared_ptr<yacl::link::Context> lctx) {
-    ;
     lctx_ = lctx;
     trusted_triples_bin_ =
         std::make_unique<std::vector<beaver::BinaryTriple>>();
   }
 
-  size_t batch_size() const { return batch_size_; }
-  size_t bucket_size() const { return bucket_size_; }
+  static size_t batch_size() { return batch_size_; }
+  static size_t bucket_size() { return bucket_size_; }
 
   std::vector<beaver::BinaryTriple>* trusted_triples_bin() {
     return trusted_triples_bin_.get();
@@ -78,6 +81,10 @@ class BeaverState : public State {
       Object* ctx, typename std::vector<beaver::BinaryTriple>::iterator data,
       size_t batch_size, size_t bucket_size, size_t C);
 };
+
+/*
+ * SpdzWise field Related
+ */
 
 namespace spdzwisefield {
 
@@ -104,12 +111,15 @@ class SpdzWiseFieldState : public State {
   using Field = MersennePrimeField;
 
   static constexpr char kBindName[] = "SpdzWiseFieldState";
+
   explicit SpdzWiseFieldState(std::shared_ptr<yacl::link::Context> lctx,
                               spdzwisefield::Share key, FieldType field) {
     lctx_ = lctx;
     stored_triples_ = std::make_unique<std::vector<ArrayRef>>();
     key_ = key;
 
+    // Now SpdzwiseField only supports mersenne prime field with p = 2^61-1, so
+    // the storage type only supports uint64_t.
     assert(field == FM64);
 
     field_ = field;
@@ -122,6 +132,58 @@ class SpdzWiseFieldState : public State {
   FieldType field() const { return field_; }
 
   std::vector<ArrayRef>* stored_triples() { return stored_triples_.get(); }
+};
+
+/*
+ * Share conversion Related
+ * By using edabits
+ */
+
+namespace conversion {
+
+using AShareType = uint64_t;
+using BShareType = bool;
+using ArithmeticShare = std::array<uint64_t, 2>;
+using BinaryShare = std::array<AShareType, 2>;
+
+struct Edabit {
+  ArithmeticShare ashare;
+  std::array<BinaryShare, 61> bshares;
+};
+
+}  // namespace conversion
+
+class EdabitState : public State {
+  std::shared_ptr<yacl::link::Context> lctx_;
+  std::unique_ptr<std::vector<conversion::Edabit>> trusted_edabits_;
+
+ public:
+  // statistical security parameter
+  const size_t s_ = 40;
+
+  const size_t nbits_ = 61;
+
+  /*
+   * Reference: https://eprint.iacr.org/2020/338.pdf
+   * Table 1: Number of edaBits produced by CutNChoose for statistical security
+   * 2^{-s} and bucket size B, with C = C' = B.
+   */
+  const static size_t batch_size_ = 20000;
+  const static size_t bucket_size_ = 4;
+
+  static constexpr char kBindName[] = "EdabitState";
+  explicit EdabitState(std::shared_ptr<yacl::link::Context> lctx) {
+    lctx_ = lctx;
+    trusted_edabits_ = std::make_unique<std::vector<conversion::Edabit>>();
+  }
+
+  ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
+                       size_t batch_size = EdabitState::batch_size_,
+                       size_t bucket_size = EdabitState::bucket_size_);
+
+  std::vector<conversion::Edabit> cut_and_choose(
+      Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
+      size_t batch_size, size_t bucket_size, size_t C);
 };
 
 }  // namespace spu::mpc
