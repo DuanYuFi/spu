@@ -135,6 +135,7 @@ spu_cc_library(
         "//libspu/mpc/aby3:protocol",
         "//libspu/mpc/common:prg_state",
         "//libspu/mpc/common:communicator",
+        "@yacl//yacl/crypto/base/hash:blake3",
     ],
 )
 

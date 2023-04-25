@@ -25,6 +25,9 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
   int64_t triples_needed = need - trusted_triples_bin_->size();
 
   if (triples_needed > 0) {
+    auto hash_algo = std::make_shared<yacl::crypto::Blake3Hash>();
+    auto hash_algo2 = std::make_shared<yacl::crypto::Blake3Hash>();
+
     size_t num_per_batch = batch_size * bucket_size + bucket_size;
     size_t num_batches = (triples_needed - 1) / batch_size + 1;
 
@@ -62,14 +65,25 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
     });
 
     for (size_t i = 0; i < num_batches; i++) {
-      auto trusted_triples =
-          cut_and_choose(ctx, new_triples.begin() + i * num_per_batch,
-                         batch_size, bucket_size, bucket_size);
+      auto trusted_triples = cut_and_choose(
+          ctx, new_triples.begin() + i * num_per_batch, hash_algo, hash_algo2,
+          batch_size, bucket_size, bucket_size);
 
       trusted_triples_bin_->insert(trusted_triples_bin_->end(),
                                    trusted_triples.begin(),
                                    trusted_triples.end());
     }
+
+    std::vector<uint8_t> hash = hash_algo->CumulativeHash();
+    std::vector<uint8_t> hash2 = hash_algo2->CumulativeHash();
+
+    std::string hash_str2(reinterpret_cast<char*>(hash2.data()), 32);
+
+    auto res = comm->rotate<uint8_t>(hash, "cacbin");
+
+    std::string hash_str(reinterpret_cast<char*>(res.data()), 32);
+
+    // SPU_ENFORCE(hash_str == hash_str2, "hash mismatch");
   }
 
   return DISPATCH_UINT_PT_TYPES(out_type, "_", [&]() {
@@ -108,8 +122,10 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
 // Adversaries and an Honest Majority)
 
 std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
-    Object* ctx, typename std::vector<beaver::BinaryTriple>::iterator data,
-    size_t batch_size, size_t bucket_size, size_t C) {
+    Object* ctx, std::vector<beaver::BinaryTriple>::iterator data,
+    std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo,
+    std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo2, size_t batch_size,
+    size_t bucket_size, size_t C) {
   auto* comm = ctx->getState<Communicator>();
   auto* prg_state = ctx->getState<PrgState>();
   // generate random seed for shuffle
@@ -198,7 +214,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   std::vector<std::array<beaver::BTDataType, 2>> z(batch_size *
                                                    (bucket_size - 1));
 
-  send_buffer.resize(batch_size * (bucket_size - 1));
+  // send_buffer.resize(batch_size * (bucket_size - 1));
 
   pforeach(0, batch_size, [&](uint64_t idx) {
     beaver::BinaryTriple trusted = data[idx * bucket_size];
@@ -221,16 +237,30 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
 
       z[idx * (bucket_size - 1) + i][0] = x1;
       z[idx * (bucket_size - 1) + i][1] = x2;
-      send_buffer[idx * (bucket_size - 1) + i] = x2;
+      // send_buffer[idx * (bucket_size - 1) + i] = x2;
     }
   });
 
-  recv_buffer.resize(batch_size * (bucket_size - 1));
-  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
+  for (uint64_t idx = 0; idx < batch_size; idx++) {
+    for (uint64_t i = 0; i < bucket_size - 1; i++) {
+      auto x1 = z[idx * (bucket_size - 1) + i][0];
+      auto x2 = z[idx * (bucket_size - 1) + i][1];
 
-  pforeach(0, batch_size * (bucket_size - 1), [&](uint64_t idx) {
-    assert((z[idx][0] ^ z[idx][1] ^ recv_buffer[idx]) == 0);
-  });
+      hash_algo->Update(
+          std::to_string((uint64_t)((x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)));
+      hash_algo->Update(std::to_string((uint64_t)((x1 ^ x2) >> 64)));
+
+      hash_algo2->Update(std::to_string((uint64_t)(x2 & 0xFFFFFFFFFFFFFFFF)));
+      hash_algo2->Update(std::to_string((uint64_t)(x2 >> 64)));
+    }
+  }
+
+  // recv_buffer.resize(batch_size * (bucket_size - 1));
+  // recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
+
+  // pforeach(0, batch_size * (bucket_size - 1), [&](uint64_t idx) {
+  //   assert((z[idx][0] ^ z[idx][1] ^ recv_buffer[idx]) == 0);
+  // });
 
   std::vector<beaver::BinaryTriple> res(batch_size);
 

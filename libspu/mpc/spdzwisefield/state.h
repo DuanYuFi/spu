@@ -17,6 +17,7 @@
 #include <complex>
 #include <vector>
 
+#include "yacl/crypto/base/hash/blake3.h"
 #include "yacl/link/link.h"
 
 #include "libspu/core/array_ref.h"
@@ -78,8 +79,10 @@ class BeaverState : public State {
                            size_t bucket_size = BeaverState::bucket_size_);
 
   std::vector<beaver::BinaryTriple> cut_and_choose(
-      Object* ctx, typename std::vector<beaver::BinaryTriple>::iterator data,
-      size_t batch_size, size_t bucket_size, size_t C);
+      Object* ctx, std::vector<beaver::BinaryTriple>::iterator data,
+      std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo,
+      std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo2, size_t batch_size,
+      size_t bucket_size, size_t C);
 };
 
 /*
