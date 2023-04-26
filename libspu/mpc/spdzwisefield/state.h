@@ -149,6 +149,8 @@ using BShareType = bool;
 using ArithmeticShare = std::array<AShareType, 2>;
 using BinaryShare = std::array<BShareType, 2>;
 
+using BitStream = std::vector<BinaryShare>;
+
 struct Edabit {
   ArithmeticShare ashare;
   std::array<BinaryShare, 61> bshares;
@@ -180,6 +182,10 @@ class EdabitState : public State {
     trusted_edabits_ = std::make_unique<std::vector<conversion::Edabit>>();
   }
 
+  size_t s() const { return s_; }
+
+  size_t nbits() const { return nbits_; }
+
   // ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
   //                      size_t batch_size = EdabitState::batch_size_,
   //                      size_t bucket_size = EdabitState::bucket_size_);
@@ -189,9 +195,11 @@ class EdabitState : public State {
   //     size_t batch_size, size_t bucket_size, size_t C);
 };
 
-using BitStream = std::vector<conversion::BinaryShare>;
-std::vector<BitStream> full_adder_with_check(Object* ctx,
-                                             const std::vector<BitStream>& lhs,
-                                             const std::vector<BitStream>& rhs);
+std::vector<conversion::BitStream> full_adder(
+    Object* ctx, std::vector<conversion::BitStream> lhs,
+    std::vector<conversion::BitStream> rhs, bool with_check);
+
+ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
+                            const ArrayRef& rhs);
 
 }  // namespace spu::mpc

@@ -8,6 +8,7 @@
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
+#include "libspu/mpc/spdzwisefield/value.h"
 
 #define MYLOG(x) \
   if (comm->getRank() == 0) std::cout << x << std::endl
@@ -247,11 +248,11 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
       auto x2 = z[idx * (bucket_size - 1) + i][1];
 
       hash_algo->Update(
-          std::to_string((uint64_t)((x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)));
-      hash_algo->Update(std::to_string((uint64_t)((x1 ^ x2) >> 64)));
+          std::to_string((uint64_t)((x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)) +
+          std::to_string((uint64_t)((x1 ^ x2) >> 64)));
 
-      hash_algo2->Update(std::to_string((uint64_t)(x2 & 0xFFFFFFFFFFFFFFFF)));
-      hash_algo2->Update(std::to_string((uint64_t)(x2 >> 64)));
+      hash_algo2->Update(std::to_string((uint64_t)(x2 & 0xFFFFFFFFFFFFFFFF)) +
+                         std::to_string((uint64_t)(x2 >> 64)));
     }
   }
 
@@ -270,12 +271,56 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   return res;
 }
 
-// ArrayRef EdabitState::gen_edabits(Object* ctx, PtType out_type, size_t size,
-//                                   size_t batch_size, size_t bucket_size) {
-//   SPU_ENFORCE(out_type == PT_U64, "Edabit only supports u64 output type");
-//   return ArrayRef();
-//   // auto* comm = ctx->getState<Communicator>();
-// }
+ArrayRef EdabitState::gen_edabits(Object* ctx, PtType arith_type, size_t size,
+                                  size_t batch_size, size_t bucket_size) {
+  SPU_ENFORCE(arith_type == PT_U64, "Edabit only supports u64 arithmetic type");
+
+  auto* comm = ctx->getState<Communicator>();
+  auto* prg_state = ctx->getState<PrgState>();
+
+  using Field = SpdzWiseFieldState::Field;
+
+  if (trusted_edabits_->size() < size) {
+    size_t batches = (size - trusted_edabits_->size() - 1) / batch_size + 1;
+    size_t size_per_batch = batch_size * bucket_size + bucket_size;
+    size_t total = batches * size_per_batch;
+
+    std::vector<conversion::Edabit> myself(total), priv(total), next(total);
+    std::vector<uint64_t> randbits(total), share_priv(total), share_next(total);
+    std::vector<uint64_t> arith_share_priv(total), arith_share_next(total);
+
+    prg_state->fillPrssPair(absl::MakeSpan(share_priv),
+                            absl::MakeSpan(share_next));
+    prg_state->fillPrssPair(absl::MakeSpan(arith_share_priv),
+                            absl::MakeSpan(arith_share_next));
+
+    prg_state->fillPriv(absl::MakeSpan(randbits));
+
+    pforeach(0, total, [&](uint64_t idx) {
+      auto& edabit = myself[idx];
+      auto& next_edabit = next[idx];
+
+      edabit.ashare[0] = arith_share_priv[idx];
+      edabit.ashare[1] = Field::sub(randbits[idx], edabit.ashare[0]);
+
+      next_edabit.ashare[1] = arith_share_next[idx];
+      next_edabit.ashare[0] = 0;
+
+      for (uint64_t i = 0; i < nbits_; i++) {
+        edabit.bshares[i][0] = share_priv[idx] & 1;
+        edabit.bshares[i][1] = edabit.bshares[i][0] ^ (randbits[idx] & 1);
+
+        next_edabit.bshares[i][1] = share_next[idx] & 1;
+        next_edabit.bshares[i][0] = 0;
+
+        share_priv[idx] >>= 1;
+        randbits[idx] >>= 1;
+
+        share_next[idx] >>= 1;
+      }
+    });
+  }
+}
 
 // std::vector<conversion::Edabit> EdabitState::cut_and_choose(
 //     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
@@ -283,16 +328,84 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
 //   return std::vector<conversion::Edabit>();
 // }
 
-std::vector<BitStream> full_adder_with_check(
-    Object* ctx, const std::vector<BitStream>& lhs,
-    const std::vector<BitStream>& rhs) {
+/*
+  ==================================================================
+  ==             Circuits for generating Edabit                   ==
+  ==================================================================
+*/
+
+ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
+                            const ArrayRef& rhs) {
+  auto* prg_state = ctx->getState<PrgState>();
+  auto* comm = ctx->getState<Communicator>();
+
+  const auto* lhs_ty = lhs.eltype().as<spdzwisefield::BShrTy>();
+  const auto* rhs_ty = rhs.eltype().as<spdzwisefield::BShrTy>();
+
+  const size_t out_nbits = std::max(lhs_ty->nbits(), rhs_ty->nbits());
+  const PtType out_btype = spdzwisefield::calcBShareBacktype(out_nbits);
+
+  ArrayRef out(makeType<spdzwisefield::BShrTy>(out_btype, out_nbits),
+               lhs.numel());
+
+  return DISPATCH_UINT_PT_TYPES(rhs_ty->getBacktype(), "_", [&]() {
+    using RhsT = ScalarT;
+    auto _rhs = ArrayView<std::array<RhsT, 2>>(rhs);
+
+    return DISPATCH_UINT_PT_TYPES(lhs_ty->getBacktype(), "_", [&]() {
+      using LhsT = ScalarT;
+      auto _lhs = ArrayView<std::array<LhsT, 2>>(lhs);
+
+      return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
+        using OutT = ScalarT;
+
+        std::vector<OutT> r0(lhs.numel());
+        std::vector<OutT> r1(lhs.numel());
+        prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+        // z1 = (x1 & y1) ^ (x1 & y2) ^ (x2 & y1) ^ (r0 ^ r1);
+        pforeach(0, lhs.numel(), [&](int64_t idx) {
+          r0[idx] = (_lhs[idx][0] & _rhs[idx][0]) ^
+                    (_lhs[idx][0] & _rhs[idx][1]) ^
+                    (_lhs[idx][1] & _rhs[idx][0]) ^ (r0[idx] ^ r1[idx]);
+        });
+
+        r1 = comm->rotate<OutT>(r0, "andbb");  // comm => 1, k
+
+        auto _out = ArrayView<std::array<OutT, 2>>(out);
+        pforeach(0, lhs.numel(), [&](int64_t idx) {
+          _out[idx][0] = r0[idx];
+          _out[idx][1] = r1[idx];
+        });
+        return out;
+      });
+    });
+  });
+}
+
+std::vector<conversion::BitStream> full_adder(
+    Object* ctx, std::vector<conversion::BitStream> lhs,
+    std::vector<conversion::BitStream> rhs, bool with_check) {
   SPU_ENFORCE(lhs.size() == rhs.size(), "lhs and rhs must have same size");
 
+  // auto* comm = ctx->getState<Communicator>();
+
   size_t size = (lhs.size() - 1) / 64 + 1;
-  size_t nbits = lhs[0].size();
+  size_t nbits = std::max(lhs[0].size(), rhs[0].size());
+
+  pforeach(0, lhs.size(), [&](uint64_t idx) {
+    if (lhs[idx].size() < nbits) {
+      lhs[idx].resize(nbits);
+    }
+    if (rhs[idx].size() < nbits) {
+      rhs[idx].resize(nbits);
+    }
+  });
 
   std::vector<std::array<bool, 2>> c(lhs.size(), {false, false});
-  std::vector<BitStream> result(lhs.size() + 1);
+  std::vector<conversion::BitStream> result(lhs.size());
+
+  pforeach(0, lhs.size(), [&](uint64_t idx) { result[idx].resize(nbits + 1); });
 
   for (uint64_t i = 0; i < nbits; i++) {
     ArrayRef inner_lhs(makeType<spdzwisefield::BShrTy>(PT_U64, 64), size);
@@ -305,7 +418,14 @@ std::vector<BitStream> full_adder_with_check(
       auto& lhs_val = _inner_lhs[idx];
       auto& rhs_val = _inner_rhs[idx];
 
+      lhs_val[0] = lhs_val[1] = 0;
+      rhs_val[0] = rhs_val[1] = 0;
+
       for (uint64_t j = 0; j < 64; j++) {
+        if (idx * 64 + j >= lhs.size()) {
+          break;
+        }
+
         lhs_val[0] |= (lhs[idx * 64 + j][i][0] ^ c[idx * 64 + j][0]) << j;
         lhs_val[1] |= (lhs[idx * 64 + j][i][1] ^ c[idx * 64 + j][1]) << j;
 
@@ -322,14 +442,23 @@ std::vector<BitStream> full_adder_with_check(
       }
     });
 
-    auto res = ctx->call("and_bb", inner_lhs, inner_rhs);
+    ArrayRef res;
+    if (with_check) {
+      res = ctx->call("and_bb", inner_lhs, inner_rhs);
+    } else {
+      res = semi_honest_and_bb(ctx, inner_lhs, inner_rhs);
+    }
+    auto _res = ArrayView<std::array<uint64_t, 2>>(res);
 
     pforeach(0, size, [&](uint64_t idx) {
-      auto& res_val = _inner_lhs[idx];
+      auto res_val = _res[idx];
 
       for (uint64_t j = 0; j < 64; j++) {
-        c[idx * 64 + j][0] = (res_val[0] >> j) & 1;
-        c[idx * 64 + j][1] = (res_val[1] >> j) & 1;
+        if (idx * 64 + j >= lhs.size()) {
+          break;
+        }
+        c[idx * 64 + j][0] ^= (res_val[0] >> j) & 1;
+        c[idx * 64 + j][1] ^= (res_val[1] >> j) & 1;
       }
     });
   }

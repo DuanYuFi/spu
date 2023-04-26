@@ -58,6 +58,29 @@ spu_cc_test(
     ],
 )
 
+spu_cc_test(
+    name = "circuit_test",
+    srcs = ["circuit_test.cc"],
+    deps = [
+        ":protocol",
+        ":state",
+        "//libspu/mpc/utils:simulate",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+spu_cc_test(
+    name = "boolean_test",
+    srcs = ["boolean_test.cc"],
+    deps = [
+        ":protocol",
+        ":state",
+        ":boolean",
+        "//libspu/mpc/utils:simulate",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 spu_cc_library(
     name = "arithmetic",
     srcs = ["arithmetic.cc"],
@@ -132,6 +155,7 @@ spu_cc_library(
     deps = [
         ":type",
         ":utils",
+        ":value",
         "//libspu/mpc/aby3:protocol",
         "//libspu/mpc/common:prg_state",
         "//libspu/mpc/common:communicator",

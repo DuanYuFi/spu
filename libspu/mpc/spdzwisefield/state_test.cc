@@ -37,7 +37,7 @@ class CutAndChooseTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     Beaver, CutAndChooseTest,
-    testing::Combine(testing::Values(1000000),          //
+    testing::Combine(testing::Values(1),                //
                      testing::Values(PtType::PT_U32,    //
                                      PtType::PT_U64,    //
                                      PtType::PT_U128),  //

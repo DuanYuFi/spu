@@ -20,12 +20,15 @@
 #include "libspu/core/parallel_utils.h"
 #include "libspu/core/platform_utils.h"
 #include "libspu/core/trace.h"
-#include "libspu/mpc/spdzwisefield/state.h"
-#include "libspu/mpc/spdzwisefield/type.h"
-#include "libspu/mpc/spdzwisefield/value.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
+#include "libspu/mpc/spdzwisefield/state.h"
+#include "libspu/mpc/spdzwisefield/type.h"
+#include "libspu/mpc/spdzwisefield/value.h"
+
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
 
 namespace spu::mpc::spdzwisefield {
 
@@ -181,6 +184,7 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 
   const size_t out_nbits = std::max(lhs_ty->nbits(), rhs_ty->nbits());
   const PtType out_btype = calcBShareBacktype(out_nbits);
+
   ArrayRef out(makeType<BShrTy>(out_btype, out_nbits), lhs.numel());
 
   return DISPATCH_UINT_PT_TYPES(rhs_ty->getBacktype(), "_", [&]() {
@@ -196,12 +200,14 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 
         ArrayRef trusted_triples = beaver_state->gen_bin_triples(
             ctx->caller(), out_btype, lhs.numel());
+
         auto _trusted_triples =
             ArrayView<std::array<std::array<OutT, 2>, 3>>(trusted_triples);
 
-        ArrayRef to_be_open(makeType<BShrTy>(out_btype, out_nbits), lhs.numel() * 2);
+        ArrayRef to_be_open(makeType<BShrTy>(out_btype, out_nbits),
+                            lhs.numel() * 2);
         auto _to_be_open = ArrayView<std::array<OutT, 2>>(to_be_open);
-        
+
         pforeach(0, lhs.numel(), [&](uint64_t idx) {
           _to_be_open[idx * 2][0] = _lhs[idx][0] ^ _trusted_triples[idx][0][0];
           _to_be_open[idx * 2][1] = _lhs[idx][1] ^ _trusted_triples[idx][0][1];
