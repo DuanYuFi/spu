@@ -130,6 +130,79 @@ ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   return out;
 }
 
+ArrayRef A2PSH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  SPU_TRACE_MPC_LEAF(ctx, in);
+
+  auto* comm = ctx->getState<Communicator>();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+
+  using PShrT = uint64_t;
+  using AShrT = uint64_t;
+
+  using Field = SpdzWiseFieldState::Field;
+
+  ArrayRef out(makeType<Pub2kTy>(field), in.numel());
+  auto _in = ArrayView<std::array<AShrT, 2>>(in);
+  auto _out = ArrayView<PShrT>(out);
+
+  std::vector<AShrT> x2(in.numel());
+
+  pforeach(0, in.numel(), [&](int64_t idx) {  //
+    x2[idx] = _in[idx][1];
+  });
+
+  auto x3 = comm->rotate<AShrT>(x2, "a2p");  // comm => 1, k
+
+  pforeach(0, in.numel(), [&](int64_t idx) {
+    _out[idx] = Field::add(_in[idx][0], _in[idx][1], x3[idx]);
+  });
+
+  return out;
+}
+
+ArrayRef P2ASH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  SPU_TRACE_MPC_LEAF(ctx, in);
+
+  auto* comm = ctx->getState<Communicator>();
+
+  // TODO: we should expect Pub2kTy instead of Ring2k
+  const auto* in_ty = in.eltype().as<Ring2k>();
+  const auto field = in_ty->field();
+
+  auto rank = comm->getRank();
+
+  using AShrT = uint64_t;
+  using PShrT = uint64_t;
+  using Field = SpdzWiseFieldState::Field;
+
+  ArrayRef out(makeType<aby3::AShrTy>(field), in.numel());
+  auto _in = ArrayView<PShrT>(in);
+  auto _out = ArrayView<std::array<AShrT, 2>>(out);
+
+  pforeach(0, in.numel(), [&](int64_t idx) {
+    _out[idx][0] = rank == 0 ? _in[idx] : 0;
+    _out[idx][1] = rank == 2 ? _in[idx] : 0;
+  });
+
+  std::vector<AShrT> r0(in.numel());
+  std::vector<AShrT> r1(in.numel());
+  auto* prg_state = ctx->getState<PrgState>();
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+  for (int64_t idx = 0; idx < in.numel(); idx++) {
+    r1[idx] = Field::modp(r1[idx]);
+    r0[idx] = Field::sub(Field::modp(r0[idx]), r1[idx]);
+  }
+  r1 = comm->rotate<AShrT>(r0, "p2b.zero");
+
+  for (int64_t idx = 0; idx < in.numel(); idx++) {
+    _out[idx][0] = Field::add(_out[idx][0], r0[idx]);
+    _out[idx][1] = Field::add(_out[idx][1], r1[idx]);
+  }
+
+  return out;
+}
+
 ////////////////////////////////////////////////////////////////////
 // add family
 ////////////////////////////////////////////////////////////////////

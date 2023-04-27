@@ -38,6 +38,39 @@ class A2P : public UnaryKernel {
   ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
 };
 
+// Semi-honest P2A
+class P2ASH : public UnaryKernel {
+ public:
+  static constexpr char kBindName[] = "p2ash";
+
+  /*
+   * Note that verification is needed for checking the correctness
+   * of mac, but it is not included in the latency and comm.
+   */
+  ce::CExpr latency() const override {
+    // one for pass around rss share and
+    // one for mac_key * share
+
+    return ce::Const(1);
+  }
+
+  ce::CExpr comm() const override { return ce::K(); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
+};
+
+// Semi-honest A2P
+class A2PSH : public UnaryKernel {
+ public:
+  static constexpr char kBindName[] = "a2psh";
+
+  ce::CExpr latency() const override { return ce::Const(1); }
+
+  ce::CExpr comm() const override { return ce::K(); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
+};
+
 ////////////////////////////////////////////////////////////////////
 // add family
 ////////////////////////////////////////////////////////////////////

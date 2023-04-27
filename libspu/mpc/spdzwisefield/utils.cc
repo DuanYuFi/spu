@@ -9,7 +9,7 @@ uint64_t MersennePrimeField::modp(uint64_t a) {
   return res;
 }
 
-uint64_t MersennePrimeField::modp(uint128_t a) {
+uint64_t MersennePrimeField::modp128(uint128_t a) {
   uint64_t higher, middle, lower;
   higher = (a >> (2 * PRIME_EXP));
   middle = (a >> PRIME_EXP) & PR;
@@ -35,20 +35,12 @@ uint64_t MersennePrimeField::add(uint64_t a, uint64_t b) {
 }
 
 uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c) {
-  uint64_t res = a + b + c;
-  if (res >= PR) {
-    res -= PR;
-  }
-  return res;
+  return add(a, add(b, c));
 }
 
 uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c,
                                  uint64_t d) {
-  uint64_t res = a + b + c + d;
-  if (res >= PR) {
-    res -= PR;
-  }
-  return res;
+  return add(add(a, b), add(c, d));
 }
 
 uint64_t MersennePrimeField::sub(uint64_t a, uint64_t b) {

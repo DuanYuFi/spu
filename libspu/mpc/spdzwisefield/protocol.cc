@@ -67,6 +67,8 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   // register arithmetic & binary kernels
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
+  obj->regKernel<spdzwisefield::P2ASH>();
+  obj->regKernel<spdzwisefield::A2PSH>();
 
   obj->regKernel<spdzwisefield::CommonTypeB>();
   obj->regKernel<spdzwisefield::CastTypeB>();
@@ -87,6 +89,8 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   obj->regKernel<spdzwisefield::BitrevB>();
   obj->regKernel<spdzwisefield::BitIntlB>();
   obj->regKernel<spdzwisefield::BitDeintlB>();
+
+  obj->regKernel<spdzwisefield::BitInject>();
 
   return obj;
 }

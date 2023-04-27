@@ -271,6 +271,10 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   return res;
 }
 
+/*
+    ====================== Edabit ======================
+*/
+
 ArrayRef EdabitState::gen_edabits(Object* ctx, PtType arith_type, size_t size,
                                   size_t batch_size, size_t bucket_size) {
   SPU_ENFORCE(arith_type == PT_U64, "Edabit only supports u64 arithmetic type");
@@ -506,11 +510,6 @@ std::vector<conversion::BitStream> full_adder(
   });
 
   return result;
-}
-
-std::vector<conversion::AShareType> bit_injection(
-    Object* ctx, const std::vector<bool>& bits) {
-  ;
 }
 
 }  // namespace spu::mpc

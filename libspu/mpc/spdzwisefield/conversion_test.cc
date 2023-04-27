@@ -16,13 +16,16 @@
 
 #include "gtest/gtest.h"
 
-#include "libspu/mpc/aby3/protocol.h"
-#include "libspu/mpc/aby3/type.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
+#include "libspu/mpc/spdzwisefield/protocol.h"
+#include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
+
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
 
 namespace spu::mpc::test {
 namespace {
@@ -39,7 +42,7 @@ using ConvTestParams = std::tuple<int, PtType, size_t>;
 class ConversionTest : public ::testing::TestWithParam<ConvTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
-    Aby3, ConversionTest,
+    SpdzwiseField, ConversionTest,
     testing::Combine(testing::Values(1),               //
                      testing::Values(PtType::PT_U32),  //
                      testing::Values(3)),              //
@@ -48,7 +51,7 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(ConversionTest, B2ATest) {
-  const auto factory = makeAby3Protocol;
+  const auto factory = makeSpdzWiseFieldProtocol;
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
@@ -70,26 +73,21 @@ TEST_P(ConversionTest, B2ATest) {
       }
     }
 
-    if (comm->getRank() == 0) {
-      for (int i = 0; i < 5; i++) {
-        std::cout << _binaries[i] << ", ";
-      }
-      std::cout << std::endl;
-    }
-
     ArrayRef bshares = obj->call("p2b", binaries);
-    ArrayRef ashares = obj->call("b2a", bshares);
-    ArrayRef number = obj->call("a2p", ashares);
+    MYLOG("P2B finished");
 
-    // (void)number;
+    ArrayRef ashares = obj->call("bitinject", bshares);
+    MYLOG("Bit Injection finished");
 
-    if (comm->getRank() == 0) {
-      auto _number = ArrayView<uint64_t>(number);
-      for (int i = 0; i < 80000; i++) {
-        SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, {} != {}", i,
-                    _number[i], _binaries[i]);
+    ArrayRef number = obj->call("a2psh", ashares);
+    MYLOG("A2P finished");
+
+    auto _number = ArrayView<uint64_t>(number);
+    for (int i = 0; i < 80000; i++) {
+      if (_number[i] != _binaries[i]) {
       }
-      std::cout << std::endl;
+      SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
+                  _number[i], _binaries[i]);
     }
   });
 }
