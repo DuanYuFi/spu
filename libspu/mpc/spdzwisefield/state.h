@@ -186,9 +186,9 @@ class EdabitState : public State {
 
   size_t nbits() const { return nbits_; }
 
-  // ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
-  //                      size_t batch_size = EdabitState::batch_size_,
-  //                      size_t bucket_size = EdabitState::bucket_size_);
+  ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
+                       size_t batch_size = EdabitState::batch_size_,
+                       size_t bucket_size = EdabitState::bucket_size_);
 
   // std::vector<conversion::Edabit> cut_and_choose(
   //     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,

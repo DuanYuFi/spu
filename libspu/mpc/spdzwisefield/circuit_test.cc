@@ -56,6 +56,7 @@ TEST_P(CircuitTest, FullAdder) {
     conversion::BitStream b1, b2;
 
     // 0b00111 + 0b11101 = 0b100100
+    // 0b00111 + 0b11101 +  0b11101 = 0b1000001
 
     switch (comm->getRank()) {
       case 0: {
@@ -113,7 +114,8 @@ TEST_P(CircuitTest, FullAdder) {
     lhs.push_back(b1);
     rhs.push_back(b2);
 
-    auto res = full_adder_with_check(obj.get(), lhs, rhs)[0];
+    auto res = full_adder(obj.get(), full_adder(obj.get(), lhs, rhs, true), rhs,
+                          true)[0];
 
     sleep(comm->getRank());
 

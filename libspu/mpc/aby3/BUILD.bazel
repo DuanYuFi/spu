@@ -47,6 +47,16 @@ spu_cc_test(
     ],
 )
 
+spu_cc_test(
+    name = "conversion_test",
+    srcs = ["conversion_test.cc"],
+    deps = [
+        ":protocol",
+        "//libspu/mpc/utils:simulate",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 spu_cc_library(
     name = "arithmetic",
     srcs = ["arithmetic.cc"],

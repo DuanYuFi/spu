@@ -38,7 +38,7 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
 
   // add communicator
   obj->addState<Communicator>(lctx);
-  obj->addState<Z2kState>(conf.field());
+  obj->addState<Z2kState>(FM64);
 
   // register random states & kernels.
   obj->addState<PrgState>(lctx);

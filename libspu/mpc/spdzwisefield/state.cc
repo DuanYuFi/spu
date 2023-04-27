@@ -57,7 +57,7 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
                 (r0[idx] ^ r1[idx]);
     });
 
-    r1 = comm->rotate<beaver::BTDataType>(r0, "cacbin");  // comm => 1, k
+    r1 = comm->rotate<beaver::BTDataType>(r0, "cac.bin");  // comm => 1, k
 
     pforeach(0, num_per_batch * num_batches, [&](int64_t idx) {
       new_triples[idx][0] = {a[0][idx], a[1][idx]};
@@ -80,7 +80,7 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
 
     std::string hash_str2(reinterpret_cast<char*>(hash2.data()), 32);
 
-    auto res = comm->rotate<uint8_t>(hash, "cacbin");
+    auto res = comm->rotate<uint8_t>(hash, "cac.bin");
 
     std::string hash_str(reinterpret_cast<char*>(res.data()), 32);
 
@@ -135,7 +135,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   std::vector<uint64_t> r1(1);
 
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
-  auto r2 = comm->rotate<uint64_t>(r1, "cacbin");
+  auto r2 = comm->rotate<uint64_t>(r1, "cac.bin");
 
   uint64_t seed = r0[0] + r1[0] + r2[0];
 
@@ -155,7 +155,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
     send_buffer[idx * 3 + 2] = data[idx][2][1];
   });
 
-  auto recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
+  auto recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cac.bin");
 
   pforeach(0, C, [&](uint64_t idx) {
     beaver::BTDataType a =
@@ -190,7 +190,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
 
   recv_buffer.resize(batch_size * (bucket_size - 1) * 2);
 
-  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
+  recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cac.bin");
 
   std::vector<beaver::BTDataType> _opened2(batch_size * (bucket_size - 1) * 2);
 
@@ -257,7 +257,7 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   }
 
   // recv_buffer.resize(batch_size * (bucket_size - 1));
-  // recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cacbin");
+  // recv_buffer = comm->rotate<beaver::BTDataType>(send_buffer, "cac.bin");
 
   // pforeach(0, batch_size * (bucket_size - 1), [&](uint64_t idx) {
   //   assert((z[idx][0] ^ z[idx][1] ^ recv_buffer[idx]) == 0);
@@ -285,41 +285,78 @@ ArrayRef EdabitState::gen_edabits(Object* ctx, PtType arith_type, size_t size,
     size_t size_per_batch = batch_size * bucket_size + bucket_size;
     size_t total = batches * size_per_batch;
 
-    std::vector<conversion::Edabit> myself(total), priv(total), next(total);
-    std::vector<uint64_t> randbits(total), share_priv(total), share_next(total);
-    std::vector<uint64_t> arith_share_priv(total), arith_share_next(total);
+    std::vector<conversion::Edabit> myself(total), prev(total), next(total);
+    std::vector<uint64_t> randbits(total), share_prev(total), share_next(total);
+    std::vector<uint64_t> arith_share_prev(total), arith_share_next(total);
 
-    prg_state->fillPrssPair(absl::MakeSpan(share_priv),
+    prg_state->fillPrssPair(absl::MakeSpan(share_prev),
                             absl::MakeSpan(share_next));
-    prg_state->fillPrssPair(absl::MakeSpan(arith_share_priv),
+    prg_state->fillPrssPair(absl::MakeSpan(arith_share_prev),
                             absl::MakeSpan(arith_share_next));
 
     prg_state->fillPriv(absl::MakeSpan(randbits));
+
+    std::vector<uint64_t> buffer(total * 2);
 
     pforeach(0, total, [&](uint64_t idx) {
       auto& edabit = myself[idx];
       auto& next_edabit = next[idx];
 
-      edabit.ashare[0] = arith_share_priv[idx];
+      edabit.ashare[0] = arith_share_prev[idx];
       edabit.ashare[1] = Field::sub(randbits[idx], edabit.ashare[0]);
 
-      next_edabit.ashare[1] = arith_share_next[idx];
-      next_edabit.ashare[0] = 0;
+      buffer[idx * 2] = edabit.ashare[1];
+
+      edabit.ashare[1] = Field::add(edabit.ashare[1], arith_share_next[idx]);
 
       for (uint64_t i = 0; i < nbits_; i++) {
-        edabit.bshares[i][0] = share_priv[idx] & 1;
+        edabit.bshares[i][0] = share_prev[idx] & 1;
         edabit.bshares[i][1] = edabit.bshares[i][0] ^ (randbits[idx] & 1);
+
+        buffer[idx * 2 + 1] |= edabit.bshares[i][1] << i;
 
         next_edabit.bshares[i][1] = share_next[idx] & 1;
         next_edabit.bshares[i][0] = 0;
 
-        share_priv[idx] >>= 1;
+        share_prev[idx] >>= 1;
         randbits[idx] >>= 1;
 
         share_next[idx] >>= 1;
       }
     });
+
+    auto recv_buffer = comm->rotate<uint64_t>(buffer, "cac.edabit");
+
+    pforeach(0, total, [&](uint64_t idx) {
+      auto& edabit = myself[idx];
+      auto& prev_edabit = prev[idx];
+
+      edabit.ashare[0] = Field::add(edabit.ashare[0], recv_buffer[idx * 2]);
+
+      for (uint64_t i = 0; i < nbits_; i++) {
+        prev_edabit.bshares[i][0] = recv_buffer[idx * 2 + 1] & 1;
+        prev_edabit.bshares[i][1] = 0;
+        recv_buffer[idx * 2 + 1] >>= 1;
+      }
+    });
+
+    std::vector<conversion::BitStream> b0, b1, b2;
+
+    pforeach(0, total, [&](uint64_t idx) {
+      b0.emplace_back(myself[idx].bshares.begin(), myself[idx].bshares.end());
+      b1.emplace_back(prev[idx].bshares.begin(), prev[idx].bshares.end());
+      b2.emplace_back(next[idx].bshares.begin(), next[idx].bshares.end());
+    });
+
+    auto result = full_adder(ctx, full_adder(ctx, b0, b1, false), b2, false);
+
+    pforeach(0, total, [&](uint64_t idx) {
+      auto& edabit = myself[idx];
+      std::copy_n(result[idx].begin(), nbits_, edabit.bshares.begin());
+    });
   }
+
+  return ArrayRef();
 }
 
 // std::vector<conversion::Edabit> EdabitState::cut_and_choose(
@@ -469,6 +506,11 @@ std::vector<conversion::BitStream> full_adder(
   });
 
   return result;
+}
+
+std::vector<conversion::AShareType> bit_injection(
+    Object* ctx, const std::vector<bool>& bits) {
+  ;
 }
 
 }  // namespace spu::mpc
