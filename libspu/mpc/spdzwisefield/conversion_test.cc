@@ -65,4 +65,38 @@ TEST_P(ConversionTest, B2ATest) {
   });
 }
 
+TEST_P(ConversionTest, InjectionTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+
+    std::vector<uint8_t> public_bits(10000);
+
+    prg_state->fillPubl(absl::MakeSpan(public_bits));
+
+    ArrayRef binaries(makeType<Pub2kTy>(FM64), 80000);
+    auto _binaries = ArrayView<uint64_t>(binaries);
+
+    for (size_t i = 0; i < 10000; i++) {
+      for (size_t j = 0; j < 8; j++) {
+        _binaries[i * 8 + j] = (public_bits[i] >> j) & 1;
+      }
+    }
+
+    ArrayRef bshares = obj->call("p2b", binaries);
+    ArrayRef ashares = obj->call("bitinject", bshares);
+    ArrayRef number = obj->call("a2psh", ashares);
+
+    auto _number = ArrayView<uint64_t>(number);
+    for (int i = 0; i < 80000; i++) {
+      SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
+                  _number[i], _binaries[i]);
+    }
+  });
+}
+
 }  // namespace spu::mpc::test

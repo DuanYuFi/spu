@@ -160,13 +160,18 @@ struct PubEdabit {
   AShareType dataA;
   std::array<BShareType, 61> dataB;
 
-  void print() {
-    std::cout << "dataA: " << dataA << std::endl;
-    std::cout << "dataB: ";
-    for (auto& b : dataB) {
-      std::cout << b;
+  void print(bool ignore_first = false, bool ignore_second = false) {
+    if (!ignore_first) {
+      std::cout << "dataA: " << dataA << std::endl;
     }
-    std::cout << std::endl;
+
+    if (!ignore_second) {
+      std::cout << "dataB: ";
+      for (auto rit = dataB.rbegin(); rit != dataB.rend(); ++rit) {
+        std::cout << *rit;
+      }
+      std::cout << std::endl;
+    }
   }
 };
 
@@ -220,5 +225,8 @@ std::vector<conversion::BitStream> full_adder(
 
 ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
                             const ArrayRef& rhs);
+
+std::vector<bool> open_bits(Object* ctx, const conversion::BitStream& bts);
+bool check_edabits(const std::vector<conversion::PubEdabit>& edabits);
 
 }  // namespace spu::mpc
