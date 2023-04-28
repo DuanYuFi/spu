@@ -20,6 +20,7 @@
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/protocol.h"
+#include "libspu/mpc/spdzwisefield/state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
@@ -57,38 +58,10 @@ TEST_P(ConversionTest, B2ATest) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
-    auto* prg_state = obj->getState<PrgState>();
-    auto* comm = obj->getState<Communicator>();
+    auto* state = obj->getState<EdabitState>();
 
-    std::vector<uint8_t> public_bits(10000);
-
-    prg_state->fillPubl(absl::MakeSpan(public_bits));
-
-    ArrayRef binaries(makeType<Pub2kTy>(FM64), 80000);
-    auto _binaries = ArrayView<uint64_t>(binaries);
-
-    for (size_t i = 0; i < 10000; i++) {
-      for (size_t j = 0; j < 8; j++) {
-        _binaries[i * 8 + j] = (public_bits[i] >> j) & 1;
-      }
-    }
-
-    ArrayRef bshares = obj->call("p2b", binaries);
-    MYLOG("P2B finished");
-
-    ArrayRef ashares = obj->call("bitinject", bshares);
-    MYLOG("Bit Injection finished");
-
-    ArrayRef number = obj->call("a2psh", ashares);
-    MYLOG("A2P finished");
-
-    auto _number = ArrayView<uint64_t>(number);
-    for (int i = 0; i < 80000; i++) {
-      if (_number[i] != _binaries[i]) {
-      }
-      SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
-                  _number[i], _binaries[i]);
-    }
+    auto ret = state->gen_edabits(obj.get(), PT_U64, 100);
+    (void)ret;
   });
 }
 

@@ -37,7 +37,9 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
     std::vector<beaver::BTDataType> r0(num_per_batch * num_batches);
     std::vector<beaver::BTDataType> r1(num_per_batch * num_batches);
 
-    std::array<std::vector<beaver::BTDataType>, 2> a, b, c;
+    std::array<std::vector<beaver::BTDataType>, 2> a;
+    std::array<std::vector<beaver::BTDataType>, 2> b;
+    std::array<std::vector<beaver::BTDataType>, 2> c;
 
     a[0].resize(num_per_batch * num_batches);
     a[1].resize(num_per_batch * num_batches);
@@ -124,9 +126,9 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
 
 std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
     Object* ctx, std::vector<beaver::BinaryTriple>::iterator data,
-    std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo,
-    std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo2, size_t batch_size,
-    size_t bucket_size, size_t C) {
+    const std::shared_ptr<yacl::crypto::Blake3Hash>& hash_algo,
+    const std::shared_ptr<yacl::crypto::Blake3Hash>& hash_algo2,
+    size_t batch_size, size_t bucket_size, size_t C) {
   auto* comm = ctx->getState<Communicator>();
   auto* prg_state = ctx->getState<PrgState>();
   // generate random seed for shuffle
@@ -138,8 +140,6 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
   auto r2 = comm->rotate<uint64_t>(r1, "cac.bin");
 
   uint64_t seed = r0[0] + r1[0] + r2[0];
-
-  (void)seed;
 
   size_t num_per_batch = batch_size * bucket_size + C;
   std::mt19937 rng(seed);
@@ -247,12 +247,13 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
       auto x1 = z[idx * (bucket_size - 1) + i][0];
       auto x2 = z[idx * (bucket_size - 1) + i][1];
 
-      hash_algo->Update(
-          std::to_string((uint64_t)((x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)) +
-          std::to_string((uint64_t)((x1 ^ x2) >> 64)));
+      hash_algo->Update(std::to_string(static_cast<uint64_t>(
+                            (x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)) +
+                        std::to_string(static_cast<uint64_t>((x1 ^ x2) >> 64)));
 
-      hash_algo2->Update(std::to_string((uint64_t)(x2 & 0xFFFFFFFFFFFFFFFF)) +
-                         std::to_string((uint64_t)(x2 >> 64)));
+      hash_algo2->Update(
+          std::to_string(static_cast<uint64_t>(x2 & 0xFFFFFFFFFFFFFFFF)) +
+          std::to_string(static_cast<uint64_t>(x2 >> 64)));
     }
   }
 
@@ -272,11 +273,16 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
 }
 
 /*
-    ====================== Edabit ======================
+
+    ================================== Edabit ==================================
+
 */
 
-ArrayRef EdabitState::gen_edabits(Object* ctx, PtType arith_type, size_t size,
-                                  size_t batch_size, size_t bucket_size) {
+std::vector<conversion::Edabit> EdabitState::gen_edabits(Object* ctx,
+                                                         PtType arith_type,
+                                                         size_t size,
+                                                         size_t batch_size,
+                                                         size_t bucket_size) {
   SPU_ENFORCE(arith_type == PT_U64, "Edabit only supports u64 arithmetic type");
 
   auto* comm = ctx->getState<Communicator>();
@@ -300,80 +306,208 @@ ArrayRef EdabitState::gen_edabits(Object* ctx, PtType arith_type, size_t size,
 
     prg_state->fillPriv(absl::MakeSpan(randbits));
 
-    std::vector<uint64_t> buffer(total * 2);
-
     pforeach(0, total, [&](uint64_t idx) {
-      auto& edabit = myself[idx];
-      auto& next_edabit = next[idx];
-
-      edabit.ashare[0] = arith_share_prev[idx];
-      edabit.ashare[1] = Field::sub(randbits[idx], edabit.ashare[0]);
-
-      buffer[idx * 2] = edabit.ashare[1];
-
-      edabit.ashare[1] = Field::add(edabit.ashare[1], arith_share_next[idx]);
-
-      for (uint64_t i = 0; i < nbits_; i++) {
-        edabit.bshares[i][0] = share_prev[idx] & 1;
-        edabit.bshares[i][1] = edabit.bshares[i][0] ^ (randbits[idx] & 1);
-
-        buffer[idx * 2 + 1] |= edabit.bshares[i][1] << i;
-
-        next_edabit.bshares[i][1] = share_next[idx] & 1;
-        next_edabit.bshares[i][0] = 0;
-
-        share_prev[idx] >>= 1;
-        randbits[idx] >>= 1;
-
-        share_next[idx] >>= 1;
-      }
+      share_prev[idx] = Field::modp(share_prev[idx]);
+      share_next[idx] = Field::modp(share_next[idx]);
+      arith_share_prev[idx] = Field::modp(arith_share_prev[idx]);
+      arith_share_next[idx] = Field::modp(arith_share_next[idx]);
     });
 
-    auto recv_buffer = comm->rotate<uint64_t>(buffer, "cac.edabit");
+    MYLOG("After generate randbits");
+
+    std::vector<uint64_t> buffer(total * 2);
 
     pforeach(0, total, [&](uint64_t idx) {
       auto& edabit = myself[idx];
       auto& prev_edabit = prev[idx];
 
-      edabit.ashare[0] = Field::add(edabit.ashare[0], recv_buffer[idx * 2]);
+      edabit.ashare[1] = arith_share_next[idx];
+      edabit.ashare[0] = Field::sub(randbits[idx], edabit.ashare[1]);
+
+      buffer[idx * 2] = edabit.ashare[0];
+
+      edabit.ashare[0] = Field::add(edabit.ashare[0], arith_share_prev[idx]);
 
       for (uint64_t i = 0; i < nbits_; i++) {
-        prev_edabit.bshares[i][0] = recv_buffer[idx * 2 + 1] & 1;
+        edabit.bshares[i][1] = ((share_next[idx] & 1) != 0U);
+        edabit.bshares[i][0] =
+            ((edabit.bshares[i][1] ^ (randbits[idx] & 1)) != 0U);
+
+        buffer[idx * 2 + 1] |= static_cast<uint64_t>(edabit.bshares[i][0]) << i;
+
+        prev_edabit.bshares[i][0] = share_prev[idx] & 1;
         prev_edabit.bshares[i][1] = 0;
+
+        share_prev[idx] >>= 1;
+        randbits[idx] >>= 1;
+        share_next[idx] >>= 1;
+      }
+    });
+
+    MYLOG("Before rotate");
+
+    auto recv_buffer = comm->rotate<uint64_t>(buffer, "cac.edabit");
+
+    pforeach(0, total, [&](uint64_t idx) {
+      auto& edabit = myself[idx];
+      auto& next_edabit = next[idx];
+
+      edabit.ashare[1] = Field::add(edabit.ashare[1], recv_buffer[idx * 2]);
+
+      for (uint64_t i = 0; i < nbits_; i++) {
+        next_edabit.bshares[i][1] = recv_buffer[idx * 2 + 1] & 1;
+        next_edabit.bshares[i][0] = 0;
         recv_buffer[idx * 2 + 1] >>= 1;
       }
     });
 
     std::vector<conversion::BitStream> b0, b1, b2;
 
-    pforeach(0, total, [&](uint64_t idx) {
+    MYLOG("Before prepare data");
+
+    for (uint64_t idx = 0; idx < total; idx++) {
       b0.emplace_back(myself[idx].bshares.begin(), myself[idx].bshares.end());
       b1.emplace_back(prev[idx].bshares.begin(), prev[idx].bshares.end());
       b2.emplace_back(next[idx].bshares.begin(), next[idx].bshares.end());
-    });
+    }
+
+    MYLOG("Before full_adder");
 
     auto result = full_adder(ctx, full_adder(ctx, b0, b1, false), b2, false);
 
+    ArrayRef redundant_bits(makeType<spdzwisefield::BShrTy>(PT_U8, 1),
+                            total * 3);
+    auto _redundant_bits = ArrayView<std::array<uint8_t, 2>>(redundant_bits);
+    pforeach(0, total, [&](uint64_t idx) {
+      _redundant_bits[idx * 3][0] = result[idx][nbits_ - 1][0];
+      _redundant_bits[idx * 3][1] = result[idx][nbits_ - 1][1];
+
+      _redundant_bits[idx * 3 + 1][0] = result[idx][nbits_][0];
+      _redundant_bits[idx * 3 + 1][1] = result[idx][nbits_][1];
+
+      _redundant_bits[idx * 3 + 2][0] = result[idx][nbits_ + 1][0];
+      _redundant_bits[idx * 3 + 2][1] = result[idx][nbits_ + 1][1];
+    });
+
+    MYLOG("Before bitinject");
+
+    ArrayRef redundant_arith = ctx->call("bitinject", redundant_bits);
+    auto _redundant_arith = ArrayView<std::array<uint64_t, 2>>(redundant_arith);
+
     pforeach(0, total, [&](uint64_t idx) {
       auto& edabit = myself[idx];
-      std::copy_n(result[idx].begin(), nbits_, edabit.bshares.begin());
+      std::copy_n(result[idx].begin(), nbits_ - 1, edabit.bshares.begin());
+      edabit.bshares[nbits_ - 1] = {false, false};
+
+      std::array<uint64_t, 2> substraction;
+      substraction[0] =
+          Field::add(_redundant_arith[idx * 3][0],
+                     Field::mul(_redundant_arith[idx * 3 + 1][0], 2),
+                     Field::mul(_redundant_arith[idx * 3 + 2][0], 4));
+
+      substraction[1] =
+          Field::add(_redundant_arith[idx * 3][1],
+                     Field::mul(_redundant_arith[idx * 3 + 1][1], 2),
+                     Field::mul(_redundant_arith[idx * 3 + 2][1], 4));
+
+      edabit.ashare[0] =
+          Field::sub(edabit.ashare[0], Field::mul(substraction[0], 1ULL << 60));
+      edabit.ashare[1] =
+          Field::sub(edabit.ashare[1], Field::mul(substraction[1], 1ULL << 60));
     });
+
+    for (uint64_t idx = 0; idx < batches; idx++) {
+      auto trusted_edabits =
+          cut_and_choose(ctx, myself.begin() + idx * size_per_batch, batch_size,
+                         bucket_size, bucket_size);
+
+      if (trusted_edabits.size() == 0) {
+        return std::vector<conversion::Edabit>();
+      }
+
+      trusted_edabits_->insert(trusted_edabits_->end(), trusted_edabits.begin(),
+                               trusted_edabits.end());
+    }
   }
 
-  return ArrayRef();
+  std::vector<conversion::Edabit> ret(size);
+  std::copy_n(trusted_edabits_->begin(), size, ret.begin());
+  trusted_edabits_->erase(trusted_edabits_->begin(),
+                          trusted_edabits_->begin() + size);
+
+  return ret;
 }
 
-// std::vector<conversion::Edabit> EdabitState::cut_and_choose(
-//     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
-//     size_t batch_size, size_t bucket_size, size_t C) {
-//   return std::vector<conversion::Edabit>();
-// }
+std::vector<conversion::Edabit> EdabitState::cut_and_choose(
+    Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
+    size_t batch_size, size_t bucket_size, size_t C) {
+  auto* comm = ctx->getState<Communicator>();
+  auto* prg_state = ctx->getState<PrgState>();
+  // generate random seed for shuffle
+
+  MYLOG("In cut and choose");
+
+  std::vector<uint64_t> r0(1);
+  std::vector<uint64_t> r1(1);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+  auto r2 = comm->rotate<uint64_t>(r1, "cac.edabit");
+
+  uint64_t seed = r0[0] + r1[0] + r2[0];
+  size_t size_per_batch = batch_size * bucket_size + C;
+
+  std::mt19937 rng(seed);
+  std::shuffle(data, data + size_per_batch, rng);
+
+  std::vector<conversion::PubEdabit> opened = open_edabits(ctx, data, C);
+
+  sleep(comm->getRank());
+  opened[0].print();
+
+  return std::vector<conversion::Edabit>();
+}
 
 /*
   ==================================================================
   ==             Circuits for generating Edabit                   ==
   ==================================================================
 */
+
+std::vector<conversion::PubEdabit> open_edabits(
+    Object* ctx, typename std::vector<conversion::Edabit>::iterator edabits,
+    size_t n) {
+  auto* comm = ctx->getState<Communicator>();
+
+  using Field = SpdzWiseFieldState::Field;
+
+  std::vector<conversion::PubEdabit> ret(n);
+  std::vector<uint64_t> buffer(n * 2);
+
+  pforeach(0, n, [&](uint64_t idx) {
+    const auto& edabit = edabits[idx];
+    buffer[idx * 2] = edabit.ashare[1];
+
+    for (size_t i = 0; i < EdabitState::nbits_; i++) {
+      buffer[idx * 2 + 1] |= static_cast<uint64_t>(edabit.bshares[i][1]) << i;
+    }
+  });
+
+  auto recv = comm->rotate<uint64_t>(buffer, "cac.edabit");
+
+  pforeach(0, n, [&](uint64_t idx) {
+    const auto& edabit = edabits[idx];
+    ret[idx].dataA =
+        Field::add(recv[idx * 2], edabit.ashare[0], edabit.ashare[1]);
+
+    for (size_t i = 0; i < EdabitState::nbits_; i++) {
+      ret[idx].dataB[i] = (recv[idx * 2 + 1] >> i) & 1;
+      ret[idx].dataB[i] =
+          ret[idx].dataB[i] ^ edabit.bshares[i][0] ^ edabit.bshares[i][1];
+    }
+  });
+
+  return ret;
+}
 
 ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
                             const ArrayRef& rhs) {

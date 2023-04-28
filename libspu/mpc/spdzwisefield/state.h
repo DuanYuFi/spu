@@ -80,9 +80,9 @@ class BeaverState : public State {
 
   std::vector<beaver::BinaryTriple> cut_and_choose(
       Object* ctx, std::vector<beaver::BinaryTriple>::iterator data,
-      std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo,
-      std::shared_ptr<yacl::crypto::Blake3Hash> hash_algo2, size_t batch_size,
-      size_t bucket_size, size_t C);
+      const std::shared_ptr<yacl::crypto::Blake3Hash>& hash_algo,
+      const std::shared_ptr<yacl::crypto::Blake3Hash>& hash_algo2,
+      size_t batch_size, size_t bucket_size, size_t C);
 };
 
 /*
@@ -156,6 +156,20 @@ struct Edabit {
   std::array<BinaryShare, 61> bshares;
 };
 
+struct PubEdabit {
+  AShareType dataA;
+  std::array<BShareType, 61> dataB;
+
+  void print() {
+    std::cout << "dataA: " << dataA << std::endl;
+    std::cout << "dataB: ";
+    for (auto& b : dataB) {
+      std::cout << b;
+    }
+    std::cout << std::endl;
+  }
+};
+
 }  // namespace conversion
 
 class EdabitState : public State {
@@ -166,7 +180,7 @@ class EdabitState : public State {
   // statistical security parameter
   const size_t s_ = 40;
 
-  const size_t nbits_ = 61;
+  const static size_t nbits_ = 61;
 
   /*
    * Reference: https://eprint.iacr.org/2020/338.pdf
@@ -186,14 +200,19 @@ class EdabitState : public State {
 
   size_t nbits() const { return nbits_; }
 
-  ArrayRef gen_edabits(Object* ctx, PtType out_type, size_t size,
-                       size_t batch_size = EdabitState::batch_size_,
-                       size_t bucket_size = EdabitState::bucket_size_);
+  std::vector<conversion::Edabit> gen_edabits(
+      Object* ctx, PtType out_type, size_t size,
+      size_t batch_size = EdabitState::batch_size_,
+      size_t bucket_size = EdabitState::bucket_size_);
 
-  // std::vector<conversion::Edabit> cut_and_choose(
-  //     Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
-  //     size_t batch_size, size_t bucket_size, size_t C);
+  std::vector<conversion::Edabit> cut_and_choose(
+      Object* ctx, typename std::vector<conversion::Edabit>::iterator data,
+      size_t batch_size, size_t bucket_size, size_t C);
 };
+
+std::vector<conversion::PubEdabit> open_edabits(
+    Object* ctx, typename std::vector<conversion::Edabit>::iterator edabits,
+    size_t n);
 
 std::vector<conversion::BitStream> full_adder(
     Object* ctx, std::vector<conversion::BitStream> lhs,

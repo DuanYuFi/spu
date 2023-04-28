@@ -15,10 +15,15 @@
 #include "gtest/gtest.h"
 
 #include "libspu/mpc/common/communicator.h"
+#include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/protocol.h"
 #include "libspu/mpc/spdzwisefield/state.h"
+#include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
+
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
 
 namespace spu::mpc::test {
 namespace {
@@ -50,79 +55,58 @@ TEST_P(CircuitTest, FullAdder) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+    // auto* comm = obj->getState<Communicator>();
 
-    auto* comm = obj->getState<Communicator>();
+    std::vector<uint32_t> data(2);
+    prg_state->fillPubl(absl::MakeSpan(data));
 
-    conversion::BitStream b1, b2;
+    ArrayRef array_data(makeType<Pub2kTy>(FM32), 2);
+    auto _array_data = ArrayView<uint32_t>(array_data);
 
-    // 0b00111 + 0b11101 = 0b100100
-    // 0b00111 + 0b11101 +  0b11101 = 0b1000001
+    _array_data[0] = data[0];
+    _array_data[1] = data[1];
 
-    switch (comm->getRank()) {
-      case 0: {
-        b1.push_back({0, 1});
-        b1.push_back({1, 1});
-        b1.push_back({0, 0});
-        b1.push_back({0, 0});
-        b1.push_back({1, 0});
+    ArrayRef share = obj->call("p2b", array_data);
+    auto _share = ArrayView<std::array<uint32_t, 2>>(share);
 
-        b2.push_back({0, 0});
-        b2.push_back({1, 1});
-        b2.push_back({1, 0});
-        b2.push_back({0, 1});
-        b2.push_back({1, 0});
+    conversion::BitStream lhs;
+    conversion::BitStream rhs;
 
-        break;
-      }
-      case 1: {
-        b1.push_back({1, 0});
-        b1.push_back({1, 1});
-        b1.push_back({0, 1});
-        b1.push_back({0, 0});
-        b1.push_back({0, 1});
+    for (int i = 0; i < 32; i++) {
+      std::array<bool, 2> dataA, dataB;
+      dataA[0] = (_share[0][0] >> i) & 1;
+      dataA[1] = (_share[0][1] >> i) & 1;
 
-        b2.push_back({0, 1});
-        b2.push_back({1, 0});
-        b2.push_back({0, 0});
-        b2.push_back({1, 0});
-        b2.push_back({0, 0});
+      dataB[0] = (_share[1][0] >> i) & 1;
+      dataB[1] = (_share[1][1] >> i) & 1;
 
-        break;
-      }
-      case 2: {
-        b1.push_back({0, 0});
-        b1.push_back({1, 1});
-        b1.push_back({1, 0});
-        b1.push_back({0, 0});
-        b1.push_back({1, 1});
-
-        b2.push_back({1, 0});
-        b2.push_back({0, 1});
-        b2.push_back({0, 1});
-        b2.push_back({0, 0});
-        b2.push_back({0, 1});
-
-        break;
-      }
-
-      default: {
-        break;
-      }
+      lhs.push_back(dataA);
+      rhs.push_back(dataB);
     }
 
-    std::vector<conversion::BitStream> lhs, rhs;
-    lhs.push_back(b1);
-    rhs.push_back(b2);
+    std::vector<conversion::BitStream> _lhs(1);
+    std::vector<conversion::BitStream> _rhs(1);
 
-    auto res = full_adder(obj.get(), full_adder(obj.get(), lhs, rhs, true), rhs,
-                          true)[0];
+    _lhs[0] = lhs;
+    _rhs[0] = rhs;
 
-    sleep(comm->getRank());
+    auto result = full_adder(obj.get(), _lhs, _rhs, false)[0];
 
-    std::cout << "Player " << comm->getRank() << std::endl;
-    for (auto& r : res) {
-      std::cout << r[0] << " " << r[1] << std::endl;
+    ArrayRef result_share(makeType<spdzwisefield::BShrTy>(PT_U64, 33), 1);
+    auto _result_share = ArrayView<std::array<uint64_t, 2>>(result_share);
+
+    _result_share[0][0] = _result_share[0][1] = 0;
+
+    for (int i = 0; i < 33; i++) {
+      _result_share[0][0] |= (static_cast<uint64_t>(result[i][0]) << i);
+      _result_share[0][1] |= (static_cast<uint64_t>(result[i][1]) << i);
     }
+
+    ArrayRef result_pub = obj->call("b2p", result_share);
+    auto _result_pub = ArrayView<uint64_t>(result_pub)[0];
+
+    SPU_ENFORCE(MersennePrimeField::add(data[0], data[1]) == _result_pub);
   });
 }
 

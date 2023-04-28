@@ -44,6 +44,7 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   obj->addState<PrgState>(lctx);
 
   obj->addState<BeaverState>(lctx);
+  obj->addState<EdabitState>(lctx);
 
   auto* prg_state = obj->getState<PrgState>();
   std::vector<uint64_t> r0(1);
