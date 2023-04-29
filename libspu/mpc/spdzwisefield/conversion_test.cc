@@ -60,8 +60,9 @@ TEST_P(ConversionTest, B2ATest) {
     auto obj = factory(conf, lctx);
     auto* state = obj->getState<EdabitState>();
 
-    auto ret = state->gen_edabits(obj.get(), PT_U64, 100);
-    (void)ret;
+    auto ret = state->gen_edabits(obj.get(), PT_U64, 100000);
+
+    check_edabits(open_edabits(obj.get(), ret.begin(), ret.size()));
   });
 }
 
