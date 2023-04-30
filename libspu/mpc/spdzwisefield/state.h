@@ -223,6 +223,10 @@ std::vector<conversion::BitStream> full_adder(
     Object* ctx, std::vector<conversion::BitStream> lhs,
     std::vector<conversion::BitStream> rhs, bool with_check);
 
+std::vector<conversion::BitStream> twos_complement(
+    Object* ctx, std::vector<conversion::BitStream> bits, size_t nbits,
+    bool with_check = true);
+
 ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
                             const ArrayRef& rhs);
 

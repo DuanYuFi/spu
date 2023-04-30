@@ -45,6 +45,92 @@ static std::vector<T> bitCompose(absl::Span<T const> in, size_t nbits) {
   return out;
 }
 
+ArrayRef A2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  return ArrayRef();
+}
+
+// FIXME: This implementation is not definitely safe. It firstly compute x+r in
+// binary and then open it. However, it reveals the relation between x and x+r,
+// because x and r are both unsigned, and the addition is in integer. The
+// correct way is manage to open x+r in field, but it maybe needs comparison
+// circuit.
+ArrayRef B2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  auto* edabit_state = ctx->getState<EdabitState>();
+  auto* comm = ctx->getState<Communicator>();
+  auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
+
+  auto key = spdzwisefield_state->key();
+
+  (void)comm;
+
+  using Field = SpdzWiseFieldState::Field;
+
+  auto _in = ArrayView<std::array<uint64_t, 2>>(in);
+  std::vector<conversion::BitStream> s(in.numel());
+  std::vector<conversion::BitStream> r(in.numel());
+
+  auto edabits = edabit_state->gen_edabits(ctx->caller(), PT_U64, in.numel());
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    s[idx].resize(61);
+    for (int i = 0; i < 61; i++) {
+      s[idx][i][0] = (_in[idx][0] >> i) & 0x1;
+      s[idx][i][1] = (_in[idx][1] >> i) & 0x1;
+    }
+    std::copy(edabits[idx].bshares.begin(), edabits[idx].bshares.end(),
+              back_inserter(r[idx]));
+  });
+
+  // get vector [s + r]_b
+  auto s_r = full_adder(ctx->caller(), s, r, true);
+
+  // use ArrayRef to store them.
+  ArrayRef bshare_s_r(makeType<BShrTy>(PT_U64, 62), in.numel());
+  auto _bshare_s_r = ArrayView<std::array<uint64_t, 2>>(bshare_s_r);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _bshare_s_r[idx][0] = 0;
+    _bshare_s_r[idx][1] = 0;
+
+    for (int i = 0; i < 62; i++) {
+      _bshare_s_r[idx][0] += static_cast<uint64_t>(s_r[idx][i][0]) << i;
+      _bshare_s_r[idx][1] += static_cast<uint64_t>(s_r[idx][i][1]) << i;
+    }
+  });
+
+  // get share of r and mac_key
+  ArrayRef ashare_r(makeType<aby3::AShrTy>(FM64), in.numel());
+  ArrayRef key_share(makeType<aby3::AShrTy>(FM64), in.numel());
+
+  auto _ashare_r = ArrayView<std::array<uint64_t, 2>>(ashare_r);
+  auto _key_share = ArrayView<std::array<uint64_t, 2>>(key_share);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _ashare_r[idx] = edabits[idx].ashare;
+    _key_share[idx] = key;
+  });
+
+  // get [mac]
+  ArrayRef mac = ctx->caller()->call("mul_aa_sh", ashare_r, key_share);
+  auto _mac = ArrayView<std::array<uint64_t, 2>>(mac);
+
+  // open s + r
+  ArrayRef opened_s_r = ctx->caller()->call("b2p", bshare_s_r);
+  ArrayRef ashare_s = ctx->caller()->call("p2a", opened_s_r);
+
+  // s = (s + r) - r
+  auto _ashare_s = ArrayView<std::array<uint64_t, 4>>(ashare_s);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _ashare_s[idx][0] = Field::sub(_ashare_s[idx][0], edabits[idx].ashare[0]);
+    _ashare_s[idx][1] = Field::sub(_ashare_s[idx][1], edabits[idx].ashare[1]);
+    _ashare_s[idx][2] = Field::sub(_ashare_s[idx][2], _mac[idx][0]);
+    _ashare_s[idx][3] = Field::sub(_ashare_s[idx][3], _mac[idx][1]);
+  });
+
+  return ashare_s;
+}
+
 // Reference:
 // 5.4.1 Semi-honest Security
 // https://eprint.iacr.org/2018/403.pdf

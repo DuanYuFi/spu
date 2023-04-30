@@ -125,4 +125,16 @@ class MulAP : public BinaryKernel {
                 const ArrayRef& rhs) const override;
 };
 
+class MulAASemiHonest : public BinaryKernel {
+ public:
+  static constexpr char kBindName[] = "mul_aa_sh";
+
+  ce::CExpr latency() const override { return ce::Const(1); }
+
+  ce::CExpr comm() const override { return ce::K() * ce::Const(2); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                const ArrayRef& rhs) const override;
+};
+
 }  // namespace spu::mpc::spdzwisefield

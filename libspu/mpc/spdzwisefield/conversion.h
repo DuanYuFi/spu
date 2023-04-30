@@ -20,6 +20,30 @@
 
 namespace spu::mpc::spdzwisefield {
 
+class A2B : public UnaryKernel {
+ public:
+  static constexpr char kBindName[] = "a2b";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  // TODO: this depends on the adder circuit.
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
+};
+
+class B2A : public UnaryKernel {
+ public:
+  static constexpr char kBindName[] = "b2a";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  // TODO: this depends on the adder circuit.
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
+};
+
 // Reference:
 // 5.4.1 Semi-honest Security
 // https://eprint.iacr.org/2018/403.pdf

@@ -78,7 +78,7 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   const PtType btype = in.eltype().as<BShrTy>()->getBacktype();
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
-  return DISPATCH_UINT_PT_TYPES(btype, "aby3.b2p", [&]() {
+  return DISPATCH_UINT_PT_TYPES(btype, "beaver.b2p", [&]() {
     using BShrT = ScalarT;
     return DISPATCH_ALL_FIELDS(field, "_", [&]() {
       using PShrT = ring2k_t;
@@ -88,7 +88,7 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
       auto _in = ArrayView<std::array<BShrT, 2>>(in);
       auto _out = ArrayView<PShrT>(out);
 
-      // using spu::mpc::aby3::getShareAs;
+      // using spu::mpc::beaver::getShareAs;
 
       std::vector<BShrT> x2(in.numel());
 

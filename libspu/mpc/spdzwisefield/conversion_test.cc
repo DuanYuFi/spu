@@ -58,11 +58,74 @@ TEST_P(ConversionTest, B2ATest) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
-    auto* state = obj->getState<EdabitState>();
+    auto* prg_state = obj->getState<PrgState>();
+    auto* comm = obj->getState<Communicator>();
 
-    auto ret = state->gen_edabits(obj.get(), PT_U64, 100000);
+    (void)comm;
 
-    check_edabits(open_edabits(obj.get(), ret.begin(), ret.size()));
+    const size_t test_size = 10000;
+
+    using Field = SpdzWiseFieldState::Field;
+
+    std::vector<uint64_t> randoms(test_size);
+    prg_state->fillPubl(absl::MakeSpan(randoms));
+
+    ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
+    auto _random_array = ArrayView<uint64_t>(random_array);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      _random_array[idx] = Field::modp(randoms[idx]);
+    });
+
+    ArrayRef binary_shares = obj->call("p2b", random_array);
+    ArrayRef a_shares = obj->call("b2a", binary_shares);
+    ArrayRef randoms2 = obj->call("a2p", a_shares);
+    auto _randoms2 = ArrayView<uint64_t>(randoms2);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
+                  "idx = {}, a = {}, b = {}", idx, _random_array[idx],
+                  _randoms2[idx]);
+    });
+  });
+}
+
+TEST_P(ConversionTest, A2BTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+    auto* comm = obj->getState<Communicator>();
+
+    (void)comm;
+
+    const size_t test_size = 10000;
+
+    using Field = SpdzWiseFieldState::Field;
+
+    std::vector<uint64_t> randoms(test_size);
+    prg_state->fillPubl(absl::MakeSpan(randoms));
+
+    ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
+    auto _random_array = ArrayView<uint64_t>(random_array);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      _random_array[idx] = Field::modp(randoms[idx]);
+    });
+
+    ArrayRef binary_shares = obj->call("p2a", random_array);
+    ArrayRef a_shares = obj->call("a2b", binary_shares);
+    ArrayRef randoms2 = obj->call("b2p", a_shares);
+    auto _randoms2 = ArrayView<uint64_t>(randoms2);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
+                  "idx = {}, a = {}, b = {}", idx, _random_array[idx],
+                  _randoms2[idx]);
+    });
   });
 }
 

@@ -66,15 +66,18 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
 
-  for (int64_t idx = 0; idx < in.numel(); idx++) {
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    r0[idx] = Field::modp(r0[idx]);
+    r1[idx] = Field::modp(r1[idx]);
     r0[idx] = Field::sub(r0[idx], r1[idx]);
-  }
+  });
+
   r1 = comm->rotate<U>(r0, "p2a");
 
-  for (int64_t idx = 0; idx < in.numel(); idx++) {
+  pforeach(0, in.numel(), [&](uint64_t idx) {
     _honest_out[idx][0] = Field::add(_honest_out[idx][0], r0[idx]);
     _honest_out[idx][1] = Field::add(_honest_out[idx][1], r1[idx]);
-  }
+  });
 
   ArrayRef out(makeType<AShrTy>(field), in.numel());
   auto _out = ArrayView<std::array<U, 4>>(out);
@@ -92,9 +95,9 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   r1 = comm->rotate<U>(r0, "p2a");  // comm => 1, k
 
   pforeach(0, in.numel(), [&](int64_t idx) {  //
-    _out[idx][0] = _honest_out[idx][0];       //
-    _out[idx][1] = _honest_out[idx][1];       //
-    _out[idx][2] = r0[idx];                   //
+    _out[idx][0] = _honest_out[idx][0];
+    _out[idx][1] = _honest_out[idx][1];
+    _out[idx][2] = r0[idx];
     _out[idx][3] = r1[idx];
   });
 
@@ -344,6 +347,47 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   pforeach(0, lhs.numel(), [&](int64_t idx) {
     _out[idx][2] = r0[lhs.numel() + idx];
     _out[idx][3] = r1[lhs.numel() + idx];
+  });
+
+  return out;
+}
+
+ArrayRef MulAASemiHonest::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
+                               const ArrayRef& rhs) const {
+  SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+
+  auto* comm = ctx->getState<Communicator>();
+  auto* prg_state = ctx->getState<PrgState>();
+
+  using U = uint64_t;
+  using Field = SpdzWiseFieldState::Field;
+
+  std::vector<U> r0(lhs.numel());
+  std::vector<U> r1(lhs.numel());
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+  auto _lhs = ArrayView<std::array<U, 2>>(lhs);
+  auto _rhs = ArrayView<std::array<U, 2>>(rhs);
+
+  // z1 = (x1 * y1) + (x1 * y2) + (x2 * y1) + (r0 - r1);
+  pforeach(0, lhs.numel(), [&](int64_t idx) {
+    r0[idx] = Field::modp(r0[idx]);
+    r1[idx] = Field::modp(r1[idx]);
+
+    r0[idx] = Field::add(Field::mul(_lhs[idx][0], _rhs[idx][0]),
+                         Field::mul(_lhs[idx][0], _rhs[idx][1]),
+                         Field::mul(_lhs[idx][1], _rhs[idx][0]),
+                         Field::sub(r0[idx], r1[idx]));
+  });
+
+  r1 = comm->rotate<U>(r0, "mulaa.sh");  // comm => 1, k
+
+  ArrayRef out(makeType<aby3::AShrTy>(FM64), lhs.numel());
+  auto _out = ArrayView<std::array<U, 2>>(out);
+
+  pforeach(0, lhs.numel(), [&](int64_t idx) {
+    _out[idx][0] = r0[idx];
+    _out[idx][1] = r1[idx];
   });
 
   return out;

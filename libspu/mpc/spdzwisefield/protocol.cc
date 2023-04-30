@@ -68,18 +68,19 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   // register arithmetic & binary kernels
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
+  obj->regKernel<spdzwisefield::B2P>();
+  obj->regKernel<spdzwisefield::P2B>();
   obj->regKernel<spdzwisefield::P2ASH>();
   obj->regKernel<spdzwisefield::A2PSH>();
+  obj->regKernel<spdzwisefield::AddAP>();
+  obj->regKernel<spdzwisefield::AddAA>();
+  obj->regKernel<spdzwisefield::MulAP>();
+  obj->regKernel<spdzwisefield::MulAA>();
+  obj->regKernel<spdzwisefield::MulAASemiHonest>();
 
   obj->regKernel<spdzwisefield::CommonTypeB>();
   obj->regKernel<spdzwisefield::CastTypeB>();
-  obj->regKernel<spdzwisefield::B2P>();
-  obj->regKernel<spdzwisefield::P2B>();
-  obj->regKernel<common::AddBB>();
-  // obj->regKernel<spdzwisefield::A2B>();
-  // obj->regKernel<spdzwisefield::B2ASelector>();
-  // obj->regKernel<aby3::B2AByOT>();
-  // obj->regKernel<spdzwisefield::B2AByPPA>();
+
   obj->regKernel<spdzwisefield::AndBP>();
   obj->regKernel<spdzwisefield::AndBB>();
   obj->regKernel<spdzwisefield::XorBP>();
@@ -90,6 +91,9 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   obj->regKernel<spdzwisefield::BitrevB>();
   obj->regKernel<spdzwisefield::BitIntlB>();
   obj->regKernel<spdzwisefield::BitDeintlB>();
+
+  obj->regKernel<spdzwisefield::A2B>();
+  obj->regKernel<spdzwisefield::B2A>();
 
   obj->regKernel<spdzwisefield::BitInject>();
 

@@ -720,6 +720,31 @@ std::vector<conversion::BitStream> full_adder(
   return result;
 }
 
+std::vector<conversion::BitStream> twos_complement(
+    Object* ctx, std::vector<conversion::BitStream> bits, size_t nbits,
+    bool with_check) {
+  auto* comm = ctx->getState<Communicator>();
+  (void)comm;
+
+  pforeach(0, bits.size(), [&](uint64_t idx) {
+    bits[idx].resize(nbits);
+    for (auto& bit : bits[idx]) {
+      bit[0] = !bit[0];
+      bit[1] = !bit[1];
+    }
+  });
+
+  std::vector<conversion::BitStream> one(bits.size());
+  pforeach(0, bits.size(), [&](uint64_t idx) {
+    one[idx].resize(1);
+    one[idx][0] = {true, true};
+  });
+
+  auto result = full_adder(ctx, bits, one, with_check);
+
+  return result;
+}
+
 std::vector<bool> open_bits(Object* ctx, const conversion::BitStream& bts) {
   auto* comm = ctx->getState<Communicator>();
   (void)comm;
