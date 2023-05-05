@@ -45,8 +45,84 @@ static std::vector<T> bitCompose(absl::Span<T const> in, size_t nbits) {
   return out;
 }
 
+template <typename T>
+static std::vector<T> open_semi_honest(Object* ctx,
+                                       std::vector<std::array<T, 2>> in) {
+  auto* comm = ctx->getState<Communicator>();
+  using Field = SpdzWiseFieldState::Field;
+
+  std::vector<T> buf(in.size());
+  pforeach(0, in.size(), [&](int64_t idx) { buf[idx] = in[idx][1]; });
+
+  std::vector<T> result = comm->rotate<T>(buf, "open_semi_honest");
+
+  pforeach(0, in.size(), [&](int64_t idx) {
+    result[idx] = Field::add(result[idx], in[idx][0], in[idx][1]);
+  });
+
+  return result;
+}
+
 ArrayRef A2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
-  return ArrayRef();
+  auto* edabit_state = ctx->getState<EdabitState>();
+  auto* comm = ctx->getState<Communicator>();
+
+  using Field = SpdzWiseFieldState::Field;
+
+  auto _in = ArrayView<std::array<uint64_t, 4>>(in);
+  auto edabits = edabit_state->gen_edabits(ctx->caller(), PT_U64, in.numel());
+
+  std::vector<uint64_t> s_plus_r(in.numel());
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    s_plus_r[idx] = Field::add(_in[idx][1], edabits[idx].ashare[1]);
+  });
+
+  auto receive = comm->rotate<uint64_t>(s_plus_r, "A2B.open");
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    s_plus_r[idx] = Field::add(s_plus_r[idx], receive[idx], _in[idx][0],
+                               edabits[idx].ashare[0]);
+  });
+
+  ArrayRef binary_public(makeType<Pub2kTy>(FM64), in.numel());
+  auto _binary_public = ArrayView<uint64_t>(binary_public);
+
+  pforeach(0, in.numel(),
+           [&](uint64_t idx) { _binary_public[idx] = s_plus_r[idx]; });
+
+  ArrayRef binary_share = ctx->caller()->call("p2b", binary_public);
+  auto _binary_share = ArrayView<std::array<uint64_t, 2>>(binary_share);
+
+  std::vector<conversion::BitStream> s(in.numel());
+  std::vector<conversion::BitStream> r(in.numel());
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    s[idx].resize(61);
+    for (int i = 0; i < 61; i++) {
+      s[idx][i][0] = (_binary_share[idx][0] >> i) & 0x1;
+      s[idx][i][1] = (_binary_share[idx][1] >> i) & 0x1;
+    }
+    std::copy(edabits[idx].bshares.begin(), edabits[idx].bshares.end(),
+              back_inserter(r[idx]));
+  });
+
+  auto neg_r = twos_complement(ctx->caller(), r, 61);
+  auto s_binary = full_adder(ctx->caller(), s, neg_r, true);
+
+  ArrayRef out(makeType<BShrTy>(PT_U64, 61), in.numel());
+  auto _out = ArrayView<std::array<uint64_t, 2>>(out);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _out[idx][0] = 0;
+    _out[idx][1] = 0;
+    for (int i = 0; i < 61; i++) {
+      _out[idx][0] |= static_cast<uint64_t>(s_binary[idx][i][0]) << i;
+      _out[idx][1] |= static_cast<uint64_t>(s_binary[idx][i][1]) << i;
+    }
+  });
+
+  return out;
 }
 
 // FIXME: This implementation is not definitely safe. It firstly compute x+r in

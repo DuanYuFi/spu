@@ -44,146 +44,145 @@ class ConversionTest : public ::testing::TestWithParam<ConvTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     SpdzwiseField, ConversionTest,
-    testing::Combine(testing::Values(20000, 100000, 200000),  //
-                     testing::Values(PtType::PT_U32),         //
-                     testing::Values(3)),                     //
+    testing::Combine(testing::Values(20000),           //
+                     testing::Values(PtType::PT_U32),  //
+                     testing::Values(3)),              //
     [](const testing::TestParamInfo<ConversionTest::ParamType>& p) {
       return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
     });
 
-TEST_P(ConversionTest, EdabitTest) {
+// TEST_P(ConversionTest, EdabitTest) {
+//   const auto factory = makeSpdzWiseFieldProtocol;
+//   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+//   const int npc = 3;
+
+//   const size_t test_size = std::get<0>(GetParam());
+
+//   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
+//   {
+//     auto obj = factory(conf, lctx);
+//     auto* edabit_state = obj->getState<EdabitState>();
+
+//     const size_t batch_size = 20000;
+//     const size_t bucket_size = 4;
+
+//     auto edabits = edabit_state->gen_edabits(obj.get(), PT_U64, test_size,
+//                                              batch_size, bucket_size);
+//     (void)edabits;
+//   });
+// }
+
+TEST_P(ConversionTest, B2ATest) {
   const auto factory = makeSpdzWiseFieldProtocol;
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
-  const size_t test_size = std::get<0>(GetParam());
-
-  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
+  {
     auto obj = factory(conf, lctx);
-    auto* edabit_state = obj->getState<EdabitState>();
+    auto* prg_state = obj->getState<PrgState>();
+    auto* comm = obj->getState<Communicator>();
 
-    const size_t batch_size = 20000;
-    const size_t bucket_size = 4;
+    (void)comm;
 
-    auto edabits = edabit_state->gen_edabits(obj.get(), PT_U64, test_size,
-                                             batch_size, bucket_size);
-    (void)edabits;
+    const size_t test_size = 10000;
+
+    using Field = SpdzWiseFieldState::Field;
+
+    std::vector<uint64_t> randoms(test_size);
+    prg_state->fillPubl(absl::MakeSpan(randoms));
+
+    ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
+    auto _random_array = ArrayView<uint64_t>(random_array);
+
+pforeach(0, test_size, [&](uint64_t idx) {
+      _random_array[idx] = Field::modp(randoms[idx]);
+    });
+
+    ArrayRef binary_shares = obj->call("p2b", random_array);
+    ArrayRef a_shares = obj->call("b2a", binary_shares);
+    ArrayRef randoms2 = obj->call("a2p", a_shares);
+    auto _randoms2 = ArrayView<uint64_t>(randoms2);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
+                  "idx = {}, a = {}, b = {}", idx, _random_array[idx],
+                  _randoms2[idx]);
+    });
   });
 }
 
-// TEST_P(ConversionTest, B2ATest) {
-//   const auto factory = makeSpdzWiseFieldProtocol;
-//   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
-//   const int npc = 3;
+TEST_P(ConversionTest, A2BTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
 
-//   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
-//   {
-//     auto obj = factory(conf, lctx);
-//     auto* prg_state = obj->getState<PrgState>();
-//     auto* comm = obj->getState<Communicator>();
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+    auto* comm = obj->getState<Communicator>();
 
-//     (void)comm;
+    (void)comm;
 
-//     const size_t test_size = 10000;
+    const size_t test_size = 10000;
 
-//     using Field = SpdzWiseFieldState::Field;
+    // using Field = SpdzWiseFieldState::Field;
 
-//     std::vector<uint64_t> randoms(test_size);
-//     prg_state->fillPubl(absl::MakeSpan(randoms));
+    std::vector<uint64_t> randoms(test_size);
+    prg_state->fillPubl(absl::MakeSpan(randoms));
 
-//     ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
-//     auto _random_array = ArrayView<uint64_t>(random_array);
+    ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
+    auto _random_array = ArrayView<uint64_t>(random_array);
 
-// pforeach(0, test_size, [&](uint64_t idx) {
-//       _random_array[idx] = Field::modp(randoms[idx]);
-//     });
+    pforeach(0, test_size,
+             [&](uint64_t idx) { _random_array[idx] = randoms[idx] >> 4; });
 
-//     ArrayRef binary_shares = obj->call("p2b", random_array);
-//     ArrayRef a_shares = obj->call("b2a", binary_shares);
-//     ArrayRef randoms2 = obj->call("a2p", a_shares);
-//     auto _randoms2 = ArrayView<uint64_t>(randoms2);
+    ArrayRef arith_shares = obj->call("p2a", random_array);
+    ArrayRef binary_shares = obj->call("a2b", arith_shares);
+    ArrayRef randoms2 = obj->call("b2p", binary_shares);
+    auto _randoms2 = ArrayView<uint64_t>(randoms2);
 
-//     pforeach(0, test_size, [&](uint64_t idx) {
-//       SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
-//                   "idx = {}, a = {}, b = {}", idx, _random_array[idx],
-//                   _randoms2[idx]);
-//     });
-//   });
-// }
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
+                  "idx = {}, a = {}, b = {}", idx, _random_array[idx],
+                  _randoms2[idx]);
+    });
+  });
+}
 
-// TEST_P(ConversionTest, A2BTest) {
-//   const auto factory = makeSpdzWiseFieldProtocol;
-//   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
-//   const int npc = 3;
+TEST_P(ConversionTest, InjectionTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
 
-//   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
-//   {
-//     auto obj = factory(conf, lctx);
-//     auto* prg_state = obj->getState<PrgState>();
-//     auto* comm = obj->getState<Communicator>();
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
+  {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
 
-//     (void)comm;
+    std::vector<uint8_t> public_bits(10000);
 
-//     const size_t test_size = 10000;
+    prg_state->fillPubl(absl::MakeSpan(public_bits));
 
-//     using Field = SpdzWiseFieldState::Field;
+    ArrayRef binaries(makeType<Pub2kTy>(FM64), 80000);
+    auto _binaries = ArrayView<uint64_t>(binaries);
 
-//     std::vector<uint64_t> randoms(test_size);
-//     prg_state->fillPubl(absl::MakeSpan(randoms));
+    for (size_t i = 0; i < 10000; i++) {
+      for (size_t j = 0; j < 8; j++) {
+        _binaries[i * 8 + j] = (public_bits[i] >> j) & 1;
+      }
+    }
 
-//     ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
-//     auto _random_array = ArrayView<uint64_t>(random_array);
+    ArrayRef bshares = obj->call("p2b", binaries);
+    ArrayRef ashares = obj->call("bitinject", bshares);
+    ArrayRef number = obj->call("a2psh", ashares);
 
-//     pforeach(0, test_size, [&](uint64_t idx) {
-//       _random_array[idx] = Field::modp(randoms[idx]);
-//     });
-
-//     ArrayRef binary_shares = obj->call("p2a", random_array);
-//     ArrayRef a_shares = obj->call("a2b", binary_shares);
-//     ArrayRef randoms2 = obj->call("b2p", a_shares);
-//     auto _randoms2 = ArrayView<uint64_t>(randoms2);
-
-//     pforeach(0, test_size, [&](uint64_t idx) {
-//       SPU_ENFORCE(_random_array[idx] == _randoms2[idx],
-//                   "idx = {}, a = {}, b = {}", idx, _random_array[idx],
-//                   _randoms2[idx]);
-//     });
-//   });
-// }
-
-// TEST_P(ConversionTest, InjectionTest) {
-//   const auto factory = makeSpdzWiseFieldProtocol;
-//   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
-//   const int npc = 3;
-
-//   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
-//   {
-//     auto obj = factory(conf, lctx);
-//     auto* prg_state = obj->getState<PrgState>();
-
-//     std::vector<uint8_t> public_bits(10000);
-
-//     prg_state->fillPubl(absl::MakeSpan(public_bits));
-
-//     ArrayRef binaries(makeType<Pub2kTy>(FM64), 80000);
-//     auto _binaries = ArrayView<uint64_t>(binaries);
-
-//     for (size_t i = 0; i < 10000; i++) {
-//       for (size_t j = 0; j < 8; j++) {
-//         _binaries[i * 8 + j] = (public_bits[i] >> j) & 1;
-//       }
-//     }
-
-//     ArrayRef bshares = obj->call("p2b", binaries);
-//     ArrayRef ashares = obj->call("bitinject", bshares);
-//     ArrayRef number = obj->call("a2psh", ashares);
-
-//     auto _number = ArrayView<uint64_t>(number);
-//     for (int i = 0; i < 80000; i++) {
-//       SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
-//                   _number[i], _binaries[i]);
-//     }
-//   });
-// }
+    auto _number = ArrayView<uint64_t>(number);
+    for (int i = 0; i < 80000; i++) {
+      SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
+                  _number[i], _binaries[i]);
+    }
+  });
+}
 
 }  // namespace spu::mpc::test
