@@ -264,6 +264,192 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
 
 /*
 
+    ================================== TruncA ==================================
+
+*/
+
+std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
+    Object* ctx, size_t size, size_t nbits) {
+  auto* comm = ctx->getState<Communicator>();
+  auto* prg_state = ctx->getState<PrgState>();
+
+  std::vector<uint64_t> r_0(size);
+  std::vector<uint64_t> r_1(size);
+
+  std::vector<uint64_t> rprime_0(size);
+  std::vector<uint64_t> rprime_1(size);
+
+  prg_state->fillPrssPair(absl::MakeSpan(rprime_0), absl::MakeSpan(rprime_1));
+
+  std::vector<uint64_t> r2prime_0(size);
+  std::vector<uint64_t> r2prime_1(size);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r2prime_0), absl::MakeSpan(r2prime_1));
+
+  std::vector<uint64_t> r3prime_0(size);
+  std::vector<uint64_t> r3prime_1(size);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r3prime_0), absl::MakeSpan(r3prime_1));
+
+  std::vector<uint64_t> r2_0(size);
+  std::vector<uint64_t> r2_1(size);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r2_0), absl::MakeSpan(r2_1));
+
+  std::vector<uint64_t> r3_0(size);
+  std::vector<uint64_t> r3_1(size);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r3_0), absl::MakeSpan(r3_1));
+
+  std::vector<conversion::BitStream> rprime(size);
+  std::vector<conversion::BitStream> r2prime(size);
+  std::vector<conversion::BitStream> r3prime(size);
+
+  std::vector<conversion::BitStream> r(size);
+  std::vector<conversion::BitStream> r2(size);
+  std::vector<conversion::BitStream> r3(size);
+
+  pforeach(0, size, [&](uint64_t idx) {
+    r2_0[idx] >>= (nbits + 2);
+    r2_1[idx] >>= (nbits + 2);
+    r3_0[idx] >>= (nbits + 2);
+    r3_1[idx] >>= (nbits + 2);
+
+    rprime_0[idx] >>= 3;
+    rprime_1[idx] >>= 3;
+
+    r2prime_0[idx] >>= 5;
+    r2prime_1[idx] >>= 5;
+
+    r3prime_0[idx] >>= 5;
+    r3prime_1[idx] >>= 5;
+
+    r_0[idx] = rprime_0[idx] >> nbits;
+    r_1[idx] = rprime_1[idx] >> nbits;
+
+    for (uint64_t i = 0; i < 61; i++) {
+      rprime[idx][i][0] = (rprime_0[idx] >> i) & 1;
+      rprime[idx][i][1] = (rprime_1[idx] >> i) & 1;
+
+      r2prime[idx][i][0] = (r2prime_0[idx] >> i) & 1;
+      r2prime[idx][i][1] = (r2prime_1[idx] >> i) & 1;
+
+      r3prime[idx][i][0] = (r3prime_0[idx] >> i) & 1;
+      r3prime[idx][i][1] = (r3prime_1[idx] >> i) & 1;
+    }
+
+    for (uint64_t i = 0; i < 61 - nbits; i++) {
+      r[idx][i][0] = (r_0[idx] >> i) & 1;
+      r[idx][i][1] = (r_1[idx] >> i) & 1;
+
+      r2[idx][i][0] = (r2_0[idx] >> i) & 1;
+      r2[idx][i][1] = (r2_1[idx] >> i) & 1;
+
+      r3[idx][i][0] = (r3_0[idx] >> i) & 1;
+      r3[idx][i][1] = (r3_1[idx] >> i) & 1;
+    }
+  });
+
+  auto tmp =
+      full_adder(ctx, rprime, twos_complement(ctx, r2prime, 61), true, true);
+  auto _r1prime =
+      full_adder(ctx, tmp, twos_complement(ctx, r3prime, 61), true, true);
+
+  tmp = full_adder(ctx, r, twos_complement(ctx, r2, 61 - nbits), true, true);
+  auto _r1 =
+      full_adder(ctx, tmp, twos_complement(ctx, r3, 61 - nbits), true, true);
+
+  std::vector<uint64_t> r1_0(size);
+  std::vector<uint64_t> r1_1(size);
+
+  std::vector<uint64_t> r1prime_0(size);
+  std::vector<uint64_t> r1prime_1(size);
+
+  pforeach(0, size, [&](uint64_t idx) {
+    for (uint64_t i = 0; i < 61; i++) {
+      r1prime_0[idx] |= _r1prime[idx][i][0] << i;
+      r1prime_1[idx] |= _r1prime[idx][i][1] << i;
+    }
+    for (uint64_t i = 0; i < 61 - nbits; i++) {
+      r1_0[idx] |= _r1[idx][i][0] << i;
+      r1_1[idx] |= _r1[idx][i][1] << i;
+    }
+  });
+
+  std::vector<spdzwisefield::TruncPair> out(size);
+
+  switch (comm->getRank()) {
+    case 0: {
+      comm->sendAsync<uint64_t>(2, r3_1, "open r3");
+      comm->sendAsync<uint64_t>(2, r3prime_1, "open r3prime");
+      comm->sendAsync<uint64_t>(2, r1_1, "open r1");
+      comm->sendAsync<uint64_t>(2, r1prime_1, "open r1prime");
+
+      auto recv_r2 = comm->recv<uint64_t>(1, "open r2");
+      auto recv_r2prime = comm->recv<uint64_t>(1, "open r2prime");
+      auto recv_r1 = comm->recv<uint64_t>(1, "open r1");
+      auto recv_r1prime = comm->recv<uint64_t>(1, "open r1prime");
+
+      pforeach(0, size, [&](uint64_t idx) {
+        out[idx][0][0] = r1_0[idx] ^ r1_1[idx] ^ recv_r1[idx];
+        out[idx][0][1] = r2_0[idx] ^ r2_1[idx] ^ recv_r2[idx];
+        out[idx][1][0] = r1prime_0[idx] ^ r1prime_1[idx] ^ recv_r1prime[idx];
+        out[idx][1][1] = r2prime_0[idx] ^ r2prime_1[idx] ^ recv_r2prime[idx];
+      });
+
+      break;
+    }
+    case 1: {
+      comm->sendAsync<uint64_t>(0, r2_1, "open r3");
+      comm->sendAsync<uint64_t>(0, r2prime_1, "open r3prime");
+      comm->sendAsync<uint64_t>(0, r1_1, "open r1");
+      comm->sendAsync<uint64_t>(0, r1prime_1, "open r1prime");
+
+      auto recv_r2 = comm->recv<uint64_t>(2, "open r2");
+      auto recv_r2prime = comm->recv<uint64_t>(2, "open r2prime");
+      auto recv_r3 = comm->recv<uint64_t>(2, "open r3");
+      auto recv_r3prime = comm->recv<uint64_t>(2, "open r3prime");
+
+      pforeach(0, size, [&](uint64_t idx) {
+        out[idx][0][0] = r2_0[idx] ^ r2_1[idx] ^ recv_r2[idx];
+        out[idx][0][1] = r3_0[idx] ^ r3_1[idx] ^ recv_r3[idx];
+        out[idx][1][0] = r2prime_0[idx] ^ r2prime_1[idx] ^ recv_r2prime[idx];
+        out[idx][1][1] = r3prime_0[idx] ^ r3prime_1[idx] ^ recv_r3prime[idx];
+      });
+
+      break;
+    }
+    case 2: {
+      comm->sendAsync<uint64_t>(1, r2_1, "open r3");
+      comm->sendAsync<uint64_t>(1, r2prime_1, "open r3prime");
+      comm->sendAsync<uint64_t>(1, r3_1, "open r1");
+      comm->sendAsync<uint64_t>(1, r3prime_1, "open r1prime");
+
+      auto recv_r3 = comm->recv<uint64_t>(0, "open r3");
+      auto recv_r3prime = comm->recv<uint64_t>(0, "open r3prime");
+      auto recv_r1 = comm->recv<uint64_t>(0, "open r1");
+      auto recv_r1prime = comm->recv<uint64_t>(0, "open r1prime");
+
+      pforeach(0, size, [&](uint64_t idx) {
+        out[idx][0][0] = r3_0[idx] ^ r3_1[idx] ^ recv_r3[idx];
+        out[idx][0][1] = r1_0[idx] ^ r1_1[idx] ^ recv_r1[idx];
+        out[idx][1][0] = r3prime_0[idx] ^ r3prime_1[idx] ^ recv_r3prime[idx];
+        out[idx][1][1] = r1prime_0[idx] ^ r1prime_1[idx] ^ recv_r1prime[idx];
+      });
+
+      break;
+    }
+
+    default: {
+      SPU_ENFORCE(false, "Invalid rank");
+    }
+  }
+
+  return out;
+}
+
+/*
+
     ================================== Edabit ==================================
 
 */
@@ -624,7 +810,7 @@ ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
 
 std::vector<conversion::BitStream> full_adder(
     Object* ctx, std::vector<conversion::BitStream> lhs,
-    std::vector<conversion::BitStream> rhs, bool with_check) {
+    std::vector<conversion::BitStream> rhs, bool with_check, bool drop) {
   SPU_ENFORCE(lhs.size() == rhs.size(), "lhs and rhs must have same size");
 
   auto* comm = ctx->getState<Communicator>();
@@ -645,7 +831,8 @@ std::vector<conversion::BitStream> full_adder(
   std::vector<std::array<bool, 2>> c(lhs.size(), {false, false});
   std::vector<conversion::BitStream> result(lhs.size());
 
-  pforeach(0, lhs.size(), [&](uint64_t idx) { result[idx].resize(nbits + 1); });
+  pforeach(0, lhs.size(),
+           [&](uint64_t idx) { result[idx].resize(drop ? nbits : nbits + 1); });
 
   for (uint64_t i = 0; i < nbits; i++) {
     ArrayRef inner_lhs(makeType<spdzwisefield::BShrTy>(PT_U64, 64), size);
@@ -712,10 +899,12 @@ std::vector<conversion::BitStream> full_adder(
     });
   }
 
-  pforeach(0, lhs.size(), [&](uint64_t idx) {
-    result[idx][nbits][0] = c[idx][0];
-    result[idx][nbits][1] = c[idx][1];
-  });
+  if (!drop) {
+    pforeach(0, lhs.size(), [&](uint64_t idx) {
+      result[idx][nbits][0] = c[idx][0];
+      result[idx][nbits][1] = c[idx][1];
+    });
+  }
 
   return result;
 }
@@ -740,7 +929,7 @@ std::vector<conversion::BitStream> twos_complement(
     one[idx][0] = {true, true};
   });
 
-  auto result = full_adder(ctx, bits, one, with_check);
+  auto result = full_adder(ctx, bits, one, with_check, true);
 
   return result;
 }

@@ -33,20 +33,20 @@ RuntimeConfig makeConfig(FieldType field) {
 }  // namespace
 
 using CACOpTestParams = std::tuple<int, PtType, size_t>;
-class CutAndChooseTest : public ::testing::TestWithParam<CACOpTestParams> {};
+class StateTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
-    Beaver, CutAndChooseTest,
-    testing::Combine(testing::Values(1),                //
+    Beaver, StateTest,
+    testing::Combine(testing::Values(1000),             //
                      testing::Values(PtType::PT_U32,    //
                                      PtType::PT_U64,    //
                                      PtType::PT_U128),  //
                      testing::Values(3)),               //
-    [](const testing::TestParamInfo<CutAndChooseTest::ParamType>& p) {
+    [](const testing::TestParamInfo<StateTest::ParamType>& p) {
       return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
     });
 
-TEST_P(CutAndChooseTest, BinaryCAC) {
+TEST_P(StateTest, BinaryCAC) {
   using spu::mpc::beaver::BinaryTriple;
   using spu::mpc::beaver::BTDataType;
 
@@ -101,6 +101,21 @@ TEST_P(CutAndChooseTest, BinaryCAC) {
         EXPECT_EQ(a & b, c);
       }
     });
+  });
+}
+
+TEST_P(StateTest, TruncPairTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  const int test_size = std::get<0>(GetParam());
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto ctx = factory(conf, lctx);
+    auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
+
+    auto pairs = spdzwisefield_state->gen_trunc_pairs(ctx.get(), test_size, 20);
   });
 }
 

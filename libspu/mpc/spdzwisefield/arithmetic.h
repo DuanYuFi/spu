@@ -137,4 +137,33 @@ class MulAASemiHonest : public BinaryKernel {
                 const ArrayRef& rhs) const override;
 };
 
+class LShiftA : public ShiftKernel {
+ public:
+  static constexpr char kBindName[] = "lshift_a";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in,
+                size_t bits) const override;
+};
+class TruncA : public TruncAKernel {
+ public:
+  static constexpr char kBindName[] = "trunc_a";
+
+  ce::CExpr latency() const override { return ce::Const(1); }
+
+  ce::CExpr comm() const override { return ce::K(); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in,
+                size_t bits) const override;
+
+  bool hasMsbError() const override { return true; }
+
+  TruncLsbRounding lsbRounding() const override {
+    return TruncLsbRounding::Random;
+  }
+};
+
 }  // namespace spu::mpc::spdzwisefield

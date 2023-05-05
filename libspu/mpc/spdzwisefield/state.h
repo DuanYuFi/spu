@@ -94,6 +94,8 @@ namespace spdzwisefield {
 using StorageType = uint64_t;
 using Share = std::array<StorageType, 2>;
 
+using TruncPair = std::array<Share, 2>;
+
 }  // namespace spdzwisefield
 
 class SpdzWiseFieldState : public State {
@@ -135,6 +137,10 @@ class SpdzWiseFieldState : public State {
   FieldType field() const { return field_; }
 
   std::vector<ArrayRef>* stored_triples() { return stored_triples_.get(); }
+
+  std::vector<spdzwisefield::TruncPair> gen_trunc_pairs(Object* ctx,
+                                                        size_t size,
+                                                        size_t nbits);
 };
 
 /*
@@ -221,7 +227,7 @@ std::vector<conversion::PubEdabit> open_edabits(
 
 std::vector<conversion::BitStream> full_adder(
     Object* ctx, std::vector<conversion::BitStream> lhs,
-    std::vector<conversion::BitStream> rhs, bool with_check);
+    std::vector<conversion::BitStream> rhs, bool with_check, bool drop = false);
 
 std::vector<conversion::BitStream> twos_complement(
     Object* ctx, std::vector<conversion::BitStream> bits, size_t nbits,

@@ -393,4 +393,26 @@ ArrayRef MulAASemiHonest::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   return out;
 }
 
+ArrayRef LShiftA::proc(KernelEvalContext* ctx, const ArrayRef& in,
+                       size_t bits) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, bits);
+
+  ArrayRef mul_p(makeType<Pub2kTy>(FM64), in.numel());
+  auto _mul_p = ArrayView<uint64_t>(mul_p);
+
+  using Field = SpdzWiseFieldState::Field;
+
+  pforeach(0, in.numel(),
+           [&](uint64_t idx) { _mul_p[idx] = Field::modp(1 << bits); });
+
+  return ctx->caller()->call("mulap", in, mul_p);
+}
+
+ArrayRef TruncA::proc(KernelEvalContext* ctx, const ArrayRef& in,
+                      size_t bits) const {
+  SPU_TRACE_MPC_LEAF(ctx, in, bits);
+
+  return ArrayRef();
+}
+
 }  // namespace spu::mpc::spdzwisefield
