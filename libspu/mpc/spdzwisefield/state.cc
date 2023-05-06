@@ -310,22 +310,39 @@ std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
   std::vector<conversion::BitStream> r3(size);
 
   pforeach(0, size, [&](uint64_t idx) {
-    r2_0[idx] >>= (nbits + 2);
-    r2_1[idx] >>= (nbits + 2);
-    r3_0[idx] >>= (nbits + 2);
-    r3_1[idx] >>= (nbits + 2);
+    rprime_0[idx] |= (1ULL << 63);
+    rprime_1[idx] |= (1ULL << 63);
+    r2prime_0[idx] |= (1ULL << 63);
+    r2prime_1[idx] |= (1ULL << 63);
+    r3prime_0[idx] |= (1ULL << 63);
+    r3prime_1[idx] |= (1ULL << 63);
+    r2_0[idx] |= (1ULL << 63);
+    r2_1[idx] |= (1ULL << 63);
+    r3_0[idx] |= (1ULL << 63);
+    r3_1[idx] |= (1ULL << 63);
+  });
 
-    rprime_0[idx] >>= 3;
-    rprime_1[idx] >>= 3;
+  pforeach(0, size, [&](uint64_t idx) {
+    r2_0[idx] >>= (nbits + 6);
+    r2_1[idx] >>= (nbits + 6);
+    r3_0[idx] >>= (nbits + 6);
+    r3_1[idx] >>= (nbits + 6);
 
-    r2prime_0[idx] >>= 5;
-    r2prime_1[idx] >>= 5;
+    rprime_0[idx] >>= 4;
+    rprime_1[idx] >>= 4;
 
-    r3prime_0[idx] >>= 5;
-    r3prime_1[idx] >>= 5;
+    r2prime_0[idx] >>= 6;
+    r2prime_1[idx] >>= 6;
+
+    r3prime_0[idx] >>= 6;
+    r3prime_1[idx] >>= 6;
 
     r_0[idx] = rprime_0[idx] >> nbits;
     r_1[idx] = rprime_1[idx] >> nbits;
+
+    rprime[idx].resize(61);
+    r2prime[idx].resize(61);
+    r3prime[idx].resize(61);
 
     for (uint64_t i = 0; i < 61; i++) {
       rprime[idx][i][0] = (rprime_0[idx] >> i) & 1;
@@ -337,6 +354,10 @@ std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
       r3prime[idx][i][0] = (r3prime_0[idx] >> i) & 1;
       r3prime[idx][i][1] = (r3prime_1[idx] >> i) & 1;
     }
+
+    r[idx].resize(61 - nbits);
+    r2[idx].resize(61 - nbits);
+    r3[idx].resize(61 - nbits);
 
     for (uint64_t i = 0; i < 61 - nbits; i++) {
       r[idx][i][0] = (r_0[idx] >> i) & 1;
@@ -355,9 +376,10 @@ std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
   auto _r1prime =
       full_adder(ctx, tmp, twos_complement(ctx, r3prime, 61), true, true);
 
-  tmp = full_adder(ctx, r, twos_complement(ctx, r2, 61 - nbits), true, true);
+  auto tmp2 =
+      full_adder(ctx, r, twos_complement(ctx, r2, 61 - nbits), true, true);
   auto _r1 =
-      full_adder(ctx, tmp, twos_complement(ctx, r3, 61 - nbits), true, true);
+      full_adder(ctx, tmp2, twos_complement(ctx, r3, 61 - nbits), true, true);
 
   std::vector<uint64_t> r1_0(size);
   std::vector<uint64_t> r1_1(size);
@@ -367,12 +389,12 @@ std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
 
   pforeach(0, size, [&](uint64_t idx) {
     for (uint64_t i = 0; i < 61; i++) {
-      r1prime_0[idx] |= _r1prime[idx][i][0] << i;
-      r1prime_1[idx] |= _r1prime[idx][i][1] << i;
+      r1prime_0[idx] |= static_cast<uint64_t>(_r1prime[idx][i][0]) << i;
+      r1prime_1[idx] |= static_cast<uint64_t>(_r1prime[idx][i][1]) << i;
     }
     for (uint64_t i = 0; i < 61 - nbits; i++) {
-      r1_0[idx] |= _r1[idx][i][0] << i;
-      r1_1[idx] |= _r1[idx][i][1] << i;
+      r1_0[idx] |= static_cast<uint64_t>(_r1[idx][i][0]) << i;
+      r1_1[idx] |= static_cast<uint64_t>(_r1[idx][i][1]) << i;
     }
   });
 
@@ -420,10 +442,10 @@ std::vector<spdzwisefield::TruncPair> SpdzWiseFieldState::gen_trunc_pairs(
       break;
     }
     case 2: {
-      comm->sendAsync<uint64_t>(1, r2_1, "open r3");
-      comm->sendAsync<uint64_t>(1, r2prime_1, "open r3prime");
-      comm->sendAsync<uint64_t>(1, r3_1, "open r1");
-      comm->sendAsync<uint64_t>(1, r3prime_1, "open r1prime");
+      comm->sendAsync<uint64_t>(1, r2_1, "open r2");
+      comm->sendAsync<uint64_t>(1, r2prime_1, "open r2prime");
+      comm->sendAsync<uint64_t>(1, r3_1, "open r3");
+      comm->sendAsync<uint64_t>(1, r3prime_1, "open r3prime");
 
       auto recv_r3 = comm->recv<uint64_t>(0, "open r3");
       auto recv_r3prime = comm->recv<uint64_t>(0, "open r3prime");
@@ -992,6 +1014,31 @@ bool check_edabits(const std::vector<conversion::PubEdabit>& edabits) {
   });
 
   return true;
+}
+
+std::vector<std::array<uint64_t, 2>> open_pair(
+    Object* ctx, const std::vector<spdzwisefield::TruncPair>& pairs) {
+  auto* comm = ctx->getState<Communicator>();
+  (void)comm;
+
+  size_t size = pairs.size();
+  std::vector<std::array<uint64_t, 2>> result(size);
+  std::vector<std::array<uint64_t, 2>> shares(size * 2);
+
+  pforeach(0, size, [&](uint64_t idx) {
+    shares[idx * 2][0] = pairs[idx][0][0];
+    shares[idx * 2][1] = pairs[idx][0][1];
+    shares[idx * 2 + 1][0] = pairs[idx][1][0];
+    shares[idx * 2 + 1][1] = pairs[idx][1][1];
+  });
+
+  auto opened = open_semi_honest(ctx, shares);
+  pforeach(0, size, [&](uint64_t idx) {
+    result[idx][0] = opened[idx * 2];
+    result[idx][1] = opened[idx * 2 + 1];
+  });
+
+  return result;
 }
 
 }  // namespace spu::mpc

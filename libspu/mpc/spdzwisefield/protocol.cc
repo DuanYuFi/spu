@@ -77,6 +77,8 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   obj->regKernel<spdzwisefield::MulAP>();
   obj->regKernel<spdzwisefield::MulAA>();
   obj->regKernel<spdzwisefield::MulAASemiHonest>();
+  obj->regKernel<spdzwisefield::LShiftA>();
+  obj->regKernel<spdzwisefield::TruncA>();
 
   obj->regKernel<spdzwisefield::CommonTypeB>();
   obj->regKernel<spdzwisefield::CastTypeB>();

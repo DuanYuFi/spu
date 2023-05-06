@@ -7,6 +7,20 @@
 
 namespace spu::mpc::spdzwisefield {
 
+class RandA : public Kernel {
+ public:
+  static constexpr char kBindName[] = "rand_a";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  void evaluate(KernelEvalContext* ctx) const override {
+    ctx->setOutput(proc(ctx, ctx->getParam<size_t>(0)));
+  }
+
+  static ArrayRef proc(KernelEvalContext* ctx, size_t size);
+};
 class P2A : public UnaryKernel {
  public:
   static constexpr char kBindName[] = "p2a";
@@ -67,6 +81,17 @@ class A2PSH : public UnaryKernel {
   ce::CExpr latency() const override { return ce::Const(1); }
 
   ce::CExpr comm() const override { return ce::K(); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
+};
+
+class NotA : public UnaryKernel {
+ public:
+  static constexpr char kBindName[] = "not_a";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
 
   ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& in) const override;
 };
@@ -135,6 +160,41 @@ class MulAASemiHonest : public BinaryKernel {
 
   ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                 const ArrayRef& rhs) const override;
+};
+
+////////////////////////////////////////////////////////////////////
+// matmul family
+////////////////////////////////////////////////////////////////////
+class MatMulAP : public MatmulKernel {
+ public:
+  static constexpr char kBindName[] = "mmul_ap";
+
+  ce::CExpr latency() const override { return ce::Const(0); }
+
+  ce::CExpr comm() const override { return ce::Const(0); }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& x, const ArrayRef& y,
+                size_t m, size_t n, size_t k) const override;
+};
+
+class MatMulAA : public MatmulKernel {
+ public:
+  static constexpr char kBindName[] = "mmul_aa";
+
+  ce::CExpr latency() const override {
+    // 1 * rotate: 1
+    return ce::Const(1);
+  }
+
+  ce::CExpr comm() const override {
+    // 1 * rotate: k
+    auto m = ce::Variable("m", "rows of lhs");
+    auto n = ce::Variable("n", "cols of rhs");
+    return ce::K() * m * n;
+  }
+
+  ArrayRef proc(KernelEvalContext* ctx, const ArrayRef& x, const ArrayRef& y,
+                size_t m, size_t n, size_t k) const override;
 };
 
 class LShiftA : public ShiftKernel {

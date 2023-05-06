@@ -45,24 +45,6 @@ static std::vector<T> bitCompose(absl::Span<T const> in, size_t nbits) {
   return out;
 }
 
-template <typename T>
-static std::vector<T> open_semi_honest(Object* ctx,
-                                       std::vector<std::array<T, 2>> in) {
-  auto* comm = ctx->getState<Communicator>();
-  using Field = SpdzWiseFieldState::Field;
-
-  std::vector<T> buf(in.size());
-  pforeach(0, in.size(), [&](int64_t idx) { buf[idx] = in[idx][1]; });
-
-  std::vector<T> result = comm->rotate<T>(buf, "open_semi_honest");
-
-  pforeach(0, in.size(), [&](int64_t idx) {
-    result[idx] = Field::add(result[idx], in[idx][0], in[idx][1]);
-  });
-
-  return result;
-}
-
 ArrayRef A2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   auto* edabit_state = ctx->getState<EdabitState>();
   auto* comm = ctx->getState<Communicator>();

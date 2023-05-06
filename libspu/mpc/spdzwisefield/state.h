@@ -239,4 +239,24 @@ ArrayRef semi_honest_and_bb(Object* ctx, const ArrayRef& lhs,
 std::vector<bool> open_bits(Object* ctx, const conversion::BitStream& bts);
 bool check_edabits(const std::vector<conversion::PubEdabit>& edabits);
 
+template <typename T>
+std::vector<T> open_semi_honest(Object* ctx, std::vector<std::array<T, 2>> in) {
+  auto* comm = ctx->getState<Communicator>();
+  using Field = SpdzWiseFieldState::Field;
+
+  std::vector<T> buf(in.size());
+  pforeach(0, in.size(), [&](int64_t idx) { buf[idx] = in[idx][1]; });
+
+  std::vector<T> result = comm->rotate<T>(buf, "open_semi_honest");
+
+  pforeach(0, in.size(), [&](int64_t idx) {
+    result[idx] = Field::add(result[idx], in[idx][0], in[idx][1]);
+  });
+
+  return result;
+}
+
+std::vector<std::array<uint64_t, 2>> open_pair(
+    Object* ctx, const std::vector<spdzwisefield::TruncPair>& pairs);
+
 }  // namespace spu::mpc

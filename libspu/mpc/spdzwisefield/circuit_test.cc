@@ -55,7 +55,7 @@ TEST_P(CircuitTest, FullAdder) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
-    // auto* prg_state = obj->getState<PrgState>();
+    auto* prg_state = obj->getState<PrgState>();
     auto* comm = obj->getState<Communicator>();
 
     (void)comm;
@@ -64,25 +64,23 @@ TEST_P(CircuitTest, FullAdder) {
     const size_t bit_length = 61;
     const uint128_t mod = 1ULL << bit_length;
 
-    const size_t test_times = 3;
+    const size_t test_size = 300;
 
-    std::vector<conversion::BitStream> _lhs(test_times);
-    std::vector<conversion::BitStream> _rhs(test_times);
+    std::vector<conversion::BitStream> _lhs(test_size);
+    std::vector<conversion::BitStream> _rhs(test_size);
 
-    std::vector<T> data(2);
+    std::vector<T> data(2 * test_size);
     // prg_state->fillPubl(absl::MakeSpan(data));
-    data[0] = 1577476313703811090;
-    data[1] = 1839456394423608633;
+    prg_state->fillPubl(absl::MakeSpan(data));
 
-    data[0] %= mod;
-    data[1] %= mod;
+    pforeach(0, test_size * 2, [&](uint64_t idx) { data[idx] %= mod; });
 
-    for (size_t _ = 0; _ < test_times; _++) {
+    for (size_t _ = 0; _ < test_size; _++) {
       ArrayRef array_data(makeType<Pub2kTy>(FM64), 2);
       auto _array_data = ArrayView<T>(array_data);
 
-      _array_data[0] = data[0];
-      _array_data[1] = data[1];
+      _array_data[0] = data[_ * 2];
+      _array_data[1] = data[_ * 2 + 1];
 
       ArrayRef share = obj->call("p2b", array_data);
       auto _share = ArrayView<std::array<T, 2>>(share);
@@ -110,10 +108,10 @@ TEST_P(CircuitTest, FullAdder) {
     auto result = full_adder(obj.get(), _lhs, _rhs, false);
 
     ArrayRef result_share(
-        makeType<spdzwisefield::BShrTy>(PT_U64, bit_length + 1), test_times);
+        makeType<spdzwisefield::BShrTy>(PT_U64, bit_length + 1), test_size);
     auto _result_share = ArrayView<std::array<uint64_t, 2>>(result_share);
 
-    for (size_t _ = 0; _ < test_times; _++) {
+    for (size_t _ = 0; _ < test_size; _++) {
       _result_share[_][0] = _result_share[_][1] = 0;
 
       for (size_t i = 0; i < bit_length + 1; i++) {
@@ -125,10 +123,10 @@ TEST_P(CircuitTest, FullAdder) {
     ArrayRef result_pub = obj->call("b2p", result_share);
     auto _result_pub = ArrayView<uint64_t>(result_pub);
 
-    pforeach(0, test_times, [&](uint64_t idx) {
-      SPU_ENFORCE(data[0] + data[1] == _result_pub[idx],
-                  "{} + {} != {} where idx = {}", data[0], data[1],
-                  _result_pub[idx], idx);
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(data[idx * 2] + data[idx * 2 + 1] == _result_pub[idx],
+                  "{} + {} != {} where idx = {}", data[idx * 2],
+                  data[idx * 2 + 1], _result_pub[idx], idx);
     });
   });
 }
@@ -140,7 +138,7 @@ TEST_P(CircuitTest, TwosComplement) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
-    // auto* prg_state = obj->getState<PrgState>();
+    auto* prg_state = obj->getState<PrgState>();
     auto* comm = obj->getState<Communicator>();
 
     (void)comm;
@@ -149,20 +147,18 @@ TEST_P(CircuitTest, TwosComplement) {
     const size_t bit_length = 61;
     const uint128_t mod = 1ULL << bit_length;
 
-    const size_t test_times = 3;
+    const size_t test_size = 3;
 
-    std::vector<conversion::BitStream> _lhs(test_times);
-    std::vector<conversion::BitStream> _rhs(test_times);
+    std::vector<conversion::BitStream> _lhs(test_size);
+    std::vector<conversion::BitStream> _rhs(test_size);
 
-    std::vector<T> data(2);
+    std::vector<T> data(2 * test_size);
     // prg_state->fillPubl(absl::MakeSpan(data));
-    data[1] = 1839456394423608633;
-    data[0] = 1577476313703811090;
+    prg_state->fillPubl(absl::MakeSpan(data));
 
-    data[0] %= mod;
-    data[1] %= mod;
+    pforeach(0, test_size * 2, [&](uint64_t idx) { data[idx] %= mod; });
 
-    for (size_t _ = 0; _ < test_times; _++) {
+    for (size_t _ = 0; _ < test_size; _++) {
       ArrayRef array_data(makeType<Pub2kTy>(FM64), 2);
       auto _array_data = ArrayView<T>(array_data);
 
@@ -194,21 +190,13 @@ TEST_P(CircuitTest, TwosComplement) {
 
     auto neg_rhs = twos_complement(obj.get(), _rhs, 64);
 
-    auto opened = open_bits(obj.get(), neg_rhs[0]);
-    if (comm->getRank() == 0) {
-      for (auto it = opened.rbegin(); it != opened.rend(); it++) {
-        std::cout << *it;
-      }
-      std::cout << std::endl;
-    }
-
     auto result = full_adder(obj.get(), _lhs, neg_rhs, false);
 
     ArrayRef result_share(
-        makeType<spdzwisefield::BShrTy>(PT_U64, bit_length + 1), test_times);
+        makeType<spdzwisefield::BShrTy>(PT_U64, bit_length + 1), test_size);
     auto _result_share = ArrayView<std::array<uint64_t, 2>>(result_share);
 
-    for (size_t _ = 0; _ < test_times; _++) {
+    for (size_t _ = 0; _ < test_size; _++) {
       _result_share[_][0] = _result_share[_][1] = 0;
 
       for (size_t i = 0; i < 64; i++) {
@@ -220,7 +208,7 @@ TEST_P(CircuitTest, TwosComplement) {
     ArrayRef result_pub = obj->call("b2p", result_share);
     auto _result_pub = ArrayView<uint64_t>(result_pub);
 
-    pforeach(0, test_times, [&](uint64_t idx) {
+    pforeach(0, test_size, [&](uint64_t idx) {
       SPU_ENFORCE(data[0] - data[1] == _result_pub[idx],
                   "{} - {} != {} where idx = {}", data[0], data[1],
                   _result_pub[idx], idx);

@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 
+#include "libspu/mpc/aby3/type.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/spdzwisefield/protocol.h"
 #include "libspu/mpc/utils/ring_ops.h"
@@ -38,9 +39,7 @@ class StateTest : public ::testing::TestWithParam<CACOpTestParams> {};
 INSTANTIATE_TEST_SUITE_P(
     Beaver, StateTest,
     testing::Combine(testing::Values(1000),             //
-                     testing::Values(PtType::PT_U32,    //
-                                     PtType::PT_U64,    //
-                                     PtType::PT_U128),  //
+                     testing::Values(PtType::PT_U128),  //
                      testing::Values(3)),               //
     [](const testing::TestParamInfo<StateTest::ParamType>& p) {
       return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
@@ -113,9 +112,31 @@ TEST_P(StateTest, TruncPairTest) {
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto ctx = factory(conf, lctx);
+
     auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
 
     auto pairs = spdzwisefield_state->gen_trunc_pairs(ctx.get(), test_size, 20);
+
+    ArrayRef r(makeType<aby3::AShrTy>(FM64), test_size);
+    ArrayRef r_prime(makeType<aby3::AShrTy>(FM64), test_size);
+
+    auto _r = ArrayView<std::array<uint64_t, 2>>(r);
+    auto _r_prime = ArrayView<std::array<uint64_t, 2>>(r_prime);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      _r[idx] = pairs[idx][0];
+      _r_prime[idx] = pairs[idx][1];
+    });
+
+    ArrayRef open_r = ctx->call("a2psh", r);
+    ArrayRef open_r_prime = ctx->call("a2psh", r_prime);
+
+    auto _open_r = ArrayView<uint64_t>(open_r);
+    auto _open_r_prime = ArrayView<uint64_t>(open_r_prime);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      SPU_ENFORCE(_open_r[idx] == _open_r_prime[idx] >> 20, "Truncation error");
+    });
   });
 }
 

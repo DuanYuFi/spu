@@ -119,6 +119,7 @@ spu_cc_test(
         ":state",
         ":arithmetic",
         "//libspu/mpc/utils:simulate",
+        "//libspu/mpc/common:ab_api",
         "@com_google_googletest//:gtest",
     ],
 )

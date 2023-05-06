@@ -32,6 +32,8 @@
 #include "libspu/mpc/utils/linalg.h"
 #include "libspu/mpc/utils/ring_ops.h"
 
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
 namespace spu::mpc::spdzwisefield {
 
 ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
@@ -41,7 +43,7 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   auto* sy_ring_state = ctx->getState<SpdzWiseFieldState>();
   auto* prg_state = ctx->getState<PrgState>();
   const auto key = sy_ring_state->key();
-  const auto field = in.eltype().as<Ring2k>()->field();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
   auto rank = comm->getRank();
 
@@ -108,7 +110,7 @@ ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
 
   auto* comm = ctx->getState<Communicator>();
-  const auto field = in.eltype().as<AShrTy>()->field();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
   using ring2k_t = uint64_t;
   using Field = SpdzWiseFieldState::Field;
@@ -215,11 +217,7 @@ ArrayRef AddAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 
   auto* comm = ctx->getState<Communicator>();
   const auto key = ctx->getState<SpdzWiseFieldState>()->key();
-  const auto* lhs_ty = lhs.eltype().as<AShrTy>();
-  const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
-
-  SPU_ENFORCE(lhs_ty->field() == rhs_ty->field());
-  const auto field = lhs_ty->field();
+  FieldType field = ctx->getState<Z2kState>()->getDefaultField();
 
   auto rank = comm->getRank();
 
@@ -237,8 +235,12 @@ ArrayRef AddAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
     _out[idx][1] = _lhs[idx][1];
     _out[idx][2] = Field::add(_lhs[idx][2], Field::mul(key[0], _rhs[idx]));
     _out[idx][3] = Field::add(_lhs[idx][3], Field::mul(key[1], _rhs[idx]));
-    if (rank == 0) _out[idx][1] += _rhs[idx];
-    if (rank == 1) _out[idx][0] += _rhs[idx];
+    if (rank == 0) {
+      _out[idx][1] = Field::add(_out[idx][1], _rhs[idx]);
+    }
+    if (rank == 1) {
+      _out[idx][0] = Field::add(_out[idx][0], _rhs[idx]);
+    }
   });
   return out;
 }
@@ -247,11 +249,7 @@ ArrayRef AddAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
 
-  const auto* lhs_ty = lhs.eltype().as<AShrTy>();
-  const auto* rhs_ty = rhs.eltype().as<AShrTy>();
-
-  SPU_ENFORCE(lhs_ty->field() == rhs_ty->field());
-  const auto field = lhs_ty->field();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
   using U = uint64_t;
   using Field = SpdzWiseFieldState::Field;
@@ -278,11 +276,7 @@ ArrayRef MulAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
 
-  const auto* lhs_ty = lhs.eltype().as<AShrTy>();
-  const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
-
-  SPU_ENFORCE(lhs_ty->field() == rhs_ty->field());
-  const auto field = lhs_ty->field();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
   using U = uint64_t;
   using Field = SpdzWiseFieldState::Field;
@@ -306,7 +300,7 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
 
-  const auto field = lhs.eltype().as<Ring2k>()->field();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
   auto* comm = ctx->getState<Communicator>();
   auto* prg_state = ctx->getState<PrgState>();
 
@@ -412,7 +406,56 @@ ArrayRef TruncA::proc(KernelEvalContext* ctx, const ArrayRef& in,
                       size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
 
-  return ArrayRef();
+  auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
+  using Field = SpdzWiseFieldState::Field;
+
+  auto trunc_pairs =
+      spdzwisefield_state->gen_trunc_pairs(ctx->caller(), in.numel(), bits);
+  auto key = spdzwisefield_state->key();
+
+  auto _in = ArrayView<std::array<uint64_t, 4>>(in);
+
+  std::vector<std::array<uint64_t, 2>> x_r(in.numel());
+
+  auto opened_pairs = open_pair(ctx->caller(), trunc_pairs);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    x_r[idx][0] = Field::add(_in[idx][0], trunc_pairs[idx][1][0]);
+    x_r[idx][1] = Field::add(_in[idx][1], trunc_pairs[idx][1][1]);
+  });
+
+  auto opened = open_semi_honest(ctx->caller(), x_r);
+
+  ArrayRef open_ref(makeType<Pub2kTy>(FM64), in.numel());
+  auto _open_ref = ArrayView<uint64_t>(open_ref);
+
+  ArrayRef r(makeType<aby3::AShrTy>(FM64), in.numel());
+  auto _r = ArrayView<std::array<uint64_t, 2>>(r);
+
+  ArrayRef keys(makeType<aby3::AShrTy>(FM64), in.numel());
+  auto _keys = ArrayView<std::array<uint64_t, 2>>(keys);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _r[idx][0] = Field::neg(trunc_pairs[idx][0][0]);
+    _r[idx][1] = Field::neg(trunc_pairs[idx][0][1]);
+    _keys[idx] = key;
+    _open_ref[idx] = opened[idx] >> bits;
+  });
+
+  ArrayRef auth_r = ctx->caller()->call("mul_aa_sh", r, keys);
+  auto _auth_r = ArrayView<std::array<uint64_t, 2>>(auth_r);
+
+  ArrayRef share_r_prime(makeType<AShrTy>(FM64), in.numel());
+  auto _share_r_prime = ArrayView<std::array<uint64_t, 4>>(share_r_prime);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _share_r_prime[idx][0] = _r[idx][0];
+    _share_r_prime[idx][1] = _r[idx][1];
+    _share_r_prime[idx][2] = _auth_r[idx][0];
+    _share_r_prime[idx][3] = _auth_r[idx][1];
+  });
+
+  return ctx->caller()->call("add_ap", share_r_prime, open_ref);
 }
 
 }  // namespace spu::mpc::spdzwisefield
