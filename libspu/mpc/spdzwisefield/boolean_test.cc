@@ -17,7 +17,10 @@
 #include "gtest/gtest.h"
 
 #include "libspu/mpc/common/communicator.h"
+#include "libspu/mpc/common/prg_state.h"
+#include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/protocol.h"
+#include "libspu/mpc/spdzwisefield/state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
@@ -45,6 +48,43 @@ INSTANTIATE_TEST_SUITE_P(
       return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
     });
 
+TEST_P(BooleanTest, IOTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+
+    const size_t test_size = 1e6;
+
+    // auto* comm = obj->getState<Communicator>();
+    auto* prg_state = obj->getState<PrgState>();
+
+    std::vector<uint64_t> a(test_size);
+
+    prg_state->fillPubl(absl::MakeSpan(a));
+
+    ArrayRef lhs(makeType<Pub2kTy>(FM64), test_size);
+
+    auto _lhs = ArrayView<uint64_t>(lhs);
+
+    pforeach(0, test_size, [&](uint64_t idx) { _lhs[idx] = a[idx]; });
+
+    ArrayRef lhs_share = obj->call("p2b", lhs);
+
+    ArrayRef result = obj->call("b2p", lhs_share);
+    auto _result = ArrayView<uint64_t>(result);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      uint64_t expected = a[idx];
+      uint64_t actual = _result[idx];
+      SPU_ENFORCE(expected == actual, "idx: {}, expected: {}, actual: {}", idx,
+                  expected, actual);
+    });
+  });
+}
+
 TEST_P(BooleanTest, AndTest) {
   const auto factory = makeSpdzWiseFieldProtocol;
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
@@ -53,42 +93,40 @@ TEST_P(BooleanTest, AndTest) {
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
 
-    auto* comm = obj->getState<Communicator>();
+    const size_t test_size = 1e6;
 
-    ArrayRef a(makeType<spu::mpc::spdzwisefield::BShrTy>(PT_U64, 64), 1);
-    ArrayRef b(makeType<spu::mpc::spdzwisefield::BShrTy>(PT_U64, 64), 1);
+    // auto* comm = obj->getState<Communicator>();
+    auto* prg_state = obj->getState<PrgState>();
 
-    auto _a = ArrayView<std::array<uint64_t, 2>>(a);
-    auto _b = ArrayView<std::array<uint64_t, 2>>(b);
+    std::vector<uint64_t> a(test_size);
+    std::vector<uint64_t> b(test_size);
 
-    switch (comm->getRank()) {
-      case 0: {
-        _a[0] = {1701777869756606743ULL, 12882733032270490486ULL};
-        _b[0] = {972803246877995573ULL, 2002847137855454938ULL};
-        break;
-      }
-      case 1: {
-        _a[0] = {12882733032270490486ULL, 14690618097154390971ULL};
-        _b[0] = {2002847137855454938ULL, 2701453227443784868ULL};
-        break;
-      }
-      case 2: {
-        _a[0] = {14690618097154390971ULL, 1701777869756606743ULL};
-        _b[0] = {2701453227443784868ULL, 972803246877995573ULL};
-        break;
-      }
+    prg_state->fillPubl(absl::MakeSpan(a));
+    prg_state->fillPubl(absl::MakeSpan(b));
 
-      default:
-        break;
-    }
+    ArrayRef lhs(makeType<Pub2kTy>(FM64), test_size);
+    ArrayRef rhs(makeType<Pub2kTy>(FM64), test_size);
 
-    ArrayRef res = obj->call("and_bb", a, b);
-    auto _res = ArrayView<std::array<uint64_t, 2>>(res);
+    auto _lhs = ArrayView<uint64_t>(lhs);
+    auto _rhs = ArrayView<uint64_t>(rhs);
 
-    sleep(comm->getRank());
-    std::cout << "rank " << comm->getRank() << std::endl;
-    std::cout << "res[0][0] = " << _res[0][0] << std::endl;
-    std::cout << "res[0][1] = " << _res[0][1] << std::endl;
+    pforeach(0, test_size, [&](uint64_t idx) {
+      _lhs[idx] = a[idx];
+      _rhs[idx] = b[idx];
+    });
+
+    ArrayRef lhs_share = obj->call("p2b", lhs);
+    ArrayRef rhs_share = obj->call("p2b", rhs);
+
+    ArrayRef result = obj->call("and_bb", lhs_share, rhs_share);
+    auto _result = ArrayView<uint64_t>(result);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      uint64_t expected = a[idx] & b[idx];
+      uint64_t actual = _result[idx];
+      SPU_ENFORCE(expected == actual, "idx: {}, expected: {}, actual: {}", idx,
+                  expected, actual);
+    });
   });
 }
 

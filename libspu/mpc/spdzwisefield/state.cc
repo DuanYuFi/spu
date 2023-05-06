@@ -5,6 +5,7 @@
 #include <random>
 
 #include "libspu/core/array_ref.h"
+#include "libspu/mpc/aby3/type.h"
 #include "libspu/mpc/common/communicator.h"
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/spdzwisefield/type.h"
@@ -53,6 +54,13 @@ ArrayRef BeaverState::gen_bin_triples(Object* ctx, PtType out_type, size_t size,
     prg->fillPrssPair(absl::MakeSpan(b[0]), absl::MakeSpan(b[1]));
 
     pforeach(0, num_per_batch * num_batches, [&](int64_t idx) {
+      // r0[idx] = Field::modp(r0[idx]);
+      // r1[idx] = Field::modp(r1[idx]);
+      // a[0][idx] = Field::modp(a[0][idx]);
+      // a[1][idx] = Field::modp(a[1][idx]);
+      // b[0][idx] = Field::modp(b[0][idx]);
+      // b[1][idx] = Field::modp(b[1][idx]);
+
       r0[idx] = (a[0][idx] & b[0][idx]) ^  //
                 (a[0][idx] & b[1][idx]) ^  //
                 (a[1][idx] & b[0][idx]) ^  //
@@ -260,6 +268,85 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
            [&](uint64_t idx) { res[idx] = data[idx * bucket_size]; });
 
   return res;
+}
+
+/*
+
+    ================================== Verif. ==================================
+
+*/
+
+void SpdzWiseFieldState::verification(Object* ctx, bool final) {
+  while (stored_data_->size() >= verif_batch_size) {
+    verif_batch(ctx);
+  }
+
+  if (final) {
+    verif_batch(ctx, stored_data_->size());
+  }
+}
+
+void SpdzWiseFieldState::verif_batch(Object* ctx, size_t size) {
+  if (size == 0) {
+    return;
+  }
+
+  auto* prg_state = ctx->getState<PrgState>();
+
+  std::vector<uint64_t> coefficients(size);
+  prg_state->fillPubl(absl::MakeSpan(coefficients));
+
+  ArrayRef u(makeType<aby3::AShrTy>(FM64), 1);
+  ArrayRef v(makeType<aby3::AShrTy>(FM64), 1);
+
+  auto _u = ArrayView<std::array<uint64_t, 2>>(u);
+  auto _v = ArrayView<std::array<uint64_t, 2>>(v);
+
+  _u[0] = {0, 0};
+  _v[0] = {0, 0};
+
+  for (uint64_t idx = 0; idx < size; idx++) {
+    coefficients[idx] = Field::modp(coefficients[idx]);
+
+    _u[0][0] = Field::add(
+        _u[0][0], Field::mul(coefficients[idx], stored_data_->at(idx)[0][0]));
+    _u[0][1] = Field::add(
+        _u[0][1], Field::mul(coefficients[idx], stored_data_->at(idx)[0][1]));
+
+    _v[0][0] = Field::add(
+        _v[0][0], Field::mul(coefficients[idx], stored_data_->at(idx)[1][0]));
+    _v[0][1] = Field::add(
+        _v[0][1], Field::mul(coefficients[idx], stored_data_->at(idx)[1][1]));
+  }
+
+  std::vector<uint64_t> r0(1);
+  std::vector<uint64_t> r1(1);
+
+  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+
+  ArrayRef key_ref(makeType<aby3::AShrTy>(FM64), 1);
+  auto _key_ref = ArrayView<std::array<uint64_t, 2>>(key_ref);
+
+  _key_ref[0] = key_;
+
+  ArrayRef t = ctx->call("mul_aa_sh", u, key_ref);
+  auto _t = ArrayView<std::array<uint64_t, 2>>(t);
+
+  _t[0][0] = Field::sub(_t[0][0], _v[0][0]);
+  _t[0][1] = Field::sub(_t[0][1], _v[0][1]);
+
+  ArrayRef r(makeType<aby3::AShrTy>(FM64), 1);
+  auto _r = ArrayView<std::array<uint64_t, 2>>(r);
+  _r[0][0] = Field::modp(r0[0]);
+  _r[0][1] = Field::modp(r1[0]);
+
+  ArrayRef check = ctx->call("mul_aa_sh", t, r);
+  ArrayRef opened_value = ctx->call("a2psh", check);
+  uint64_t value = ArrayView<uint64_t>(opened_value)[0];
+
+  SPU_ENFORCE(value == 0, "SPDZ check failed.");
+
+  stored_data_->erase(stored_data_->begin(), stored_data_->begin() + size);
 }
 
 /*

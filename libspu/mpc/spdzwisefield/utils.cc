@@ -26,21 +26,12 @@ uint64_t MersennePrimeField::neg(uint64_t a) {
   }
 }
 
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b) {
+uint64_t MersennePrimeField::sum(uint64_t a, uint64_t b) {
   uint64_t res = a + b;
   if (res >= PR) {
     res -= PR;
   }
   return res;
-}
-
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c) {
-  return add(a, add(b, c));
-}
-
-uint64_t MersennePrimeField::add(uint64_t a, uint64_t b, uint64_t c,
-                                 uint64_t d) {
-  return add(add(a, b), add(c, d));
 }
 
 uint64_t MersennePrimeField::sub(uint64_t a, uint64_t b) {

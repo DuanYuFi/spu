@@ -10,9 +10,16 @@ class MersennePrimeField {
   static uint64_t modp128(uint128_t);
   static uint64_t neg(uint64_t);
 
-  static uint64_t add(uint64_t, uint64_t);
-  static uint64_t add(uint64_t, uint64_t, uint64_t);
-  static uint64_t add(uint64_t, uint64_t, uint64_t, uint64_t);
+  static uint64_t sum(uint64_t, uint64_t);
+
+  template <typename... Args>
+  static uint64_t add(uint64_t a, Args... args) {
+    if constexpr (sizeof...(args) == 0) {
+      return a;
+    } else {
+      return sum(a, add(args...));
+    }
+  }
 
   static uint64_t sub(uint64_t, uint64_t);
   static uint64_t mul(uint64_t, uint64_t);

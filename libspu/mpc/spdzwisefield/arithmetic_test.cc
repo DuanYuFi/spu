@@ -25,6 +25,9 @@
 #include "libspu/mpc/spdzwisefield/type.h"
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
+
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
 namespace spu::mpc::test {
 namespace {
 
@@ -79,6 +82,111 @@ TEST_P(ArithmeticTest, IOTest) {
 
     pforeach(0, test_size,
              [&](uint64_t idx) { EXPECT_EQ(_pub[idx], _pub2[idx]); });
+  });
+}
+
+TEST_P(ArithmeticTest, MulAATest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+    auto* spdzwisefield_state = obj->getState<SpdzWiseFieldState>();
+
+    using Field = SpdzWiseFieldState::Field;
+
+    const size_t test_size = 100000;
+
+    std::vector<uint64_t> a(test_size);
+    std::vector<uint64_t> b(test_size);
+
+    prg_state->fillPubl(absl::MakeSpan(a));
+    prg_state->fillPubl(absl::MakeSpan(b));
+
+    ArrayRef lhs(makeType<Pub2kTy>(FM64), test_size);
+    ArrayRef rhs(makeType<Pub2kTy>(FM64), test_size);
+
+    auto _lhs = ArrayView<uint64_t>(lhs);
+    auto _rhs = ArrayView<uint64_t>(rhs);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      a[idx] = Field::modp(a[idx]);
+      b[idx] = Field::modp(b[idx]);
+
+      _lhs[idx] = a[idx];
+      _rhs[idx] = b[idx];
+    });
+
+    ArrayRef lhs_share = obj->call("p2a", lhs);
+    ArrayRef rhs_share = obj->call("p2a", rhs);
+
+    ArrayRef mul_share = obj->call("mul_aa", lhs_share, rhs_share);
+
+    ArrayRef mul = obj->call("a2p", mul_share);
+    auto _mul = ArrayView<uint64_t>(mul);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      uint64_t expected = Field::mul(a[idx], b[idx]);
+      SPU_ENFORCE(_mul[idx] == expected,
+                  "failed at index = {}, expect = {}, actual = {}", idx,
+                  expected, _mul[idx]);
+    });
+
+    spdzwisefield_state->verification(obj.get(), true);
+  });
+}
+
+TEST_P(ArithmeticTest, MulAPTest) {
+  const auto factory = makeSpdzWiseFieldProtocol;
+  const RuntimeConfig& conf = makeConfig(FieldType::FM64);
+  const int npc = 3;
+
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
+    auto obj = factory(conf, lctx);
+    auto* prg_state = obj->getState<PrgState>();
+    auto* spdzwisefield_state = obj->getState<SpdzWiseFieldState>();
+
+    using Field = SpdzWiseFieldState::Field;
+
+    const size_t test_size = 100000;
+
+    std::vector<uint64_t> a(test_size);
+    std::vector<uint64_t> b(test_size);
+
+    prg_state->fillPubl(absl::MakeSpan(a));
+    prg_state->fillPubl(absl::MakeSpan(b));
+
+    ArrayRef lhs(makeType<Pub2kTy>(FM64), test_size);
+    ArrayRef rhs(makeType<Pub2kTy>(FM64), test_size);
+
+    auto _lhs = ArrayView<uint64_t>(lhs);
+    auto _rhs = ArrayView<uint64_t>(rhs);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      a[idx] >>= 4;
+      b[idx] >>= 4;
+
+      _lhs[idx] = a[idx];
+      _rhs[idx] = b[idx];
+    });
+
+    ArrayRef lhs_share = obj->call("p2a", lhs);
+
+    ArrayRef mul_share = obj->call("mul_ap", lhs_share, rhs);
+
+    ArrayRef mul = obj->call("a2p", mul_share);
+    auto _mul = ArrayView<uint64_t>(mul);
+
+    pforeach(0, test_size, [&](uint64_t idx) {
+      uint64_t expected = Field::mul(a[idx], b[idx]);
+      SPU_ENFORCE(_mul[idx] == expected,
+                  "failed at index = {}, expect = {}, actual = {}", idx,
+                  expected, _mul[idx]);
+    });
+
+    spdzwisefield_state->verification(obj.get(), true);
   });
 }
 

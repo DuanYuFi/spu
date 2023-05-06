@@ -54,8 +54,8 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
 
   std::array<uint64_t, 2> key;
 
-  key[0] = r0[0];
-  key[1] = r1[0];
+  key[0] = SpdzWiseFieldState::Field::modp(r0[0]);
+  key[1] = SpdzWiseFieldState::Field::modp(r1[0]);
 
   obj->addState<SpdzWiseFieldState>(lctx, key, conf.field());
 

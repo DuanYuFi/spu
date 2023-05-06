@@ -36,72 +36,108 @@
   if (comm->getRank() == 0) std::cout << x << std::endl
 namespace spu::mpc::spdzwisefield {
 
-ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
-  SPU_TRACE_MPC_LEAF(ctx, in);
+ArrayRef RandA::proc(KernelEvalContext* ctx, size_t size) {
+  SPU_TRACE_MPC_LEAF(ctx, size);
 
-  auto* comm = ctx->getState<Communicator>();
-  auto* sy_ring_state = ctx->getState<SpdzWiseFieldState>();
   auto* prg_state = ctx->getState<PrgState>();
-  const auto key = sy_ring_state->key();
-  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+  auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
 
-  auto rank = comm->getRank();
+  auto key = spdzwisefield_state->key();
 
-  using U = uint64_t;
   using Field = SpdzWiseFieldState::Field;
-  using HAShrTy = spu::mpc::aby3::AShrTy;
 
-  // get the input share from semi-honest protocol
-  ArrayRef honest_out(makeType<HAShrTy>(field), in.numel());
-  auto _honest_out = ArrayView<std::array<U, 2>>(honest_out);
-  auto _in = ArrayView<U>(in);
-
-  pforeach(0, in.numel(), [&](int64_t idx) {
-    _honest_out[idx][0] = rank == 0 ? _in[idx] : 0;
-    _honest_out[idx][1] = rank == 2 ? _in[idx] : 0;
-  });
-
-  // for debug purpose, randomize the inputs to avoid corner cases.
-
-  std::vector<U> r0(in.numel());
-  std::vector<U> r1(in.numel());
+  std::vector<uint64_t> r0(size);
+  std::vector<uint64_t> r1(size);
 
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
 
-  pforeach(0, in.numel(), [&](uint64_t idx) {
+  pforeach(0, size, [&](uint64_t idx) {
     r0[idx] = Field::modp(r0[idx]);
     r1[idx] = Field::modp(r1[idx]);
-    r0[idx] = Field::sub(r0[idx], r1[idx]);
   });
 
-  r1 = comm->rotate<U>(r0, "p2a");
+  ArrayRef data(makeType<aby3::AShrTy>(FM64), size);
+  ArrayRef mac_key(makeType<aby3::AShrTy>(FM64), size);
 
-  pforeach(0, in.numel(), [&](uint64_t idx) {
-    _honest_out[idx][0] = Field::add(_honest_out[idx][0], r0[idx]);
-    _honest_out[idx][1] = Field::add(_honest_out[idx][1], r1[idx]);
+  auto _data = ArrayView<std::array<uint64_t, 2>>(data);
+  auto _mac_key = ArrayView<std::array<uint64_t, 2>>(mac_key);
+
+  pforeach(0, size, [&](uint64_t idx) {
+    _data[idx][0] = r0[idx] >> 3;
+    _data[idx][1] = r1[idx] >> 3;
+    _mac_key[idx][0] = key[0];
+    _mac_key[idx][1] = key[1];
   });
+
+  return ctx->caller()->call("mul_aa_sh", data, mac_key);
+}
+
+ArrayRef NotA::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  SPU_TRACE_MPC_LEAF(ctx, in);
+
+  auto* comm = ctx->getState<Communicator>();
+  auto rank = comm->getRank();
+
+  using S = std::make_unsigned_t<uint64_t>;
+  using Field = SpdzWiseFieldState::Field;
+
+  ArrayRef out(makeType<AShrTy>(FM64), in.numel());
+  auto _in = ArrayView<std::array<S, 2>>(in);
+  auto _out = ArrayView<std::array<S, 2>>(out);
+
+  // neg(x) = not(x) + 1
+  // not(x) = neg(x) - 1
+  pforeach(0, in.numel(), [&](int64_t idx) {
+    _out[idx][0] = Field::neg(_in[idx][0]);
+    _out[idx][1] = Field::neg(_in[idx][1]);
+    if (rank == 0) {
+      _out[idx][1] = Field::sub(_out[idx][1], 1);
+    } else if (rank == 1) {
+      _out[idx][0] = Field::sub(_out[idx][0], 1);
+    }
+  });
+
+  return out;
+}
+
+ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
+  SPU_TRACE_MPC_LEAF(ctx, in);
+
+  auto* sy_ring_state = ctx->getState<SpdzWiseFieldState>();
+  const auto key = sy_ring_state->key();
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+
+  using U = uint64_t;
+  using HAShrTy = spu::mpc::aby3::AShrTy;
+
+  ArrayRef honest_share = ctx->caller()->call("p2ash", in);
+  auto _honest_share = ArrayView<std::array<U, 2>>(honest_share);
+
+  ArrayRef key_ref(makeType<HAShrTy>(FM64), in.numel());
+  auto _key_ref = ArrayView<std::array<U, 2>>(key_ref);
+
+  pforeach(0, in.numel(), [&](uint64_t idx) { _key_ref[idx] = key; });
+
+  ArrayRef mac = ctx->caller()->call("mul_aa_sh", honest_share, key_ref);
+  auto _mac = ArrayView<std::array<U, 2>>(mac);
 
   ArrayRef out(makeType<AShrTy>(field), in.numel());
   auto _out = ArrayView<std::array<U, 4>>(out);
 
-  // get the share of mac. [[mac]] = [[x]] * [[key]]
-  prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
+  std::vector<std::array<Share, 2>> buf(in.numel());
 
-  pforeach(0, in.numel(), [&](int64_t idx) {
-    r0[idx] = Field::add(Field::mul(_honest_out[idx][0], key[0]),  //
-                         Field::mul(_honest_out[idx][0], key[1]),  //
-                         Field::mul(_honest_out[idx][1], key[0]),  //
-                         Field::sub(r0[idx], r1[idx]));            //
+  pforeach(0, in.numel(), [&](uint64_t idx) {
+    _out[idx][0] = _honest_share[idx][0];
+    _out[idx][1] = _honest_share[idx][1];
+    _out[idx][2] = _mac[idx][0];
+    _out[idx][3] = _mac[idx][1];
+
+    buf[idx][0] = {_honest_share[idx][0], _honest_share[idx][1]};
+    buf[idx][1] = {_mac[idx][0], _mac[idx][1]};
   });
 
-  r1 = comm->rotate<U>(r0, "p2a");  // comm => 1, k
-
-  pforeach(0, in.numel(), [&](int64_t idx) {  //
-    _out[idx][0] = _honest_out[idx][0];
-    _out[idx][1] = _honest_out[idx][1];
-    _out[idx][2] = r0[idx];
-    _out[idx][3] = r1[idx];
-  });
+  sy_ring_state->store_data(buf);
+  sy_ring_state->verification(ctx->caller());
 
   return out;
 }
@@ -303,6 +339,7 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
   auto* comm = ctx->getState<Communicator>();
   auto* prg_state = ctx->getState<PrgState>();
+  auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
 
   using U = uint64_t;
   using Field = SpdzWiseFieldState::Field;
@@ -314,6 +351,11 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   std::vector<U> r1(lhs.numel() * 2);
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
 
+  pforeach(0, lhs.numel() * 2, [&](uint64_t idx) {
+    r0[idx] = Field::modp(r0[idx]);
+    r1[idx] = Field::modp(r1[idx]);
+  });
+
   pforeach(0, lhs.numel(), [&](int64_t idx) {
     r0[idx] = Field::add(Field::mul(_lhs[idx][0], _rhs[idx][0]),  //
                          Field::mul(_lhs[idx][0], _rhs[idx][1]),  //
@@ -323,25 +365,35 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 
   pforeach(0, lhs.numel(), [&](int64_t idx) {
     r0[idx + lhs.numel()] =
-        Field::add(Field::mul(_lhs[idx][2], _rhs[idx][2]),  //
-                   Field::mul(_lhs[idx][2], _rhs[idx][3]),  //
-                   Field::mul(_lhs[idx][3], _rhs[idx][2]),  //
+        Field::add(Field::mul(_lhs[idx][0], _rhs[idx][2]),  //
+                   Field::mul(_lhs[idx][0], _rhs[idx][3]),  //
+                   Field::mul(_lhs[idx][1], _rhs[idx][2]),  //
                    Field::sub(r0[idx + lhs.numel()], r1[idx + lhs.numel()]));
   });
 
   r1 = comm->rotate<U>(r0, "mulaa");  // comm => 1, 2 * k
 
   ArrayRef out(makeType<AShrTy>(field), lhs.numel());
-  auto _out = ArrayView<std::array<U, 2>>(out);
+  auto _out = ArrayView<std::array<U, 4>>(out);
+
+  std::vector<std::array<Share, 2>> buf(lhs.numel());
+
   pforeach(0, lhs.numel(), [&](int64_t idx) {
     _out[idx][0] = r0[idx];
     _out[idx][1] = r1[idx];
+
+    buf[idx][0] = {_out[idx][0], _out[idx][1]};
   });
 
   pforeach(0, lhs.numel(), [&](int64_t idx) {
     _out[idx][2] = r0[lhs.numel() + idx];
     _out[idx][3] = r1[lhs.numel() + idx];
+
+    buf[idx][1] = {_out[idx][2], _out[idx][3]};
   });
+
+  spdzwisefield_state->store_data(buf);
+  spdzwisefield_state->verification(ctx->caller());
 
   return out;
 }
@@ -385,6 +437,104 @@ ArrayRef MulAASemiHonest::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   });
 
   return out;
+}
+
+ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
+                        const ArrayRef& y, size_t m, size_t n, size_t k) const {
+  SPU_TRACE_MPC_LEAF(ctx, x, y, m, n, k);
+
+  using Field = SpdzWiseFieldState::Field;
+
+  auto _x = ArrayView<std::array<uint64_t, 4>>(x);
+  auto _y = ArrayView<std::array<uint64_t, 4>>(y);
+
+  ArrayRef lhs(makeType<AShrTy>(FM64), m * k * n);
+  ArrayRef rhs(makeType<AShrTy>(FM64), m * k * n);
+
+  auto _lhs = ArrayView<std::array<uint64_t, 4>>(lhs);
+  auto _rhs = ArrayView<std::array<uint64_t, 4>>(rhs);
+
+  pforeach(0, m * n, [&](int64_t idx) {
+    uint64_t i = idx / n;
+    uint64_t j = idx % n;
+
+    for (uint64_t l = 0; l < k; ++l) {
+      _lhs[idx * k + l] = _x[i * k + l];
+      _rhs[idx * k + l] = _y[l * k + j];
+    }
+  });
+
+  auto out = ctx->caller()->call("mul_ap", lhs, rhs);
+
+  auto batch_add = [](std::array<uint64_t, 4>* data, size_t size) {
+    std::array<uint64_t, 4> res = {0, 0, 0, 0};
+    for (uint64_t i = 0; i < size; i++) {
+      res[0] = Field::add(res[0], data[i][0]);
+      res[1] = Field::add(res[1], data[i][1]);
+      res[2] = Field::add(res[2], data[i][2]);
+      res[3] = Field::add(res[3], data[i][3]);
+    }
+
+    return res;
+  };
+
+  ArrayRef ret(makeType<AShrTy>(FM64), m * n);
+  auto _ret = ArrayView<std::array<uint64_t, 4>>(ret);
+
+  pforeach(0, m * n, [&](uint64_t idx) {
+    _ret[idx] = batch_add(_ret.data() + idx * k, k);
+  });
+
+  return ret;
+}
+
+ArrayRef MatMulAA::proc(KernelEvalContext* ctx, const ArrayRef& x,
+                        const ArrayRef& y, size_t m, size_t n, size_t k) const {
+  SPU_TRACE_MPC_LEAF(ctx, x, y, m, n, k);
+
+  using Field = SpdzWiseFieldState::Field;
+
+  auto _x = ArrayView<std::array<uint64_t, 4>>(x);
+  auto _y = ArrayView<std::array<uint64_t, 4>>(y);
+
+  ArrayRef lhs(makeType<AShrTy>(FM64), m * k * n);
+  ArrayRef rhs(makeType<AShrTy>(FM64), m * k * n);
+
+  auto _lhs = ArrayView<std::array<uint64_t, 4>>(lhs);
+  auto _rhs = ArrayView<std::array<uint64_t, 4>>(rhs);
+
+  pforeach(0, m * n, [&](int64_t idx) {
+    uint64_t i = idx / n;
+    uint64_t j = idx % n;
+
+    for (uint64_t l = 0; l < k; ++l) {
+      _lhs[idx * k + l] = _x[i * k + l];
+      _rhs[idx * k + l] = _y[l * k + j];
+    }
+  });
+
+  auto out = ctx->caller()->call("mul_aa", lhs, rhs);
+
+  auto batch_add = [](std::array<uint64_t, 4>* data, size_t size) {
+    std::array<uint64_t, 4> res = {0, 0, 0, 0};
+    for (uint64_t i = 0; i < size; i++) {
+      res[0] = Field::add(res[0], data[i][0]);
+      res[1] = Field::add(res[1], data[i][1]);
+      res[2] = Field::add(res[2], data[i][2]);
+      res[3] = Field::add(res[3], data[i][3]);
+    }
+
+    return res;
+  };
+
+  ArrayRef ret(makeType<AShrTy>(FM64), m * n);
+  auto _ret = ArrayView<std::array<uint64_t, 4>>(ret);
+
+  pforeach(0, m * n, [&](uint64_t idx) {
+    _ret[idx] = batch_add(_ret.data() + idx * k, k);
+  });
+
+  return ret;
 }
 
 ArrayRef LShiftA::proc(KernelEvalContext* ctx, const ArrayRef& in,

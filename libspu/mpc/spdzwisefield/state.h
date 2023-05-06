@@ -104,10 +104,13 @@ class SpdzWiseFieldState : public State {
   spdzwisefield::Share key_;
 
   // triples to be verified
-  std::unique_ptr<std::vector<ArrayRef>> stored_triples_;
+  std::unique_ptr<std::vector<std::array<spdzwisefield::Share, 2>>>
+      stored_data_;
 
   // statistical security parameter
   const size_t s_ = 64;
+
+  const static size_t verif_batch_size = 1e6;
 
   // default in FM64
   FieldType field_;
@@ -120,7 +123,8 @@ class SpdzWiseFieldState : public State {
   explicit SpdzWiseFieldState(std::shared_ptr<yacl::link::Context> lctx,
                               spdzwisefield::Share key, FieldType field) {
     lctx_ = lctx;
-    stored_triples_ = std::make_unique<std::vector<ArrayRef>>();
+    stored_data_ =
+        std::make_unique<std::vector<std::array<spdzwisefield::Share, 2>>>();
     key_ = key;
 
     // Now SpdzwiseField only supports mersenne prime field with p = 2^61-1, so
@@ -136,11 +140,20 @@ class SpdzWiseFieldState : public State {
 
   FieldType field() const { return field_; }
 
-  std::vector<ArrayRef>* stored_triples() { return stored_triples_.get(); }
+  std::vector<std::array<spdzwisefield::Share, 2>>* stored_data() {
+    return stored_data_.get();
+  }
+
+  void store_data(std::vector<std::array<spdzwisefield::Share, 2>> new_data) {
+    stored_data_->insert(stored_data_->end(), new_data.begin(), new_data.end());
+  }
 
   std::vector<spdzwisefield::TruncPair> gen_trunc_pairs(Object* ctx,
                                                         size_t size,
                                                         size_t nbits);
+
+  void verification(Object* ctx, bool final = false);
+  void verif_batch(Object* ctx, size_t size = verif_batch_size);
 };
 
 /*
