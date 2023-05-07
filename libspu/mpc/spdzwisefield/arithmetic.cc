@@ -551,7 +551,7 @@ ArrayRef LShiftA::proc(KernelEvalContext* ctx, const ArrayRef& in,
   pforeach(0, in.numel(),
            [&](uint64_t idx) { _mul_p[idx] = Field::modp(1 << bits); });
 
-  return ctx->caller()->call("mulap", in, mul_p);
+  return ctx->caller()->call("mul_ap", in, mul_p);
 }
 
 ArrayRef TruncA::proc(KernelEvalContext* ctx, const ArrayRef& in,

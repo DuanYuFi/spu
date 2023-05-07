@@ -59,10 +59,20 @@ def data_from_bob(count):
     return np.random.randint(100, size=count)
 
 
+def float_from_alice(count):
+    np.random.seed(0xDEADBEEF)
+    return np.random.rand(count)
+
+
+def float_from_bob(count):
+    np.random.seed(0xDEADBEEF)
+    return np.random.rand(count)
+
+
 def run_on_spu():
     count = 10
-    x = ppd.device("P1")(data_from_alice)(count)
-    y = ppd.device("P2")(data_from_bob)(count)
+    x = ppd.device("P1")(float_from_alice)(count)
+    y = ppd.device("P2")(float_from_bob)(count)
 
     result = ppd.device("SPU")(test, static_argnums=(2,))(x, y, count)
 
@@ -72,8 +82,8 @@ def run_on_spu():
 
 def run_on_cpu():
     count = 10
-    x = jnp.array(data_from_alice(count))
-    y = jnp.array(data_from_bob(count))
+    x = jnp.array(float_from_alice(count))
+    y = jnp.array(float_from_bob(count))
 
     result = test(x, y, count)
 
