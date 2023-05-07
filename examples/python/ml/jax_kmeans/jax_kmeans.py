@@ -26,6 +26,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from time import time
+
 import spu.utils.distributed as ppd
 
 parser = argparse.ArgumentParser(description="distributed driver.")
@@ -134,12 +136,18 @@ def run_on_cpu():
     np.random.seed(0xCAFEBABE)
     random_numbers = np.random.randint(n_points_each_party * 2, size=(k,))
 
+    start = time()
+
     centers, labels = jax.jit(kmeans, static_argnums=(2, 4))(
         x, y, k, random_numbers, n_epochs
     )
 
+    end = time()
+
     print(centers)
     print(labels)
+
+    print("Time costs", (end - start))
     return centers, labels
 
 
@@ -157,14 +165,20 @@ def run_on_spu():
     np.random.seed(0xCAFEBABE)
     random_numbers = np.random.randint(n_points_each_party * 2, size=(k,))
 
+    start = time()
+
     centers_spu, labels_spu = ppd.device("SPU")(kmeans, static_argnums=(2, 4))(
         x, y, k, random_numbers, n_epochs
     )
+
+    end = time()
+
     centers = ppd.get(centers_spu)
     labels = ppd.get(labels_spu)
 
     print(centers)
     print(labels)
+    print("Time costs", (end - start))
     return centers, labels
 
 

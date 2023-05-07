@@ -465,6 +465,7 @@ ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
   });
 
   auto out = ctx->caller()->call("mul_ap", lhs, rhs);
+  auto _out = ArrayView<std::array<uint64_t, 4>>(out);
 
   auto batch_add = [](std::array<uint64_t, 4>* data, size_t size) {
     std::array<uint64_t, 4> res = {0, 0, 0, 0};
@@ -482,7 +483,7 @@ ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
   auto _ret = ArrayView<std::array<uint64_t, 4>>(ret);
 
   pforeach(0, m * n, [&](uint64_t idx) {
-    _ret[idx] = batch_add(_ret.data() + idx * k, k);
+    _ret[idx] = batch_add(_out.data() + idx * k, k);
   });
 
   return ret;
@@ -513,9 +514,10 @@ ArrayRef MatMulAA::proc(KernelEvalContext* ctx, const ArrayRef& x,
     }
   });
 
-  auto out = ctx->caller()->call("mul_aa", lhs, rhs);
+  ArrayRef out = ctx->caller()->call("mul_aa", lhs, rhs);
+  auto _out = ArrayView<std::array<uint64_t, 4>>(out);
 
-  auto batch_add = [](std::array<uint64_t, 4>* data, size_t size) {
+  auto batch_add = [&](std::array<uint64_t, 4>* data, size_t size) {
     std::array<uint64_t, 4> res = {0, 0, 0, 0};
     for (uint64_t i = 0; i < size; i++) {
       res[0] = Field::add(res[0], data[i][0]);
@@ -531,7 +533,7 @@ ArrayRef MatMulAA::proc(KernelEvalContext* ctx, const ArrayRef& x,
   auto _ret = ArrayView<std::array<uint64_t, 4>>(ret);
 
   pforeach(0, m * n, [&](uint64_t idx) {
-    _ret[idx] = batch_add(_ret.data() + idx * k, k);
+    _ret[idx] = batch_add(_out.data() + idx * k, k);
   });
 
   return ret;

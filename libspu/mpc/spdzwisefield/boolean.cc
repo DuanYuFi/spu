@@ -76,7 +76,7 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
   auto* comm = ctx->getState<Communicator>();
   const PtType btype = in.eltype().as<BShrTy>()->getBacktype();
-  const auto field = PtTypeToField(btype);
+  const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
   return DISPATCH_UINT_PT_TYPES(btype, "beaver.b2p", [&]() {
     using BShrT = ScalarT;

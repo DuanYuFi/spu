@@ -34,11 +34,12 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
     const std::shared_ptr<yacl::link::Context>& lctx) {
   spdzwisefield::registerTypes();
 
-  auto obj = std::make_unique<Object>("SPDZWISEFIELD");
+  auto obj = std::make_unique<Object>(
+      fmt::format("{}-{}", lctx->Rank(), "SPDZWISEFIELD"));
 
   // add communicator
   obj->addState<Communicator>(lctx);
-  obj->addState<Z2kState>(FM64);
+  obj->addState<Z2kState>(conf.field());
 
   // register random states & kernels.
   obj->addState<PrgState>(lctx);
@@ -66,10 +67,12 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   regABKernels(obj.get());
 
   // register arithmetic & binary kernels
+  obj->regKernel<spdzwisefield::RandA>();
   obj->regKernel<spdzwisefield::P2A>();
   obj->regKernel<spdzwisefield::A2P>();
   obj->regKernel<spdzwisefield::B2P>();
   obj->regKernel<spdzwisefield::P2B>();
+  obj->regKernel<spdzwisefield::NotA>();
   obj->regKernel<spdzwisefield::P2ASH>();
   obj->regKernel<spdzwisefield::A2PSH>();
   obj->regKernel<spdzwisefield::AddAP>();
@@ -77,12 +80,15 @@ std::unique_ptr<Object> makeSpdzWiseFieldProtocol(
   obj->regKernel<spdzwisefield::MulAP>();
   obj->regKernel<spdzwisefield::MulAA>();
   obj->regKernel<spdzwisefield::MulAASemiHonest>();
+  obj->regKernel<spdzwisefield::MatMulAP>();
+  obj->regKernel<spdzwisefield::MatMulAA>();
   obj->regKernel<spdzwisefield::LShiftA>();
   obj->regKernel<spdzwisefield::TruncA>();
 
   obj->regKernel<spdzwisefield::CommonTypeB>();
   obj->regKernel<spdzwisefield::CastTypeB>();
 
+  obj->regKernel<common::AddBB>();
   obj->regKernel<spdzwisefield::AndBP>();
   obj->regKernel<spdzwisefield::AndBB>();
   obj->regKernel<spdzwisefield::XorBP>();
