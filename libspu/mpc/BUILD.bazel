@@ -50,6 +50,7 @@ spu_cc_library(
         "//libspu/mpc/ref2k",
         "//libspu/mpc/semi2k",
         "//libspu/mpc/beaver",
+        "//libspu/mpc/spdzwisefield",
     ],
 )
 

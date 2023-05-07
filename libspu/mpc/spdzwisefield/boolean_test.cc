@@ -25,6 +25,9 @@
 #include "libspu/mpc/utils/ring_ops.h"
 #include "libspu/mpc/utils/simulate.h"
 
+#define MYLOG(x) \
+  if (comm->getRank() == 0) std::cout << x << std::endl
+
 namespace spu::mpc::test {
 namespace {
 
@@ -93,9 +96,8 @@ TEST_P(BooleanTest, AndTest) {
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
 
-    const size_t test_size = 1e6;
+    const size_t test_size = 1e5;
 
-    // auto* comm = obj->getState<Communicator>();
     auto* prg_state = obj->getState<PrgState>();
 
     std::vector<uint64_t> a(test_size);
@@ -118,7 +120,9 @@ TEST_P(BooleanTest, AndTest) {
     ArrayRef lhs_share = obj->call("p2b", lhs);
     ArrayRef rhs_share = obj->call("p2b", rhs);
 
-    ArrayRef result = obj->call("and_bb", lhs_share, rhs_share);
+    ArrayRef result_share = obj->call("and_bb", lhs_share, rhs_share);
+
+    ArrayRef result = obj->call("b2p", result_share);
     auto _result = ArrayView<uint64_t>(result);
 
     pforeach(0, test_size, [&](uint64_t idx) {

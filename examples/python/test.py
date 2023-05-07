@@ -28,14 +28,13 @@ import numpy as np
 import spu.utils.distributed as ppd
 
 parser = argparse.ArgumentParser(description="distributed driver.")
-parser.add_argument("-c", "--config", default="examples/python/conf/3pc.json")
+parser.add_argument("-c", "--config", default="examples/python/conf/mal3pc.json")
 args = parser.parse_args()
 
 with open(args.config, "r") as file:
     conf = json.load(file)
 
 print(conf["devices"]["SPU"]["config"]["runtime_config"]["protocol"])
-conf["devices"]["SPU"]["config"]["runtime_config"]["protocol"] = "BEAVER"
 
 ppd.init(conf["nodes"], conf["devices"])
 
@@ -50,13 +49,11 @@ def test(x, y, count):
     return result
 
 
-@ppd.device("P1")
 def data_from_alice(count):
     np.random.seed(0xDEADBEEF)
     return np.random.randint(100, size=count)
 
 
-@ppd.device("P2")
 def data_from_bob(count):
     np.random.seed(0xC0FFEE)
     return np.random.randint(100, size=count)
@@ -64,8 +61,8 @@ def data_from_bob(count):
 
 def run_on_spu():
     count = 10
-    x = data_from_alice(count)
-    y = data_from_bob(count)
+    x = ppd.device("P1")(data_from_alice)(count)
+    y = ppd.device("P2")(data_from_bob)(count)
 
     result = ppd.device("SPU")(test, static_argnums=(2,))(x, y, count)
 
@@ -73,5 +70,21 @@ def run_on_spu():
     print(result)
 
 
+def run_on_cpu():
+    count = 10
+    x = jnp.array(data_from_alice(count))
+    y = jnp.array(data_from_bob(count))
+
+    result = test(x, y, count)
+
+    print(result)
+
+
+"""
+x = DeviceArray([88, 97, 57, 98, 81, 66, 29, 18, 85, 89], dtype=int32)
+y = DeviceArray([89, 32, 68, 70, 39, 37, 22, 15, 93, 13], dtype=int32)
+"""
+
 if __name__ == "__main__":
     run_on_spu()
+    run_on_cpu()

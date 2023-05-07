@@ -35,7 +35,7 @@
         },
         "editor.formatOnSave": false,
     },
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "none",
     "esbonio.sphinx.confDir": "",
     "files.associations": {
         "*.sage": "python",
@@ -134,5 +134,8 @@
         "__verbose_abort": "cpp",
         "stack": "cpp",
         "locale": "cpp"
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
     }
 }

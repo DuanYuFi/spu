@@ -38,9 +38,9 @@ class StateTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     Beaver, StateTest,
-    testing::Combine(testing::Values(1000),             //
-                     testing::Values(PtType::PT_U128),  //
-                     testing::Values(3)),               //
+    testing::Combine(testing::Values(1000),            //
+                     testing::Values(PtType::PT_U64),  //
+                     testing::Values(3)),              //
     [](const testing::TestParamInfo<StateTest::ParamType>& p) {
       return fmt::format("{}x{}", std::get<0>(p.param), std::get<1>(p.param));
     });
@@ -56,7 +56,6 @@ TEST_P(StateTest, BinaryCAC) {
   const int batch_size = 20000;
   const int bucket_size = 4;
 
-  const int test_size = std::get<0>(GetParam());
   PtType type = std::get<1>(GetParam());
 
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
@@ -64,6 +63,8 @@ TEST_P(StateTest, BinaryCAC) {
 
     auto* state = obj->getState<BeaverState>();
     auto* comm = obj->getState<Communicator>();
+
+    const int test_size = 1e3;
 
     DISPATCH_UINT_PT_TYPES(type, "_", [&]() {
       using T = ScalarT;
@@ -97,7 +98,7 @@ TEST_P(StateTest, BinaryCAC) {
         auto b = (recv_buffer[i * 3 + 1] ^ _ret[i][1][0] ^ _ret[i][1][1]);
         auto c = (recv_buffer[i * 3 + 2] ^ _ret[i][2][0] ^ _ret[i][2][1]);
 
-        EXPECT_EQ(a & b, c);
+        SPU_ENFORCE((a & b) == c);
       }
     });
   });

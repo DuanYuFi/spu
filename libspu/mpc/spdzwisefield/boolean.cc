@@ -76,7 +76,7 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
   auto* comm = ctx->getState<Communicator>();
   const PtType btype = in.eltype().as<BShrTy>()->getBacktype();
-  const auto field = ctx->getState<Z2kState>()->getDefaultField();
+  const auto field = PtTypeToField(btype);
 
   return DISPATCH_UINT_PT_TYPES(btype, "beaver.b2p", [&]() {
     using BShrT = ScalarT;
@@ -198,8 +198,8 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
       return DISPATCH_UINT_PT_TYPES(out_btype, "_", [&]() {
         using OutT = ScalarT;
 
-        ArrayRef trusted_triples = beaver_state->gen_bin_triples(
-            ctx->caller(), out_btype, lhs.numel());
+        ArrayRef trusted_triples =
+            beaver_state->gen_bin_triples(ctx->caller(), PT_U64, lhs.numel());
 
         auto _trusted_triples =
             ArrayView<std::array<std::array<OutT, 2>, 3>>(trusted_triples);

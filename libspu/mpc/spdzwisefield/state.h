@@ -272,4 +272,7 @@ std::vector<T> open_semi_honest(Object* ctx, std::vector<std::array<T, 2>> in) {
 std::vector<std::array<uint64_t, 2>> open_pair(
     Object* ctx, const std::vector<spdzwisefield::TruncPair>& pairs);
 
+std::vector<std::array<uint128_t, 3>> open_triple(
+    Object* ctx, const std::vector<beaver::BinaryTriple>& triples);
+
 }  // namespace spu::mpc

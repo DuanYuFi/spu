@@ -1,6 +1,10 @@
 
 #include "libspu/mpc/spdzwisefield/utils.h"
 
+#include "libspu/mpc/common/pub2k.h"
+
+namespace spu {
+
 uint64_t MersennePrimeField::modp(uint64_t a) {
   uint64_t res = (a >> PRIME_EXP) + (a & PR);
   if (res >= PR) {
@@ -72,6 +76,73 @@ uint64_t MersennePrimeField::inverse(uint64_t a) {
     u += PR;
   }
   return u;
+}
+
+ArrayRef MersennePrimeField::field_rand(size_t size) {
+  ArrayRef ring_randoms = mpc::ring_rand(FM64, size);
+  auto _ring_randoms = ArrayView<uint64_t>(ring_randoms);
+
+  ArrayRef ret(makeType<mpc::Pub2kTy>(FM64), size);
+  auto _ret = ArrayView<uint64_t>(ret);
+
+  pforeach(0, size,
+           [&](uint64_t idx) { _ret[idx] = modp(_ring_randoms[idx]); });
+
+  return ret;
+}
+
+ArrayRef MersennePrimeField::field_add(const ArrayRef& a, const ArrayRef& b) {
+  SPU_ENFORCE(a.numel() == b.numel());
+  ArrayRef ret(makeType<mpc::Pub2kTy>(FM64), a.numel());
+  auto _ret = ArrayView<uint64_t>(ret);
+  auto _a = ArrayView<uint64_t>(a);
+  auto _b = ArrayView<uint64_t>(b);
+
+  pforeach(0, a.numel(),
+           [&](uint64_t idx) { _ret[idx] = add(_a[idx], _b[idx]); });
+
+  return ret;
+}
+
+ArrayRef MersennePrimeField::field_sub(const ArrayRef& a, const ArrayRef& b) {
+  SPU_ENFORCE(a.numel() == b.numel());
+  ArrayRef ret(makeType<mpc::Pub2kTy>(FM64), a.numel());
+  auto _ret = ArrayView<uint64_t>(ret);
+  auto _a = ArrayView<uint64_t>(a);
+  auto _b = ArrayView<uint64_t>(b);
+
+  pforeach(0, a.numel(),
+           [&](uint64_t idx) { _ret[idx] = sub(_a[idx], _b[idx]); });
+
+  return ret;
+}
+
+ArrayRef MersennePrimeField::field_mul(const ArrayRef& a, const ArrayRef& b) {
+  SPU_ENFORCE(a.numel() == b.numel());
+  ArrayRef ret(makeType<mpc::Pub2kTy>(FM64), a.numel());
+  auto _ret = ArrayView<uint64_t>(ret);
+  auto _a = ArrayView<uint64_t>(a);
+  auto _b = ArrayView<uint64_t>(b);
+
+  pforeach(0, a.numel(),
+           [&](uint64_t idx) { _ret[idx] = mul(_a[idx], _b[idx]); });
+
+  return ret;
+}
+
+std::vector<ArrayRef> MersennePrimeField::field_rand_additive_splits(
+    const ArrayRef& raw, size_t size) {
+  SPU_ENFORCE(size > 1, "num split {} be greater than 1 ", size);
+
+  std::vector<ArrayRef> splits(size);
+  splits[0] = raw.clone();
+
+  for (size_t idx = 1; idx < size; idx++) {
+    splits[idx] = field_rand(raw.numel());
+    splits[0] = field_sub(splits[0], splits[idx]);
+  }
+
+  return splits;
 }
 
 uint128_t MersennePrimeField127::modp(uint128_t a) {
@@ -152,3 +223,4 @@ uint128_t MersennePrimeField127::mul(uint128_t a, uint128_t b) {
 
   return add(higher, lower);
 }
+}  // namespace spu

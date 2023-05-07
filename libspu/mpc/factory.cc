@@ -26,6 +26,8 @@
 #include "libspu/mpc/ref2k/ref2k.h"
 #include "libspu/mpc/semi2k/io.h"
 #include "libspu/mpc/semi2k/protocol.h"
+#include "libspu/mpc/spdzwisefield/io.h"
+#include "libspu/mpc/spdzwisefield/protocol.h"
 
 namespace spu::mpc {
 
@@ -44,6 +46,9 @@ std::unique_ptr<Object> Factory::CreateCompute(
     }
     case ProtocolKind::CHEETAH: {
       return makeCheetahProtocol(conf, lctx);
+    }
+    case ProtocolKind::SPDZWISEFIELD: {
+      return makeSpdzWiseFieldProtocol(conf, lctx);
     }
     default: {
       SPU_THROW("Invalid protocol kind {}", conf.protocol());
@@ -66,6 +71,9 @@ std::unique_ptr<IoInterface> Factory::CreateIO(const RuntimeConfig& conf,
     }
     case ProtocolKind::CHEETAH: {
       return cheetah::makeCheetahIo(conf.field(), npc);
+    }
+    case ProtocolKind::SPDZWISEFIELD: {
+      return spdzwisefield::makeSpdzWiseFieldIo(conf.field(), npc);
     }
     default: {
       SPU_THROW("Invalid protocol kind {}", conf.protocol());

@@ -19,6 +19,7 @@
 
 #include "libspu/mpc/common/pub2k.h"
 #include "libspu/mpc/spdzwisefield/type.h"
+#include "libspu/mpc/spdzwisefield/utils.h"
 #include "libspu/mpc/spdzwisefield/value.h"
 #include "libspu/mpc/utils/ring_ops.h"
 
@@ -38,26 +39,36 @@ std::vector<ArrayRef> SpdzWiseFieldIo::toShares(const ArrayRef& raw,
     return std::vector<ArrayRef>(world_size_, share);
   } else if (vis == VIS_SECRET) {
     // by default, make as arithmetic share.
-    std::vector<ArrayRef> splits;
-    if (owner_rank >= 0 && owner_rank <= 2) {
-      // enable colocation optimization
-      splits = ring_rand_additive_splits(raw, 2);
-      size_t insertion_index = (owner_rank + 2) % 3;
-      // currently, we have to use makeAShare to combine 2 array ref into 1
-      // using 0-strided array become ill-defined.
-      // One approach is to do compression at serialization level, we leave this
-      // to later work so here we use ring_zeros instead of ring_zeros_packed
-      // for spdzwisefield
-      splits.insert(splits.begin() + insertion_index,
-                    ring_zeros(field, raw.numel()));
-    } else {
-      splits = ring_rand_additive_splits(raw, world_size_);
+
+    auto _raw = ArrayView<uint64_t>(raw);
+    std::cout << "raw[0]: " << _raw[0] << std::endl;
+
+    auto splits =
+        MersennePrimeField::field_rand_additive_splits(raw, world_size_);
+
+    std::vector<ArrayView<uint64_t>> _splits;
+
+    for (size_t i = 0; i < world_size_; i++) {
+      _splits.emplace_back(splits[i]);
     }
-    SPU_ENFORCE(splits.size() == 3, "expect 3PC, got={}", splits.size());
+
+    std::cout << "raw[0][0] = " << _splits[0][0]
+              << ", raw[0][1] = " << _splits[1][0]
+              << ", raw[0][2] = " << _splits[2][0] << std::endl;
+
     std::vector<ArrayRef> shares;
     for (std::size_t i = 0; i < 3; i++) {
-      shares.push_back(
-          makeAShare(splits[i], splits[(i + 1) % 3], field, owner_rank));
+      ArrayRef share(makeType<AShrTy>(FM64), raw.numel());
+      auto _share = ArrayView<std::array<uint64_t, 4>>(share);
+
+      pforeach(0, raw.numel(), [&](uint64_t idx) {
+        _share[idx][0] = _splits[i][idx];
+        _share[idx][1] = _splits[(i + 1) % world_size_][idx];
+        _share[idx][2] = 0;
+        _share[idx][3] = 0;
+      });
+
+      shares.push_back(share);
     }
     return shares;
   }
@@ -120,20 +131,17 @@ ArrayRef SpdzWiseFieldIo::fromShares(
     SPU_ENFORCE(field_ == eltype.as<Ring2k>()->field());
     return shares[0].as(makeType<RingTy>(field_));
   } else if (eltype.isa<AShrTy>()) {
-    SPU_ENFORCE(field_ == eltype.as<Ring2k>()->field());
-    ArrayRef out(makeType<Pub2kTy>(field_), shares[0].numel());
-    DISPATCH_ALL_FIELDS(field_, "_", [&]() {
-      auto _out = ArrayView<ring2k_t>(out);
-      for (size_t si = 0; si < shares.size(); si++) {
-        auto _share = ArrayView<std::array<ring2k_t, 2>>(shares[si]);
-        for (auto idx = 0; idx < shares[0].numel(); idx++) {
-          if (si == 0) {
-            _out[idx] = 0;
-          }
-          _out[idx] += _share[idx][0];
+    ArrayRef out(makeType<Pub2kTy>(FM64), shares[0].numel());
+    auto _out = ArrayView<uint64_t>(out);
+    for (size_t si = 0; si < shares.size(); si++) {
+      auto _share = ArrayView<std::array<uint64_t, 4>>(shares[si]);
+      for (auto idx = 0; idx < shares[0].numel(); idx++) {
+        if (si == 0) {
+          _out[idx] = 0;
         }
+        _out[idx] = MersennePrimeField::add(_out[idx], _share[idx][0]);
       }
-    });
+    }
     return out;
   } else if (eltype.isa<BShrTy>()) {
     ArrayRef out(makeType<Pub2kTy>(field_), shares[0].numel());
