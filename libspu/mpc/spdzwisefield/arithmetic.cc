@@ -347,15 +347,6 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
   auto _lhs = ArrayView<std::array<U, 4>>(lhs);
   auto _rhs = ArrayView<std::array<U, 4>>(rhs);
 
-  ArrayRef test_lhs = ctx->caller()->call("a2p", lhs);
-  ArrayRef test_rhs = ctx->caller()->call("a2p", rhs);
-
-  auto _test_lhs = ArrayView<U>(test_lhs);
-  auto _test_rhs = ArrayView<U>(test_rhs);
-
-  MYLOG("lhs[0] = " + std::to_string(_test_lhs[0]));
-  MYLOG("rhs[0] = " + std::to_string(_test_rhs[0]));
-
   std::vector<U> r0(lhs.numel() * 2);
   std::vector<U> r1(lhs.numel() * 2);
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));

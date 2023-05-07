@@ -40,9 +40,6 @@ std::vector<ArrayRef> SpdzWiseFieldIo::toShares(const ArrayRef& raw,
   } else if (vis == VIS_SECRET) {
     // by default, make as arithmetic share.
 
-    auto _raw = ArrayView<uint64_t>(raw);
-    std::cout << "raw[0]: " << _raw[0] << std::endl;
-
     auto splits =
         MersennePrimeField::field_rand_additive_splits(raw, world_size_);
 
@@ -51,10 +48,6 @@ std::vector<ArrayRef> SpdzWiseFieldIo::toShares(const ArrayRef& raw,
     for (size_t i = 0; i < world_size_; i++) {
       _splits.emplace_back(splits[i]);
     }
-
-    std::cout << "raw[0][0] = " << _splits[0][0]
-              << ", raw[0][1] = " << _splits[1][0]
-              << ", raw[0][2] = " << _splits[2][0] << std::endl;
 
     std::vector<ArrayRef> shares;
     for (std::size_t i = 0; i < 3; i++) {
