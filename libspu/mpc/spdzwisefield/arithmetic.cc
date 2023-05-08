@@ -33,11 +33,14 @@
 #include "libspu/mpc/utils/ring_ops.h"
 
 #define MYLOG(x) \
-  if (comm->getRank() == 0) std::cout << x << std::endl
+  if (ctx->getState<Communicator>()->getRank() == 0) std::cout << x << std::endl
+
+#define TRACE MYLOG(kBindName)
 namespace spu::mpc::spdzwisefield {
 
 ArrayRef RandA::proc(KernelEvalContext* ctx, size_t size) {
   SPU_TRACE_MPC_LEAF(ctx, size);
+  // TRACE;
 
   auto* prg_state = ctx->getState<PrgState>();
   auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
@@ -74,6 +77,7 @@ ArrayRef RandA::proc(KernelEvalContext* ctx, size_t size) {
 
 ArrayRef NotA::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   auto rank = comm->getRank();
@@ -82,8 +86,8 @@ ArrayRef NotA::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   using Field = SpdzWiseFieldState::Field;
 
   ArrayRef out(makeType<AShrTy>(FM64), in.numel());
-  auto _in = ArrayView<std::array<S, 2>>(in);
-  auto _out = ArrayView<std::array<S, 2>>(out);
+  auto _in = ArrayView<std::array<S, 4>>(in);
+  auto _out = ArrayView<std::array<S, 4>>(out);
 
   // neg(x) = not(x) + 1
   // not(x) = neg(x) - 1
@@ -102,6 +106,7 @@ ArrayRef NotA::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
 ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* sy_ring_state = ctx->getState<SpdzWiseFieldState>();
   const auto key = sy_ring_state->key();
@@ -144,6 +149,7 @@ ArrayRef P2A::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
 ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
@@ -173,6 +179,7 @@ ArrayRef A2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
 ArrayRef A2PSH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
@@ -203,6 +210,7 @@ ArrayRef A2PSH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
 ArrayRef P2ASH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
 
@@ -230,10 +238,10 @@ ArrayRef P2ASH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   auto* prg_state = ctx->getState<PrgState>();
   prg_state->fillPrssPair(absl::MakeSpan(r0), absl::MakeSpan(r1));
 
-  for (int64_t idx = 0; idx < in.numel(); idx++) {
+  pforeach(0, in.numel(), [&](int64_t idx) {
     r1[idx] = Field::modp(r1[idx]);
     r0[idx] = Field::sub(Field::modp(r0[idx]), r1[idx]);
-  }
+  });
   r1 = comm->rotate<AShrT>(r0, "p2b.zero");
 
   for (int64_t idx = 0; idx < in.numel(); idx++) {
@@ -250,6 +258,7 @@ ArrayRef P2ASH::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 ArrayRef AddAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   const auto key = ctx->getState<SpdzWiseFieldState>()->key();
@@ -284,6 +293,7 @@ ArrayRef AddAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef AddAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
@@ -311,6 +321,7 @@ ArrayRef AddAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef MulAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
 
@@ -335,6 +346,7 @@ ArrayRef MulAP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
   auto* comm = ctx->getState<Communicator>();
@@ -401,6 +413,7 @@ ArrayRef MulAA::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef MulAASemiHonest::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                                const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   auto* prg_state = ctx->getState<PrgState>();
@@ -442,17 +455,18 @@ ArrayRef MulAASemiHonest::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
                         const ArrayRef& y, size_t m, size_t n, size_t k) const {
   SPU_TRACE_MPC_LEAF(ctx, x, y, m, n, k);
+  // TRACE;
 
   using Field = SpdzWiseFieldState::Field;
 
   auto _x = ArrayView<std::array<uint64_t, 4>>(x);
-  auto _y = ArrayView<std::array<uint64_t, 4>>(y);
+  auto _y = ArrayView<uint64_t>(y);
 
   ArrayRef lhs(makeType<AShrTy>(FM64), m * k * n);
-  ArrayRef rhs(makeType<AShrTy>(FM64), m * k * n);
+  ArrayRef rhs(makeType<Pub2kTy>(FM64), m * k * n);
 
   auto _lhs = ArrayView<std::array<uint64_t, 4>>(lhs);
-  auto _rhs = ArrayView<std::array<uint64_t, 4>>(rhs);
+  auto _rhs = ArrayView<uint64_t>(rhs);
 
   pforeach(0, m * n, [&](int64_t idx) {
     uint64_t i = idx / n;
@@ -464,10 +478,10 @@ ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
     }
   });
 
-  auto out = ctx->caller()->call("mul_ap", lhs, rhs);
+  ArrayRef out = ctx->caller()->call("mul_ap", lhs, rhs);
   auto _out = ArrayView<std::array<uint64_t, 4>>(out);
 
-  auto batch_add = [](std::array<uint64_t, 4>* data, size_t size) {
+  auto batch_add = [&](std::array<uint64_t, 4>* data, size_t size) {
     std::array<uint64_t, 4> res = {0, 0, 0, 0};
     for (uint64_t i = 0; i < size; i++) {
       res[0] = Field::add(res[0], data[i][0]);
@@ -492,6 +506,7 @@ ArrayRef MatMulAP::proc(KernelEvalContext* ctx, const ArrayRef& x,
 ArrayRef MatMulAA::proc(KernelEvalContext* ctx, const ArrayRef& x,
                         const ArrayRef& y, size_t m, size_t n, size_t k) const {
   SPU_TRACE_MPC_LEAF(ctx, x, y, m, n, k);
+  // TRACE;
 
   using Field = SpdzWiseFieldState::Field;
 
@@ -542,6 +557,7 @@ ArrayRef MatMulAA::proc(KernelEvalContext* ctx, const ArrayRef& x,
 ArrayRef LShiftA::proc(KernelEvalContext* ctx, const ArrayRef& in,
                        size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
+  // TRACE;
 
   ArrayRef mul_p(makeType<Pub2kTy>(FM64), in.numel());
   auto _mul_p = ArrayView<uint64_t>(mul_p);
@@ -557,6 +573,7 @@ ArrayRef LShiftA::proc(KernelEvalContext* ctx, const ArrayRef& in,
 ArrayRef TruncA::proc(KernelEvalContext* ctx, const ArrayRef& in,
                       size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
+  // TRACE;
 
   auto* spdzwisefield_state = ctx->getState<SpdzWiseFieldState>();
   using Field = SpdzWiseFieldState::Field;

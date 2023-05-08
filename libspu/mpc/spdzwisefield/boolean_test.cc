@@ -44,7 +44,7 @@ class BooleanTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     Beaver, BooleanTest,
-    testing::Combine(testing::Values(1),               //
+    testing::Combine(testing::Values(1e6),             //
                      testing::Values(PtType::PT_U32),  //
                      testing::Values(3)),              //
     [](const testing::TestParamInfo<BooleanTest::ParamType>& p) {
@@ -59,7 +59,7 @@ TEST_P(BooleanTest, IOTest) {
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
 
-    const size_t test_size = 1e6;
+    const size_t test_size = std::get<0>(GetParam());
 
     // auto* comm = obj->getState<Communicator>();
     auto* prg_state = obj->getState<PrgState>();
@@ -96,7 +96,7 @@ TEST_P(BooleanTest, AndTest) {
   utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
 
-    const size_t test_size = 1e5;
+    const size_t test_size = std::get<0>(GetParam());
 
     auto* prg_state = obj->getState<PrgState>();
 

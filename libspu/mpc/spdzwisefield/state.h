@@ -35,7 +35,7 @@ namespace spu::mpc {
 
 namespace beaver {
 
-using BTDataType = uint128_t;  // binary triple data type
+using BTDataType = uint64_t;  // binary triple data type
 
 using BinRss3PC = std::array<BTDataType, 2>;
 using BinaryTriple = std::array<BinRss3PC, 3>;

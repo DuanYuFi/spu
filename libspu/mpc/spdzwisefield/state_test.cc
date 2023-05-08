@@ -38,7 +38,7 @@ class StateTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     Beaver, StateTest,
-    testing::Combine(testing::Values(1000),            //
+    testing::Combine(testing::Values(1e6),             //
                      testing::Values(PtType::PT_U64),  //
                      testing::Values(3)),              //
     [](const testing::TestParamInfo<StateTest::ParamType>& p) {

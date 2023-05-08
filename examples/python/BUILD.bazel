@@ -37,3 +37,14 @@ py_binary(
         "//spu/utils:distributed",
     ],
 )
+
+py_binary(
+    name = "simple_lr",
+    srcs = ["simple_lr.py"],
+    data = [
+        "//examples/python/conf",
+    ],
+    deps = [
+        "//spu/utils:distributed",
+    ],
+)

@@ -49,6 +49,10 @@ def test(x, y, count):
     return result
 
 
+def test2(x, y):
+    return x - y
+
+
 def data_from_alice(count):
     np.random.seed(0xDEADBEEF)
     return np.random.randint(100, size=count)
@@ -69,12 +73,20 @@ def float_from_bob(count):
     return np.random.rand(count)
 
 
+def data1():
+    return jnp.array([5, 4, 3])
+
+
+def data2():
+    return jnp.array([3, 2, 1])
+
+
 def run_on_spu():
     count = 10
     x = ppd.device("P1")(float_from_alice)(count)
     y = ppd.device("P2")(float_from_bob)(count)
 
-    result = ppd.device("SPU")(test, static_argnums=(2,))(x, y, count)
+    result = ppd.device("SPU")(test2)(x, y)
 
     result = ppd.get(result)
     print(result)
@@ -85,7 +97,10 @@ def run_on_cpu():
     x = jnp.array(float_from_alice(count))
     y = jnp.array(float_from_bob(count))
 
-    result = test(x, y, count)
+    print(x)
+    print(y)
+
+    result = test2(x, y)
 
     print(result)
 
@@ -95,6 +110,18 @@ x = DeviceArray([88, 97, 57, 98, 81, 66, 29, 18, 85, 89], dtype=int32)
 y = DeviceArray([89, 32, 68, 70, 39, 37, 22, 15, 93, 13], dtype=int32)
 """
 
+
+def test():
+    x = ppd.device("P1")(data1)()
+    y = ppd.device("P2")(data2)()
+
+    result = ppd.device("SPU")(test2)(x, y)
+
+    result = ppd.get(result)
+    print(result)
+
+
 if __name__ == "__main__":
-    run_on_spu()
-    run_on_cpu()
+    # run_on_spu()
+    # run_on_cpu()
+    test()

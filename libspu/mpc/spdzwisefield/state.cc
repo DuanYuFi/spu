@@ -12,7 +12,7 @@
 #include "libspu/mpc/spdzwisefield/value.h"
 
 #define MYLOG(x) \
-  if (comm->getRank() == 0) std::cout << x << std::endl
+  if (ctx->getState<Communicator>()->getRank() == 0) std::cout << x << std::endl
 
 namespace spu::mpc {
 
@@ -227,13 +227,9 @@ std::vector<beaver::BinaryTriple> BeaverState::cut_and_choose(
       auto x1 = t[idx * (bucket_size - 1) + i][0];
       auto x2 = t[idx * (bucket_size - 1) + i][1];
 
-      hash_algo->Update(std::to_string(static_cast<uint64_t>(
-                            (x1 ^ x2) & 0xFFFFFFFFFFFFFFFF)) +
-                        std::to_string(static_cast<uint64_t>((x1 ^ x2) >> 64)));
+      hash_algo->Update(std::to_string(x1 ^ x2));
 
-      hash_algo2->Update(
-          std::to_string(static_cast<uint64_t>(x2 & 0xFFFFFFFFFFFFFFFF)) +
-          std::to_string(static_cast<uint64_t>(x2 >> 64)));
+      hash_algo2->Update(std::to_string(x2));
     }
   }
 
@@ -1109,7 +1105,7 @@ std::vector<std::array<uint128_t, 3>> open_triple(
   size_t size = triples.size();
 
   ArrayRef share_input(makeType<spdzwisefield::BShrTy>(PT_U128, 128), size * 3);
-  auto _share_input = ArrayView<std::array<uint128_t, 2>>(share_input);
+  auto _share_input = ArrayView<std::array<beaver::BTDataType, 2>>(share_input);
 
   pforeach(0, size, [&](uint64_t idx) {
     _share_input[idx * 3] = triples[idx][0];

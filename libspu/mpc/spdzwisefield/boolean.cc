@@ -28,7 +28,9 @@
 #include "libspu/mpc/spdzwisefield/value.h"
 
 #define MYLOG(x) \
-  if (comm->getRank() == 0) std::cout << x << std::endl
+  if (ctx->getState<Communicator>()->getRank() == 0) std::cout << x << std::endl
+
+#define TRACE MYLOG(kBindName)
 
 namespace spu::mpc::spdzwisefield {
 
@@ -37,6 +39,7 @@ void CommonTypeB::evaluate(KernelEvalContext* ctx) const {
   const Type& rhs = ctx->getParam<Type>(1);
 
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const size_t lhs_nbits = lhs.as<BShrTy>()->nbits();
   const size_t rhs_nbits = rhs.as<BShrTy>()->nbits();
@@ -52,6 +55,7 @@ void CastTypeB::evaluate(KernelEvalContext* ctx) const {
   const auto& to_type = ctx->getParam<Type>(1);
 
   SPU_TRACE_MPC_LEAF(ctx, in, to_type);
+  // TRACE;
 
   ArrayRef out(to_type, in.numel());
   DISPATCH_UINT_PT_TYPES(in.eltype().as<BShrTy>()->getBacktype(), "_", [&]() {
@@ -73,6 +77,7 @@ void CastTypeB::evaluate(KernelEvalContext* ctx) const {
 
 ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   const PtType btype = in.eltype().as<BShrTy>()->getBacktype();
@@ -108,6 +113,7 @@ ArrayRef B2P::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 
 ArrayRef P2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
   SPU_TRACE_MPC_LEAF(ctx, in);
+  // TRACE;
 
   auto* comm = ctx->getState<Communicator>();
   const auto* in_ty = in.eltype().as<Pub2kTy>();
@@ -142,6 +148,7 @@ ArrayRef P2B::proc(KernelEvalContext* ctx, const ArrayRef& in) const {
 ArrayRef AndBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto* lhs_ty = lhs.eltype().as<BShrTy>();
   const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
@@ -175,6 +182,7 @@ ArrayRef AndBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   auto* beaver_state = ctx->getState<BeaverState>();
   auto* comm = ctx->getState<Communicator>();
@@ -248,6 +256,7 @@ ArrayRef AndBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef XorBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto* lhs_ty = lhs.eltype().as<BShrTy>();
   const auto* rhs_ty = rhs.eltype().as<Pub2kTy>();
@@ -282,6 +291,7 @@ ArrayRef XorBP::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef XorBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
                      const ArrayRef& rhs) const {
   SPU_TRACE_MPC_LEAF(ctx, lhs, rhs);
+  // TRACE;
 
   const auto* lhs_ty = lhs.eltype().as<BShrTy>();
   const auto* rhs_ty = rhs.eltype().as<BShrTy>();
@@ -316,6 +326,7 @@ ArrayRef XorBB::proc(KernelEvalContext* ctx, const ArrayRef& lhs,
 ArrayRef LShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
                        size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
+  // TRACE;
 
   const auto* in_ty = in.eltype().as<BShrTy>();
 
@@ -348,6 +359,7 @@ ArrayRef LShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
 ArrayRef RShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
                        size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
+  // TRACE;
 
   const auto* in_ty = in.eltype().as<BShrTy>();
 
@@ -380,6 +392,7 @@ ArrayRef RShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
 ArrayRef ARShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
                         size_t bits) const {
   SPU_TRACE_MPC_LEAF(ctx, in, bits);
+  // TRACE;
 
   const auto field = ctx->getState<Z2kState>()->getDefaultField();
   const auto* in_ty = in.eltype().as<BShrTy>();
@@ -410,6 +423,7 @@ ArrayRef ARShiftB::proc(KernelEvalContext* ctx, const ArrayRef& in,
 ArrayRef BitrevB::proc(KernelEvalContext* ctx, const ArrayRef& in, size_t start,
                        size_t end) const {
   SPU_TRACE_MPC_LEAF(ctx, in, start, end);
+  // TRACE;
 
   SPU_ENFORCE(start <= end && end <= 128);
 
@@ -455,6 +469,7 @@ void BitIntlB::evaluate(KernelEvalContext* ctx) const {
   const size_t stride = ctx->getParam<size_t>(1);
 
   SPU_TRACE_MPC_LEAF(ctx, in, stride);
+  // TRACE;
 
   const auto* in_ty = in.eltype().as<BShrTy>();
   const size_t nbits = in_ty->nbits();
@@ -480,6 +495,7 @@ void BitDeintlB::evaluate(KernelEvalContext* ctx) const {
   const size_t stride = ctx->getParam<size_t>(1);
 
   SPU_TRACE_MPC_LEAF(ctx, in, stride);
+  // TRACE;
 
   const auto* in_ty = in.eltype().as<BShrTy>();
   const size_t nbits = in_ty->nbits();

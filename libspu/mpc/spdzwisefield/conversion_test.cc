@@ -44,7 +44,7 @@ class ConversionTest : public ::testing::TestWithParam<ConvTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     SpdzwiseField, ConversionTest,
-    testing::Combine(testing::Values(20000),           //
+    testing::Combine(testing::Values(1e5),             //
                      testing::Values(PtType::PT_U32),  //
                      testing::Values(3)),              //
     [](const testing::TestParamInfo<ConversionTest::ParamType>& p) {
@@ -77,15 +77,14 @@ TEST_P(ConversionTest, B2ATest) {
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
-  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
-  {
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
     auto* prg_state = obj->getState<PrgState>();
     auto* comm = obj->getState<Communicator>();
 
     (void)comm;
 
-    const size_t test_size = 10000;
+    const size_t test_size = std::get<0>(GetParam());
 
     using Field = SpdzWiseFieldState::Field;
 
@@ -95,7 +94,7 @@ TEST_P(ConversionTest, B2ATest) {
     ArrayRef random_array(makeType<Pub2kTy>(FM64), test_size);
     auto _random_array = ArrayView<uint64_t>(random_array);
 
-pforeach(0, test_size, [&](uint64_t idx) {
+    pforeach(0, test_size, [&](uint64_t idx) {
       _random_array[idx] = Field::modp(randoms[idx]);
     });
 
@@ -124,7 +123,7 @@ TEST_P(ConversionTest, A2BTest) {
 
     (void)comm;
 
-    const size_t test_size = 10000;
+    const size_t test_size = std::get<0>(GetParam());
 
     // using Field = SpdzWiseFieldState::Field;
 
@@ -155,19 +154,20 @@ TEST_P(ConversionTest, InjectionTest) {
   const RuntimeConfig& conf = makeConfig(FieldType::FM64);
   const int npc = 3;
 
-  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx)
-  {
+  utils::simulate(npc, [&](const std::shared_ptr<yacl::link::Context>& lctx) {
     auto obj = factory(conf, lctx);
     auto* prg_state = obj->getState<PrgState>();
 
-    std::vector<uint8_t> public_bits(10000);
+    const size_t test_size = std::get<0>(GetParam());
+
+    std::vector<uint8_t> public_bits(test_size);
 
     prg_state->fillPubl(absl::MakeSpan(public_bits));
 
-    ArrayRef binaries(makeType<Pub2kTy>(FM64), 80000);
+    ArrayRef binaries(makeType<Pub2kTy>(FM64), test_size * 8);
     auto _binaries = ArrayView<uint64_t>(binaries);
 
-    for (size_t i = 0; i < 10000; i++) {
+    for (size_t i = 0; i < test_size; i++) {
       for (size_t j = 0; j < 8; j++) {
         _binaries[i * 8 + j] = (public_bits[i] >> j) & 1;
       }
@@ -178,7 +178,7 @@ TEST_P(ConversionTest, InjectionTest) {
     ArrayRef number = obj->call("a2psh", ashares);
 
     auto _number = ArrayView<uint64_t>(number);
-    for (int i = 0; i < 80000; i++) {
+    for (uint64_t i = 0; i < test_size * 8; i++) {
       SPU_ENFORCE(_number[i] == _binaries[i], "i = {}, a = {}, b = {}", i,
                   _number[i], _binaries[i]);
     }
