@@ -539,13 +539,13 @@ TEST_P(ArithmeticTest, NotATest) {
     pforeach(0, test_size, [&](uint64_t idx) { _in[idx] = data[idx]; });
 
     ArrayRef in_share = obj->call("p2a", in);
-    ArrayRef truncated = obj->call("not_a", in);
+    ArrayRef truncated = obj->call("not_a", in_share);
     ArrayRef out = obj->call("a2p", truncated);
 
     auto _out = ArrayView<uint64_t>(out);
 
     pforeach(0, test_size, [&](uint64_t idx) {
-      SPU_ENFORCE(_out[idx] == MersennePrimeField::add(
+      SPU_ENFORCE(_out[idx] == MersennePrimeField::sub(
                                    MersennePrimeField::neg(data[idx]), 1),
                   "Failed");
     });

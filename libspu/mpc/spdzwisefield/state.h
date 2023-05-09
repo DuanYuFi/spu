@@ -53,10 +53,16 @@ class BeaverState : public State {
   std::shared_ptr<yacl::link::Context> lctx_;
   std::unique_ptr<std::vector<beaver::BinaryTriple>> trusted_triples_bin_;
 
-  const FieldType field_ = FM128;
+  const FieldType field_ = FM64;
 
  public:
-  const static size_t batch_size_ = 10000;
+  /*
+
+  According to Table 1. Parameter comparison for \sigma = 40, to achieve 40-bit
+  security, we need to generate 2^20 triples in a batch and set bucket size=3.
+
+  */
+  const static size_t batch_size_ = 20000;
   const static size_t bucket_size_ = 4;
 
   static constexpr char kBindName[] = "Beaver";

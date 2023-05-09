@@ -18,12 +18,15 @@
 # Run this example script.
 # > bazel run -c opt //examples/python:test
 
+
 import argparse
 import json
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+
+from time import time
 
 import spu.utils.distributed as ppd
 
@@ -39,89 +42,150 @@ print(conf["devices"]["SPU"]["config"]["runtime_config"]["protocol"])
 ppd.init(conf["nodes"], conf["devices"])
 
 
-def test(x, y, count):
-    result = 0
+def kmeans(data_alice, data_bob, k, random_numbers, n_epochs=10):
+    # data: data set
+    # k: number of clusters
+    # return: cluster centers, labels
 
-    def for_loop(i, result):
-        return result + (x[i] * y[i])
+    data = jnp.append(data_alice, data_bob, axis=0)
 
-    result = jax.lax.fori_loop(0, count, for_loop, result)
-    return result
+    n = data.shape[0]
+    m = data.shape[1]
+
+    # initialize cluster centers
+    centers = jnp.zeros((k, m))
+
+    def loop_for_1(i, stat):
+        centers = stat
+        centers = centers.at[i].set(data[random_numbers[i]])
+        return centers
+
+    centers = jax.lax.fori_loop(0, k, loop_for_1, centers)
+
+    # initialize labels
+    labels = jnp.zeros(n)
+
+    def loop_while_func(stat):
+        rounds, centers, labels = stat
+
+        def loop_for_1(i, stat):
+            labels = stat
+            min_dist = jnp.linalg.norm(data[i] - centers[0])
+            labels = labels.at[i].set(0)
+
+            def loop_for_2(j, stat):
+                min_dist, labels = stat
+                dist = jnp.linalg.norm(data[i] - centers[j])
+                labels = labels.at[i].set(jnp.where(min_dist > dist, j, labels[i]))
+                min_dist = jnp.minimum(dist, min_dist)
+                return min_dist, labels
+
+            stat = (min_dist, labels)
+            min_dist, labels = jax.lax.fori_loop(1, k, loop_for_2, stat)
+            return labels
+
+        labels = jax.lax.fori_loop(0, n, loop_for_1, labels)
+
+        def loop_for_3(i, stat):
+            new_centers = stat
+            sums = jnp.zeros(m)
+
+            def loop_for_4(j, sums):
+                sums = sums + jnp.where(labels[j] == i, data[j], jnp.zeros(m))
+                return sums
+
+            sums = jax.lax.fori_loop(0, n, loop_for_4, sums)
+            cluster_numbers = jnp.sum(jnp.where(labels == i, 1, 0))
+            avg = jnp.where(cluster_numbers != 0, sums / cluster_numbers, jnp.zeros(m))
+            new_centers = new_centers.at[i].set(avg)
+            return new_centers
+
+        centers = jax.lax.fori_loop(0, k, loop_for_3, jnp.zeros((k, m)))
+
+        return rounds + 1, centers, labels
+
+    stat = (0, centers, labels)
+    res = jax.lax.while_loop(lambda stat: stat[0] < n_epochs, loop_while_func, stat)
+
+    return res[1], res[2]
 
 
-def test2(x, y):
-    return x - y
-
-
-def data_from_alice(count):
+@ppd.device("P1")
+def points_from_alice(npoints):
     np.random.seed(0xDEADBEEF)
-    return np.random.randint(100, size=count)
+    return np.random.rand(npoints, 2) * 20
 
 
-def data_from_bob(count):
+@ppd.device("P2")
+def points_from_bob(npoints):
     np.random.seed(0xC0FFEE)
-    return np.random.randint(100, size=count)
-
-
-def float_from_alice(count):
-    np.random.seed(0xDEADBEEF)
-    return np.random.rand(count)
-
-
-def float_from_bob(count):
-    np.random.seed(0xDEADBEEF)
-    return np.random.rand(count)
-
-
-def data1():
-    return jnp.array([5, 4, 3])
-
-
-def data2():
-    return jnp.array([3, 2, 1])
-
-
-def run_on_spu():
-    count = 10
-    x = ppd.device("P1")(float_from_alice)(count)
-    y = ppd.device("P2")(float_from_bob)(count)
-
-    result = ppd.device("SPU")(test2)(x, y)
-
-    result = ppd.get(result)
-    print(result)
+    return np.random.rand(npoints, 2) * 20
 
 
 def run_on_cpu():
-    count = 10
-    x = jnp.array(float_from_alice(count))
-    y = jnp.array(float_from_bob(count))
+    # Two party share a dataset, and use kmeans to cluster them.
 
-    print(x)
-    print(y)
+    n_points_each_party = 5
+    k = 2
+    n_epochs = 1
 
-    result = test2(x, y)
+    np.random.seed(0xDEADBEEF)
+    x = np.random.rand(n_points_each_party, 2) * 20
 
-    print(result)
+    np.random.seed(0xC0FFEE)
+    y = np.random.rand(n_points_each_party, 2) * 20
+
+    np.random.seed(0xCAFEBABE)
+    random_numbers = np.random.randint(n_points_each_party * 2, size=(k,))
+
+    start = time()
+
+    centers, labels = jax.jit(kmeans, static_argnums=(2, 4))(
+        x, y, k, random_numbers, n_epochs
+    )
+
+    end = time()
+
+    print(centers)
+    print(labels)
+
+    print("Time costs", (end - start))
+    return centers, labels
 
 
-"""
-x = DeviceArray([88, 97, 57, 98, 81, 66, 29, 18, 85, 89], dtype=int32)
-y = DeviceArray([89, 32, 68, 70, 39, 37, 22, 15, 93, 13], dtype=int32)
-"""
+def run_on_spu():
+    # Two party share a dataset, and use kmeans to cluster them.
 
+    n_points_each_party = 5
+    k = 2
+    n_epochs = 1
 
-def test():
-    x = ppd.device("P1")(data1)()
-    y = ppd.device("P2")(data2)()
+    x = points_from_alice(n_points_each_party)
+    y = points_from_bob(n_points_each_party)
 
-    result = ppd.device("SPU")(test2)(x, y)
+    # This random_number is used to initialize cluster centers. It's better generated in CPU instead of SPU.
+    np.random.seed(0xCAFEBABE)
+    random_numbers = np.random.randint(n_points_each_party * 2, size=(k,))
 
-    result = ppd.get(result)
-    print(result)
+    start = time()
+
+    centers_spu, labels_spu = ppd.device("SPU")(kmeans, static_argnums=(2, 4))(
+        x, y, k, random_numbers, n_epochs
+    )
+
+    end = time()
+
+    centers = ppd.get(centers_spu)
+    labels = ppd.get(labels_spu)
+
+    print(centers)
+    print(labels)
+    print("Time costs", (end - start))
+    return centers, labels
 
 
 if __name__ == "__main__":
-    # run_on_spu()
-    # run_on_cpu()
-    test()
+    print('Run on CPU\n------\n')
+    run_on_cpu()
+    print('Run on SPU\n------\n')
+    run_on_spu()

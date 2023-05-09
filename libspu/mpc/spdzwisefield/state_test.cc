@@ -38,7 +38,7 @@ class StateTest : public ::testing::TestWithParam<CACOpTestParams> {};
 
 INSTANTIATE_TEST_SUITE_P(
     Beaver, StateTest,
-    testing::Combine(testing::Values(1e6),             //
+    testing::Combine(testing::Values(5e5, 1e6, 2e6),   //
                      testing::Values(PtType::PT_U64),  //
                      testing::Values(3)),              //
     [](const testing::TestParamInfo<StateTest::ParamType>& p) {
@@ -64,7 +64,7 @@ TEST_P(StateTest, BinaryCAC) {
     auto* state = obj->getState<BeaverState>();
     auto* comm = obj->getState<Communicator>();
 
-    const int test_size = 1e3;
+    const int test_size = std::get<0>(GetParam());
 
     DISPATCH_UINT_PT_TYPES(type, "_", [&]() {
       using T = ScalarT;

@@ -74,8 +74,15 @@ def points_from_bob():
     return y
 
 
+def accuracy(a, b, x, y):
+    y_pred = a * x + b
+    return jnp.mean((y - y_pred) ** 2)
+
+
 learning_rate = 0.01
-num_epochs = 100
+num_epochs = 200
+
+from tqdm import trange
 
 
 def run_on_cpu():
@@ -92,12 +99,13 @@ def run_on_cpu():
 
     # 训练模型
 
-    for epoch in range(num_epochs):
+    for epoch in trange(num_epochs):
         grads = grad_loss(params, x, y)
         params -= learning_rate * grads
 
     end = time()
     print("Trained parameters: a =", params[0], ", b =", params[1])
+    print("Accuracy: ", accuracy(params[0], params[1], x, y))
     print("Time cost on CPU: ", end - start)
 
 
@@ -119,7 +127,7 @@ def run_on_spu():
 
     grad_loss = grad(loss_function)
 
-    for epoch in range(num_epochs):
+    for epoch in trange(num_epochs):
         grads = ppd.device("SPU")(grad_loss)(params, x, y)
         params = ppd.device("SPU")(fit, static_argnums=(2,))(
             params, grads, learning_rate
@@ -130,6 +138,7 @@ def run_on_spu():
     end = time()
 
     print("Trained parameters: a =", params[0], ", b =", params[1])
+    print("Accuracy: ", accuracy(params[0], params[1], ppd.get(x), ppd.get(y)))
     print("Time cost on SPU: ", end - start)
 
 
