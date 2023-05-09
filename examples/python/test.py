@@ -43,6 +43,44 @@ ppd.init(conf["nodes"], conf["devices"])
 
 
 def kmeans(data_alice, data_bob, k, random_numbers, n_epochs=10):
+    data = jnp.append(data_alice, data_bob, axis=0)
+
+    n = data.shape[0]
+    m = data.shape[1]
+
+    centers = jnp.zeros((k, m))
+
+    centers = centers.at[0].set(data[random_numbers[0]])
+
+    min_dist = jnp.linalg.norm(data[0] - centers[0])
+
+    # dist = jnp.linalg.norm(data[0] - centers[1])
+    # labels = labels.at[0].set(jnp.where(min_dist > dist, 1, labels[0]))
+    # min_dist = jnp.minimum(dist, min_dist)
+
+    return min_dist
+
+    # def loop_for_1(i, stat):
+    #     labels = stat
+    #     min_dist = jnp.linalg.norm(data[i] - centers[0])
+    #     labels = labels.at[i].set(0)
+
+    #     def loop_for_2(j, stat):
+    #         min_dist, labels = stat
+    #         dist = jnp.linalg.norm(data[i] - centers[j])
+    #         labels = labels.at[i].set(jnp.where(min_dist > dist, j, labels[i]))
+    #         min_dist = jnp.minimum(dist, min_dist)
+    #         return min_dist, labels
+
+    #     stat = (min_dist, labels)
+    #     min_dist, labels = jax.lax.fori_loop(1, k, loop_for_2, stat)
+    #     return labels
+
+    # labels = jax.lax.fori_loop(0, n, loop_for_1, labels)
+    # return labels
+
+
+def _kmeans(data_alice, data_bob, k, random_numbers, n_epochs=10):
     # data: data set
     # k: number of clusters
     # return: cluster centers, labels
@@ -140,17 +178,13 @@ def run_on_cpu():
 
     start = time()
 
-    centers, labels = jax.jit(kmeans, static_argnums=(2, 4))(
-        x, y, k, random_numbers, n_epochs
-    )
+    ret = jax.jit(kmeans, static_argnums=(2, 4))(x, y, k, random_numbers, n_epochs)
 
     end = time()
 
-    print(centers)
-    print(labels)
+    print(ret)
 
     print("Time costs", (end - start))
-    return centers, labels
 
 
 def run_on_spu():
@@ -169,19 +203,16 @@ def run_on_spu():
 
     start = time()
 
-    centers_spu, labels_spu = ppd.device("SPU")(kmeans, static_argnums=(2, 4))(
+    ret = ppd.device("SPU")(kmeans, static_argnums=(2, 4))(
         x, y, k, random_numbers, n_epochs
     )
 
     end = time()
 
-    centers = ppd.get(centers_spu)
-    labels = ppd.get(labels_spu)
+    ret = ppd.get(ret)
 
-    print(centers)
-    print(labels)
+    print(ret)
     print("Time costs", (end - start))
-    return centers, labels
 
 
 if __name__ == "__main__":
