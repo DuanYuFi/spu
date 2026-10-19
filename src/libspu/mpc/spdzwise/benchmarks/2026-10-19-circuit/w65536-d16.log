@@ -1,0 +1,24 @@
+sh: /bin/ps: Operation not permitted
+W1019 20:35:04.619799   259     0 external/brpc~/src/bvar/default_variables.cpp:118 read_proc_status] Fail to sscanf: Undefined error: 0
+sh: /bin/ps: Operation not permitted
+E1019 20:35:04.625064  7427     0 external/brpc~/src/bvar/default_variables.cpp:233 read_proc_memory] Fail to read memory state
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+E1019 20:35:04.629051  7427     0 external/brpc~/src/bvar/default_variables.cpp:295 read_load_average] Fail to read loadavg
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 0.37775 ms, circuit 23.4037 ms (mul 15.2038), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 0.31575 ms, circuit 25.3303 ms (mul 16.372), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 0.334125 ms, circuit 25.1696 ms (mul 16.0773), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 0.328333 ms, circuit 24.4236 ms (mul 15.1666), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 0.342792 ms, circuit 23.9389 ms (mul 15.1473), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 0.313708 ms, circuit 26.6777 ms (mul 17.6986), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 0.31875 ms, circuit 22.3975 ms (mul 13.8658), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 0.31625 ms, circuit 22.0537 ms (mul 13.7222), verify 0 ms
+aby3-f61-adapter: checked all 65536 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.024417 ms, expand 2.04542 ms, circuit 74.5505 ms (mul 49.1238), verify 15.617 ms
+spdzwise-f61 iteration 1: input MAC 0.018458 ms, expand 2.38554 ms, circuit 56.0993 ms (mul 31.2246), verify 11.6829 ms
+spdzwise-f61 iteration 2: input MAC 0.016834 ms, expand 2.10471 ms, circuit 58.6026 ms (mul 33.4056), verify 10.714 ms
+spdzwise-f61 iteration 3: input MAC 0.007834 ms, expand 2.041 ms, circuit 55.6659 ms (mul 30.603), verify 10.4775 ms
+spdzwise-f61 iteration 4: input MAC 0.007834 ms, expand 2.0505 ms, circuit 56.2915 ms (mul 30.941), verify 10.6103 ms
+spdzwise-f61 iteration 5: input MAC 0.007834 ms, expand 2.118 ms, circuit 58.376 ms (mul 33.1345), verify 12.0148 ms
+spdzwise-f61 iteration 6: input MAC 0.005375 ms, expand 2.24979 ms, circuit 63.8043 ms (mul 37.6582), verify 11.5303 ms
+spdzwise-f61 iteration 7: input MAC 0.008583 ms, expand 2.30179 ms, circuit 60.7962 ms (mul 33.9028), verify 11.4851 ms
+spdzwise-f61: checked all 65536 outputs; 1048576 multiplication gates, two secret input elements

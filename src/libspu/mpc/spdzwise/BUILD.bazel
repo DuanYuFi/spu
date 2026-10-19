@@ -1,0 +1,105 @@
+load("//bazel:spu.bzl", "spu_cc_binary", "spu_cc_library", "spu_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+spu_cc_binary(
+    name = "circuit_bench",
+    srcs = ["circuit_bench.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":replicated",
+        ":state",
+        "//libspu/mpc:api",
+        "//libspu/mpc/aby3:protocol",
+        "//libspu/mpc/common:prg_state",
+        "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_library(
+    name = "replicated",
+    srcs = ["replicated.cc"],
+    hdrs = ["replicated.h"],
+    deps = [
+        ":type",
+        "//libspu/core:parallel_utils",
+        "//libspu/mpc/common:prg_state",
+    ],
+)
+
+spu_cc_library(
+    name = "state",
+    srcs = ["state.cc"],
+    hdrs = ["state.h"],
+    deps = [
+        ":replicated",
+        ":type",
+        "//libspu/mpc:protocol_session",
+        "//libspu/mpc/common:pv2k",
+        "@yacl//yacl/crypto/hash:blake3",
+        "@yacl//yacl/crypto/rand",
+        "@yacl//yacl/link/algorithm:allgather",
+    ],
+)
+
+spu_cc_library(
+    name = "protocol",
+    srcs = ["protocol.cc"],
+    hdrs = ["protocol.h"],
+    deps = [
+        ":state",
+        "//libspu/mpc:kernel",
+        "//libspu/mpc/standard_shape:protocol",
+    ],
+)
+
+spu_cc_test(
+    name = "protocol_test",
+    srcs = ["protocol_test.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":replicated",
+        "//libspu/mpc:api",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_library(
+    name = "field",
+    hdrs = ["field.h"],
+)
+
+spu_cc_library(
+    name = "type",
+    srcs = ["type.cc"],
+    hdrs = ["type.h"],
+    deps = [
+        ":field",
+        "//libspu/core:type",
+        "//libspu/mpc/common:pv2k",
+    ],
+)
+
+spu_cc_library(
+    name = "io",
+    srcs = ["io.cc"],
+    hdrs = ["io.h"],
+    deps = [
+        ":type",
+        "//libspu/mpc:io_interface",
+        "//libspu/mpc/common:pv2k",
+        "@yacl//yacl/crypto/rand",
+    ],
+)
+
+spu_cc_test(
+    name = "io_test",
+    srcs = ["io_test.cc"],
+    deps = [
+        ":io",
+        "//libspu/core:value",
+    ],
+)

@@ -1,0 +1,495 @@
+// Copyright 2026 The SPU Authors. All Rights Reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "libspu/mpc/spdzwise/state.h"
+
+#include <cstring>
+#include <limits>
+
+#include "yacl/crypto/hash/blake3.h"
+#include "yacl/crypto/rand/rand.h"
+#include "yacl/link/algorithm/allgather.h"
+
+#include "libspu/mpc/common/pv2k.h"
+#include "libspu/mpc/spdzwise/replicated.h"
+
+namespace spu::mpc::spdzwise {
+namespace {
+
+std::string Digest(std::string_view bytes) {
+  yacl::crypto::Blake3Hash hash;
+  hash.Update(bytes);
+  const auto digest = hash.CumulativeHash();
+  std::string result;
+  constexpr char hex[] = "0123456789abcdef";
+  for (auto byte : digest) {
+    result += hex[byte >> 4];
+    result += hex[byte & 15];
+  }
+  return result;
+}
+
+void Append(std::string& out, std::string_view value) {
+  out += std::to_string(value.size()) + ":";
+  out.append(value);
+}
+
+RepShare Values(const AuthShare& x) { return {x[0], x[1]}; }
+RepShare Macs(const AuthShare& x) { return {x[2], x[3]}; }
+
+void RequirePublic(const NdArrayRef& x) {
+  SPU_ENFORCE(x.eltype() == makeType<Pub2kTy>(FM64),
+              "expected an FM64 public value");
+}
+
+}  // namespace
+
+SpdzWiseState::SpdzWiseState(const RuntimeConfig& config,
+                             std::shared_ptr<yacl::link::Context> link)
+    : link_(std::move(link)), config_(config) {
+  SPU_ENFORCE(link_ && link_->WorldSize() == 3,
+              "SPDZWISE requires three parties");
+  SPU_ENFORCE(config.field == FM64, "SPDZWISE requires FM64");
+  SPU_ENFORCE(!config.experimental_enable_inter_op_par &&
+                  !config.experimental_enable_intra_op_par,
+              "SPDZWISE context parallelism is not supported");
+  SPU_ENFORCE(!config.experimental_enable_colocated_optimization &&
+                  !config.enable_runtime_snapshot,
+              "SPDZWISE colocated input and runtime snapshots are unsupported");
+}
+
+std::unique_ptr<State> SpdzWiseState::fork() {
+  SPU_THROW("SPDZWISE cannot fork key, preprocessing or deferred-check state");
+}
+
+std::string SpdzWiseState::tag(std::string_view operation) {
+  requireRunning();
+  SPU_ENFORCE(message_ != std::numeric_limits<uint64_t>::max(),
+              "message overflow");
+  return fmt::format("spdzwise/{}/{}/{}", execution_, message_++, operation);
+}
+
+std::vector<uint64_t> SpdzWiseState::exchange(
+    const std::vector<uint64_t>& local, std::string_view operation) {
+  return ExchangeF61(link_, local, tag(operation));
+}
+
+std::vector<RepShare> SpdzWiseState::randomRep(size_t size) {
+  SPU_ENFORCE(check_prg_, "checking PRSS is not initialized");
+  return RandomF61Rep(check_prg_.get(), size);
+}
+
+void SpdzWiseState::checkCopies(const std::vector<RepShare>& x) {
+  std::vector<uint64_t> first(x.size());
+  for (size_t i = 0; i < x.size(); ++i) {
+    SPU_ENFORCE(x[i][0] < kPrime && x[i][1] < kPrime, "noncanonical share");
+    first[i] = x[i][0];
+  }
+  // Only send a component to the party that already holds its duplicate.
+  const auto next = exchange(first, "copy-consistency");
+  for (size_t i = 0; i < x.size(); ++i) {
+    SPU_ENFORCE(next[i] == x[i][1],
+                "SPDZWISE replicated input copies disagree");
+  }
+}
+
+void SpdzWiseState::agree(const std::string& descriptor) {
+  const auto digest = Digest(descriptor);
+  const auto all = yacl::link::AllGather(link_, yacl::ByteContainerView(digest),
+                                         tag("agreement"));
+  for (const auto& item : all) {
+    SPU_ENFORCE(std::string_view(item) == digest, "SPDZWISE parties disagree");
+  }
+}
+
+void SpdzWiseState::onBegin(const ExecutableProto& exec,
+                            const std::vector<Value>& inputs) {
+  SPU_ENFORCE(execution_ != std::numeric_limits<uint64_t>::max(),
+              "execution overflow");
+  ++execution_;
+  SPU_ENFORCE(inputs.size() == exec.input_names.size(), "input count mismatch");
+  std::string descriptor;
+  Append(descriptor, exec.SerializeAsString());
+  Append(descriptor, config_.SerializeAsString());
+  for (const auto& value : inputs) {
+    SPU_ENFORCE(!value.isComplex() && !value.isPrivate(),
+                "unsupported input kind");
+    Append(descriptor, std::to_string(value.dtype()));
+    Append(descriptor, fmt::format("{}", value.shape()));
+    Append(descriptor, std::to_string(value.isPublic()));
+    if (value.isPublic()) {
+      RequirePublic(value.data());
+      const NdArrayView<uint64_t> view(value.data());
+      std::vector<uint64_t> words(value.numel());
+      for (int64_t i = 0; i < value.numel(); ++i) {
+        words[i] = view[i];
+      }
+      Append(descriptor, EncodeF61(words));
+    } else if (value.storage_type().isa<AShrTy>()) {
+      validateInternal(value.data());
+      Append(descriptor, "authenticated");
+      Append(descriptor, value.storage_type().as<AShrTy>()->session());
+    } else {
+      validateExternalInput(value);
+      // Rank is deliberately excluded: it differs across the three parties.
+      // The kind and prior output binding must agree before any authentication
+      // messages, otherwise parties can import different execution batches.
+      if (value.storage_type().isa<OutputTy>()) {
+        Append(descriptor, "external-output");
+        Append(descriptor, value.storage_type().as<OutputTy>()->binding());
+      } else {
+        Append(descriptor, "external-input");
+      }
+    }
+  }
+  agree(descriptor);
+  if (session_.empty()) {
+    const auto nonce = yacl::crypto::SecureRandSeed();
+    const auto nonces =
+        yacl::link::AllGather(link_, {&nonce, sizeof(nonce)}, tag("session"));
+    std::string combined;
+    for (const auto& item : nonces) {
+      SPU_ENFORCE(item.size() == sizeof(nonce), "invalid session nonce");
+      Append(combined, std::string_view(item));
+    }
+    session_ = Digest(combined);
+    agree(session_);
+    key_prg_ = std::make_unique<PrgState>(link_);
+    mask_prg_ = std::make_unique<PrgState>(link_);
+    check_prg_ = std::make_unique<PrgState>(link_);
+    key_ = RandomF61Rep(key_prg_.get(), 1)[0];
+    checkCopies({key_});
+  }
+}
+
+Type SpdzWiseState::exportType(const std::string& name,
+                               const Value& value) const {
+  std::string descriptor;
+  Append(descriptor, session_);
+  Append(descriptor, std::to_string(execution_));
+  Append(descriptor, name);
+  Append(descriptor, fmt::format("{}", value.shape()));
+  Append(descriptor, std::to_string(value.dtype()));
+  return makeType<OutputTy>(rank(), Digest(descriptor));
+}
+
+void SpdzWiseState::onAbort() noexcept {
+  pending_.clear();
+  key_ = {};
+  key_prg_.reset();
+  mask_prg_.reset();
+  check_prg_.reset();
+}
+
+void SpdzWiseState::validateExternalInput(const Value& value) const {
+  requireHealthy();
+  SPU_ENFORCE(!value.isComplex() && !value.isPrivate(),
+              "unsupported input kind");
+  const auto& type = value.storage_type();
+  if (value.isPublic()) {
+    RequirePublic(value.data());
+  } else {
+    SPU_ENFORCE(
+        (type.isa<InputTy>() && type.as<InputTy>()->rank() == rank()) ||
+            (type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank()),
+        "external input cannot assert internal authentication");
+  }
+}
+
+void SpdzWiseState::validateInternal(const NdArrayRef& value) const {
+  requireRunning();
+  SPU_ENFORCE(value.eltype().isa<AShrTy>() &&
+                  value.eltype().as<AShrTy>()->session() == session_,
+              "SPDZWISE value belongs to a different session/type");
+}
+
+std::vector<RepShare> SpdzWiseState::multiplyRaw(
+    const std::vector<RepShare>& x, const std::vector<RepShare>& y) {
+  SPU_ENFORCE(x.size() == y.size(), "raw multiplication size mismatch");
+  std::vector<RepShare> result(x.size());
+  MultiplyF61(
+      mask_prg_.get(), link_, x.size(), [&](int64_t i) { return x[i]; },
+      [&](int64_t i) { return y[i]; },
+      [&](int64_t i, const RepShare& value) { result[i] = value; },
+      tag("multiply"));
+  return result;
+}
+
+uint64_t SpdzWiseState::openRaw(const RepShare& value) {
+  const auto bytes = EncodeF61({value[0], value[1]});
+  const auto buffers = yacl::link::AllGather(
+      link_, yacl::ByteContainerView(bytes), tag("check-open"));
+  std::array<std::vector<uint64_t>, 3> shares;
+  for (size_t i = 0; i < 3; ++i) {
+    shares[i] = DecodeF61(std::string_view(buffers[i]), 2);
+  }
+  for (size_t i = 0; i < 3; ++i) {
+    SPU_ENFORCE(shares[i][1] == shares[(i + 1) % 3][0], "inconsistent opening");
+  }
+  return Add(Add(shares[0][0], shares[1][0]), shares[2][0]);
+}
+
+void SpdzWiseState::check() {
+  try {
+    requireRunning();
+    if (pending_.empty()) {
+      return;
+    }
+    // The secret-coefficient check follows SpdzWise::check / zero_check. Do not
+    // replace the coefficients with public PRSS values or open u-alpha*w
+    // itself.
+    const auto coefficients = randomRep(pending_.size());
+    // Read pending shares directly and accumulate value/MAC dot products in
+    // one pass. For a replicated product, a0*r0+a0*r1+a1*r0 equals
+    // a0*(r0+r1)+a1*r0. Both dot products reuse r0+r1, reducing six field
+    // multiplications per record to four, without materializing values/macs.
+    const auto sums = yacl::parallel_reduce<std::array<uint64_t, 2>>(
+        0, pending_.size(), kMinTaskSize,
+        [&](int64_t begin, int64_t end) {
+          std::array<uint64_t, 2> partial{};
+          for (int64_t i = begin; i < end; ++i) {
+            const auto& value = pending_[i];
+            const auto& coefficient = coefficients[i];
+            const auto rsum = Add(coefficient[0], coefficient[1]);
+            partial[0] = Add(partial[0], Add(Mul(value[0], rsum),
+                                             Mul(value[1], coefficient[0])));
+            partial[1] = Add(partial[1], Add(Mul(value[2], rsum),
+                                             Mul(value[3], coefficient[0])));
+          }
+          return partial;
+        },
+        [](const auto& a, const auto& b) {
+          return std::array<uint64_t, 2>{Add(a[0], b[0]), Add(a[1], b[1])};
+        });
+    // The two dot products are independent. Keep a separate zero-sharing
+    // mask for each, but exchange the two masked local sums together.
+    const auto masks = RandomF61Rep(mask_prg_.get(), 2);
+    const std::vector<uint64_t> local = {
+        Add(sums[0], Sub(masks[0][0], masks[0][1])),
+        Add(sums[1], Sub(masks[1][0], masks[1][1]))};
+    const auto next = exchange(local, "check-dots");
+    const RepShare w = {local[0], next[0]};
+    const RepShare u = {local[1], next[1]};
+    const auto product = multiplyRaw({key_}, {w})[0];
+    const RepShare t = {Sub(u[0], product[0]), Sub(u[1], product[1])};
+    const auto blinded = multiplyRaw({t}, randomRep(1))[0];
+    SPU_ENFORCE(openRaw(blinded) == 0,
+                "SPDZWISE arithmetic authentication failed");
+    SPU_ENFORCE(arithmetic_checks_ != std::numeric_limits<uint64_t>::max(),
+                "check counter overflow");
+    ++arithmetic_checks_;
+    pending_.clear();
+
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
+NdArrayRef SpdzWiseState::authenticateInput(const std::vector<RepShare>& values,
+                                            const Shape& shape) {
+  requireRunning();
+  SPU_ENFORCE(static_cast<int64_t>(values.size()) == shape.numel(),
+              "input shape mismatch");
+  NdArrayRef result(makeType<AShrTy>(session_), shape);
+  auto* out = result.data<AuthShare>();
+  MultiplyF61(
+      mask_prg_.get(), link_, values.size(),
+      [&](int64_t i) { return values[i]; }, [&](int64_t) { return key_; },
+      [&](int64_t i, const RepShare& mac) {
+        out[i] = {values[i][0], values[i][1], mac[0], mac[1]};
+      },
+      tag("input-mac"));
+  if (!values.empty()) {
+    pending_.insert(pending_.end(), out, out + values.size());
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
+  try {
+    requireRunning();
+    if (value.eltype().isa<AShrTy>()) {
+      validateInternal(value);
+      return value;
+    }
+    validateExternalInput(Value(value, DT_I64));
+    const NdArrayView<RepShare> input(value);
+    std::vector<RepShare> values(value.numel());
+    for (int64_t i = 0; i < value.numel(); ++i) {
+      values[i] = input[i];
+    }
+    checkCopies(values);
+    auto result = authenticateInput(values, value.shape());
+    check();
+    return result;
+
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
+NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
+  requireRunning();
+  RequirePublic(value);
+  NdArrayRef result(makeType<AShrTy>(session_), value.shape());
+  const NdArrayView<uint64_t> in(value);
+  NdArrayView<AuthShare> out(result);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    const auto x = FromRing(in[i]);
+    out[i] = {rank() == 0 ? x : 0, rank() == 2 ? x : 0, Mul(key_[0], x),
+              Mul(key_[1], x)};
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
+  validateInternal(x);
+  validateInternal(y);
+  SPU_ENFORCE(x.shape() == y.shape(), "add shape mismatch");
+  NdArrayRef result(x.eltype(), x.shape());
+  const NdArrayView<AuthShare> a(x), b(y);
+  NdArrayView<AuthShare> out(result);
+  for (int64_t i = 0; i < x.numel(); ++i) {
+    for (size_t c = 0; c < 4; ++c) {
+      out[i][c] = Add(a[i][c], b[i][c]);
+    }
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
+  validateInternal(x);
+  NdArrayRef result(x.eltype(), x.shape());
+  const NdArrayView<AuthShare> in(x);
+  NdArrayView<AuthShare> out(result);
+  for (int64_t i = 0; i < x.numel(); ++i) {
+    for (size_t c = 0; c < 4; ++c) {
+      out[i][c] = Neg(in[i][c]);
+    }
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
+                                         const NdArrayRef& y) const {
+  validateInternal(x);
+  RequirePublic(y);
+  SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
+  NdArrayRef result(x.eltype(), x.shape());
+  const NdArrayView<AuthShare> a(x);
+  const NdArrayView<uint64_t> b(y);
+  NdArrayView<AuthShare> out(result);
+  for (int64_t i = 0; i < x.numel(); ++i) {
+    for (size_t c = 0; c < 4; ++c) {
+      out[i][c] = Mul(a[i][c], FromRing(b[i]));
+    }
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
+  validateInternal(x);
+  validateInternal(y);
+  SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
+  const NdArrayView<AuthShare> a(x), b(y);
+  NdArrayRef result(x.eltype(), x.shape());
+  auto* out = result.data<AuthShare>();
+  MultiplyF61(
+      mask_prg_.get(), link_, 2 * x.numel(),
+      [&](int64_t i) { return i % 2 == 0 ? Values(a[i / 2]) : Macs(a[i / 2]); },
+      [&](int64_t i) { return Values(b[i / 2]); },
+      [&](int64_t i, const RepShare& product) {
+        out[i / 2][2 * (i % 2)] = product[0];
+        out[i / 2][2 * (i % 2) + 1] = product[1];
+      },
+      tag("multiply"));
+  if (x.numel() != 0) {
+    pending_.insert(pending_.end(), out, out + x.numel());
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
+                                 bool public_rhs) {
+  validateInternal(x);
+  if (public_rhs) {
+    RequirePublic(y);
+  } else {
+    validateInternal(y);
+  }
+  SPU_ENFORCE(x.ndim() == 2 && y.ndim() == 2 && x.shape()[1] == y.shape()[0],
+              "matmul requires compatible matrices");
+  const int64_t m = x.shape()[0], k = x.shape()[1], n = y.shape()[1];
+  NdArrayRef result(x.eltype(), {m, n});
+  NdArrayView<AuthShare> out(result);
+  const NdArrayView<AuthShare> a(x);
+  if (public_rhs) {
+    const NdArrayView<uint64_t> b(y);
+    for (int64_t i = 0; i < m; ++i) {
+      for (int64_t j = 0; j < n; ++j) {
+        out[i * n + j] = {};
+        for (int64_t t = 0; t < k; ++t) {
+          const auto scalar = FromRing(b[t * n + j]);
+          for (size_t c = 0; c < 4; ++c) {
+            out[i * n + j][c] =
+                Add(out[i * n + j][c], Mul(a[i * k + t][c], scalar));
+          }
+        }
+      }
+    }
+    return result;
+  }
+  const NdArrayView<AuthShare> b(y);
+  const auto masks = RandomF61Rep(mask_prg_.get(), 2 * result.numel());
+  std::vector<uint64_t> first(masks.size());
+  for (int64_t i = 0; i < m; ++i) {
+    for (int64_t j = 0; j < n; ++j) {
+      const size_t pos = 2 * (i * n + j);
+      for (int64_t t = 0; t < k; ++t) {
+        first[pos] = Add(first[pos], LocalF61Product(Values(a[i * k + t]),
+                                                     Values(b[t * n + j])));
+        first[pos + 1] =
+            Add(first[pos + 1],
+                LocalF61Product(Macs(a[i * k + t]), Values(b[t * n + j])));
+      }
+      for (size_t c = 0; c < 2; ++c) {
+        first[pos + c] =
+            Add(first[pos + c], Sub(masks[pos + c][0], masks[pos + c][1]));
+      }
+    }
+  }
+  const auto second = exchange(first, "matmul");
+  for (int64_t i = 0; i < result.numel(); ++i) {
+    out[i] = {first[2 * i], second[2 * i], first[2 * i + 1], second[2 * i + 1]};
+    pending_.push_back(out[i]);
+  }
+  return result;
+}
+
+NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
+                                      const Type& type) const {
+  validateInternal(value);
+  SPU_ENFORCE(pending_.empty(),
+              "unchecked SPDZWISE results cannot be exported");
+  SPU_ENFORCE(type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank(),
+              "invalid export type");
+  NdArrayRef result(type, value.shape());
+  const NdArrayView<AuthShare> in(value);
+  NdArrayView<RepShare> out(result);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    out[i] = Values(in[i]);
+  }
+  return result;
+}
+
+}  // namespace spu::mpc::spdzwise

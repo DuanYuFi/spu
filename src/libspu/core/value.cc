@@ -75,6 +75,9 @@ ValueProto Value::toProto(size_t max_chunk_size) const {
   SPU_ENFORCE(dtype_ != DT_INVALID && vtype() != VIS_INVALID, "{}", *this);
 
   ValueProto ret;
+  // Validate the export policy before copying any protocol-private bytes into
+  // a serialization buffer.
+  ret.meta.CopyFrom(toMetaProto());
 
   auto build_chunk = [&](const void* data, size_t size, size_t num_chunks) {
     if (size == 0) {
@@ -114,13 +117,15 @@ ValueProto Value::toProto(size_t max_chunk_size) const {
     array_to_chunks(*imag_);
   }
 
-  ret.meta.CopyFrom(toMetaProto());
-
   return ret;
 }
 
 pb::ValueMetaProto Value::toMetaProto() const {
   SPU_ENFORCE(dtype_ != DT_INVALID && vtype() != VIS_INVALID);
+  SPU_ENFORCE(data_.eltype().isSerializable(),
+              "protocol-private values require an explicit checked export");
+  SPU_ENFORCE(!imag_ || imag_->eltype().isSerializable(),
+              "protocol-private imaginary values require an explicit checked export");
 
   pb::ValueMetaProto proto;
   proto.set_data_type(::spu::pb::DataType(dtype_));

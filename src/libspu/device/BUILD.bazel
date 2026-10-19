@@ -68,6 +68,8 @@ spu_cc_library(
     hdrs = ["api.h"],
     deps = [
         ":executor",
+        "//libspu/mpc:api",
+        "//libspu/mpc:protocol_session",
         "//libspu:version",
         "//libspu/device/pphlo:pphlo_executor",
         "//libspu/device/utils:debug_dump_constant",

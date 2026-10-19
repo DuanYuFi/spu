@@ -26,6 +26,8 @@
 #include "spdlog/spdlog.h"
 
 #include "libspu/core/trace.h"
+#include "libspu/mpc/protocol_session.h"
+#include "libspu/mpc/api.h"
 #include "libspu/device/utils/debug_dump_constant.h"
 #include "libspu/dialect/pphlo/IR/dialect.h"
 #include "libspu/dialect/utils/utils.h"
@@ -259,6 +261,9 @@ void installLLVMErrorHandler() {
 
 void executeImpl(OpExecutor *executor, spu::SPUContext *sctx,
                  const ExecutableProto &executable, SymbolTable *env) {
+  // F1/F2: only protocols installing a checked session enter these hooks.
+  mpc::ProtocolRunGuard protocol_guard(sctx);
+  auto* protocol_session = mpc::getProtocolSession(sctx);
   setupTrace(sctx, sctx->config());
   installLLVMErrorHandler();
 
@@ -277,6 +282,15 @@ void executeImpl(OpExecutor *executor, spu::SPUContext *sctx,
   }
 
   const RuntimeConfig rt_config = sctx->config();
+
+  if (protocol_session) {
+    protocol_session->begin(executable, inputs);
+    for (auto& input : inputs) {
+      if (input.isSecret()) {
+        input = mpc::import_s(sctx, input);
+      }
+    }
+  }
 
   if (rt_config.enable_runtime_snapshot) {
     const bool isRefHal = sctx->lctx() == nullptr;
@@ -338,6 +352,12 @@ void executeImpl(OpExecutor *executor, spu::SPUContext *sctx,
     }
   }
 
+  // F2/F3: check every deferred operation and build client-facing values before
+  // publishing any output. Keep authenticated values in the internal table.
+  if (protocol_session) {
+    protocol_session->prepareOutputs(sctx, executable.output_names, outputs);
+  }
+
   // sync output to environment.
   {
     TimeitGuard timeit(exec_stats.outfeed_time);
@@ -350,6 +370,7 @@ void executeImpl(OpExecutor *executor, spu::SPUContext *sctx,
   if ((getGlobalTraceFlag(sctx->id()) & TR_REC) != 0) {
     printProfilingData(sctx, executable.name, exec_stats, comm_stats);
   }
+  protocol_guard.commit();
 }
 
 void execute(OpExecutor *executor, spu::SPUContext *sctx,

@@ -123,6 +123,17 @@ void IoClient::combineShares(absl::Span<Value const> values,
   SPU_ENFORCE(values.size() == world_size_,
               "wrong number of shares, got={}, expect={}", values.size(),
               world_size_);
+  if (config_.protocol == ProtocolKind::SPDZWISE) {
+    // F3: storage-type bindings are checked by the protocol IO; metadata lives
+    // outside those buffers and must also agree across authenticated senders.
+    SPU_ENFORCE(values.size() == 3, "SPDZWISE requires three output shares");
+    for (const auto& value : values) {
+      SPU_ENFORCE(value.dtype() == values.front().dtype() &&
+                      value.shape() == values.front().shape() &&
+                      !value.isComplex(),
+                  "SPDZWISE output metadata disagree");
+    }
+  }
 
   if (values.front().isComplex()) {
     Strides ds = out->strides;

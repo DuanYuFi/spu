@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-19",
+  "compiler": "Apple clang version 16.0.0 (clang-1600.0.26.6)",
+  "build": "Bazel 7.7.1; -c opt; SPU -O2",
+  "transport": "Three party threads in one process; FactoryMem",
+  "parallelism": "Default YACL pool: seven workers, plus calling party threads",
+  "field": "F61 (2^61-1) for both protocols",
+  "circuit": "z[0,i]=x+i; z[l+1,i]=z[l,i]*(z[l,i]+y)",
+  "secret_input_elements": 2,
+  "plain_input": [
+    "1152921504606846968",
+    "-13"
+  ],
+  "multiplication_gates": 1048576,
+  "shapes": [
+    [
+      1048576,
+      1
+    ],
+    [
+      65536,
+      16
+    ],
+    [
+      16384,
+      64
+    ]
+  ],
+  "warmups": 1,
+  "measured_repetitions": 7,
+  "checked_elements_per_batch": 1048578,
+  "nonempty_checks_per_spdzwise_batch": 1,
+  "validation": "27 native C++ cases and 8 Python cases passed. All final outputs reconstructed for every shape and protocol; every sample asserts pending, check count and phase payloads; summarize.py passed.",
+  "revision": "826537d90d60c1a94286852c5ba13c8eb470a785",
+  "working_tree": "Uncommitted protocol update; verification uses merged value/MAC dot products",
+  "binary_sha256": "1601c742af2c6bce9c470804e3066e4283e34d0cb46ec4ee83dd278231a95cde",
+  "source_sha256": {
+    "src/libspu/mpc/spdzwise/BUILD.bazel": "4f4d11fc2fd8ada5f4244e588ff2e4fec516252fc92447914faf40f25d9a9aaa",
+    "src/libspu/mpc/spdzwise/circuit_bench.cc": "3af903b4dc775ae31fd59d905f121e3272548c1a9eb38aadf11f86ce093d6bf5",
+    "src/libspu/mpc/spdzwise/field.h": "102739b993f35fc230e9c8fa4c4e89f9341dc2b17e4440c2c3d7319f47a8c8e3",
+    "src/libspu/mpc/spdzwise/io.cc": "c91d47db4ebcd67c941f64b6a8a0e417550074c31b0de8480c12fe713b4b9e12",
+    "src/libspu/mpc/spdzwise/io.h": "5b452615dcd4ffce1d1e6d1ec5281d1b9f876b6127610b39b5673d0b0ef85806",
+    "src/libspu/mpc/spdzwise/io_test.cc": "3efded74c95a7ea3a5b8314367e7e9cc620b5515fec0d788917f781c5357b963",
+    "src/libspu/mpc/spdzwise/protocol.cc": "9d5d124df71e49b29a781014195e4777b59d5f70bde9473ee733f7b8856e7f54",
+    "src/libspu/mpc/spdzwise/protocol.h": "f77cbfe1b5b3c13e03d8b5e810605d0b29574fc70cdb7ce772cda79ec98a3baa",
+    "src/libspu/mpc/spdzwise/protocol_test.cc": "390d4d44259e2a0d0fdf4ad858714a0941922903926598ed5896403fccad7ca6",
+    "src/libspu/mpc/spdzwise/replicated.cc": "b0b3f1e2482324840f8dbc53abd8349fd32649de7c508ce887177a74c0697ff0",
+    "src/libspu/mpc/spdzwise/replicated.h": "9255ffca95fda7ec73bb18d96bd4b845483e185bcd2a1a7c70d505bfe3013bec",
+    "src/libspu/mpc/spdzwise/state.cc": "c8d47db38a7fdb99ce43fd920c7d0d7c9d2bcdc61326db59489b18f8a92696f8",
+    "src/libspu/mpc/spdzwise/state.h": "a1aa54fc3daa08ea5921476e66e3d7e3e26f8d871fabb6ba2bf354ebf0b35792",
+    "src/libspu/mpc/spdzwise/type.cc": "3473307973cb39a3612292170d9c27edbb16097f6cf1a9bb8281303cb7e887b2",
+    "src/libspu/mpc/spdzwise/type.h": "ec985fc87b55a4d2bef74ca0de756bf1af89231e6db98d4cf6a60a14e0857adb",
+    "src/libspu/mpc/protocol_session.cc": "0e711f90cfbab9a887e20f723bad5713c787ef8c572c99e550ac08d09341cfdf",
+    "src/libspu/mpc/protocol_session.h": "fb410793168ea8e7ced28901ff6c32affec6e78e80e65dd6595ed5d5c6d85797"
+  },
+  "artifact_sha256": {
+    "RESULTS.md": "852221fd118081c9fe879e2c4905eb6d183d81889b1c8a33a51b2dbf56a6a8f0",
+    "summarize.py": "02332e9321539caffc00146f82e2f6ace0992ef6103a05d064a87099f06f4849",
+    "summary.json": "07d6d5e82937ab4c8b1caa789fcca8a90c934503d26c127208f88077f56e2d18",
+    "w1048576-d1.csv": "e0baaba1925507b65d55f0066d4b21d7424d283148185f6663c36b247ec0929f",
+    "w1048576-d1.log": "02950e3ea77732fb71885ee5602a426b57dec489c34bf4d9cd58fde44992e289",
+    "w1048576-d1.stdout": "7cd5b86ac235deba73152e0c2762439e44724d9748e0e25e3a58b1287301884e",
+    "w16384-d64.csv": "1af6dc372bb218df63d52be9b2d096931a8cdea66749dfa125bb7958f0732d45",
+    "w16384-d64.log": "7bcac03624b8ce558893415859f35c1bba629cb6e6d10d41b4038f528e153b18",
+    "w16384-d64.stdout": "c4bba6d8954b78c95e03ff67a3e772bc303bfec96d05fec983ceb2dedf1835ec",
+    "w65536-d16.csv": "059273e471448c67b77d66fc3709b23a55186608d4ea11fdb257cc343d2f51f0",
+    "w65536-d16.log": "8089d369316787d862f1121c712311ebcd1082f5cefdcbf8f6763904685aa2c4",
+    "w65536-d16.stdout": "66cc209347e05bb993c07a4fe9f09cbefd2d5ed490ad8a90b88e13f053826a68"
+  },
+  "hardware": {
+    "cpu": "Apple M2",
+    "memory_bytes": 25769803776,
+    "logical_cpus": 8
+  },
+  "measurement": "Fresh sequential runs of three shapes against the current optimized verification; one warmup and seven measured repetitions per protocol and shape."
+}

@@ -1,0 +1,311 @@
+{
+  "aggregation": "For each repetition, take the maximum over three parties for each phase; summarize the seven maxima. Core and total sum phase maxima within each repetition before summarizing.",
+  "runs": [
+    {
+      "source": "w1048576-d1.csv",
+      "protocol": "aby3-f61-adapter",
+      "width": 1048576,
+      "depth": 1,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 0,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "expand_ms": {
+          "median_ms": 6.538125,
+          "min_ms": 5.930167,
+          "max_ms": 14.216709
+        },
+        "circuit_ms": {
+          "median_ms": 27.642,
+          "min_ms": 26.544584,
+          "max_ms": 46.108375
+        },
+        "mul_ms": {
+          "median_ms": 18.404375,
+          "min_ms": 17.080125,
+          "max_ms": 34.197625
+        },
+        "local_ms": {
+          "median_ms": 9.612874,
+          "min_ms": 9.351792,
+          "max_ms": 16.074417
+        },
+        "verify_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        }
+      },
+      "core": {
+        "median_ms": 27.642,
+        "min_ms": 26.544584,
+        "max_ms": 46.108375
+      },
+      "all_timed_phases": {
+        "median_ms": 34.360416,
+        "min_ms": 32.714126,
+        "max_ms": 52.6465
+      }
+    },
+    {
+      "source": "w1048576-d1.csv",
+      "protocol": "spdzwise-f61",
+      "width": 1048576,
+      "depth": 1,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 1048578,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.018208,
+          "min_ms": 0.009458,
+          "max_ms": 0.1105
+        },
+        "expand_ms": {
+          "median_ms": 35.131833,
+          "min_ms": 34.424292,
+          "max_ms": 43.199166
+        },
+        "circuit_ms": {
+          "median_ms": 64.085,
+          "min_ms": 62.040791,
+          "max_ms": 73.478
+        },
+        "mul_ms": {
+          "median_ms": 39.383,
+          "min_ms": 37.121875,
+          "max_ms": 47.534042
+        },
+        "local_ms": {
+          "median_ms": 25.382418,
+          "min_ms": 24.569626,
+          "max_ms": 30.032041
+        },
+        "verify_ms": {
+          "median_ms": 11.098625,
+          "min_ms": 10.603625,
+          "max_ms": 12.880542
+        }
+      },
+      "core": {
+        "median_ms": 75.484625,
+        "min_ms": 72.655457,
+        "max_ms": 85.68625
+      },
+      "all_timed_phases": {
+        "median_ms": 109.97187399999999,
+        "min_ms": 108.52720800000002,
+        "max_ms": 128.995916
+      }
+    },
+    {
+      "source": "w16384-d64.csv",
+      "protocol": "aby3-f61-adapter",
+      "width": 16384,
+      "depth": 64,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 0,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "expand_ms": {
+          "median_ms": 0.09225,
+          "min_ms": 0.086292,
+          "max_ms": 0.104
+        },
+        "circuit_ms": {
+          "median_ms": 20.223917,
+          "min_ms": 19.440041,
+          "max_ms": 21.260792
+        },
+        "mul_ms": {
+          "median_ms": 12.18271,
+          "min_ms": 11.638913,
+          "max_ms": 13.147371
+        },
+        "local_ms": {
+          "median_ms": 8.075374,
+          "min_ms": 7.852043,
+          "max_ms": 8.359208
+        },
+        "verify_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        }
+      },
+      "core": {
+        "median_ms": 20.223917,
+        "min_ms": 19.440041,
+        "max_ms": 21.260792
+      },
+      "all_timed_phases": {
+        "median_ms": 20.310209,
+        "min_ms": 19.537041000000002,
+        "max_ms": 21.364791999999998
+      }
+    },
+    {
+      "source": "w16384-d64.csv",
+      "protocol": "spdzwise-f61",
+      "width": 16384,
+      "depth": 64,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 1048578,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.017541,
+          "min_ms": 0.017083,
+          "max_ms": 0.018416
+        },
+        "expand_ms": {
+          "median_ms": 0.505042,
+          "min_ms": 0.467083,
+          "max_ms": 0.536166
+        },
+        "circuit_ms": {
+          "median_ms": 52.476,
+          "min_ms": 51.636,
+          "max_ms": 55.269417
+        },
+        "mul_ms": {
+          "median_ms": 29.804666,
+          "min_ms": 29.29458,
+          "max_ms": 32.448499
+        },
+        "local_ms": {
+          "median_ms": 22.826213,
+          "min_ms": 22.475,
+          "max_ms": 23.839839
+        },
+        "verify_ms": {
+          "median_ms": 10.794334,
+          "min_ms": 10.413833,
+          "max_ms": 11.261458
+        }
+      },
+      "core": {
+        "median_ms": 63.201707999999996,
+        "min_ms": 62.352041,
+        "max_ms": 66.279292
+      },
+      "all_timed_phases": {
+        "median_ms": 63.739166999999995,
+        "min_ms": 62.836874,
+        "max_ms": 66.833874
+      }
+    },
+    {
+      "source": "w65536-d16.csv",
+      "protocol": "aby3-f61-adapter",
+      "width": 65536,
+      "depth": 16,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 0,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "expand_ms": {
+          "median_ms": 0.31875,
+          "min_ms": 0.314584,
+          "max_ms": 0.367
+        },
+        "circuit_ms": {
+          "median_ms": 24.572416,
+          "min_ms": 22.152583,
+          "max_ms": 26.67775
+        },
+        "mul_ms": {
+          "median_ms": 15.933252,
+          "min_ms": 13.863457,
+          "max_ms": 17.698629
+        },
+        "local_ms": {
+          "median_ms": 9.256961,
+          "min_ms": 8.331459,
+          "max_ms": 10.43929
+        },
+        "verify_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        }
+      },
+      "core": {
+        "median_ms": 24.572416,
+        "min_ms": 22.152583,
+        "max_ms": 26.67775
+      },
+      "all_timed_phases": {
+        "median_ms": 24.902874,
+        "min_ms": 22.471124,
+        "max_ms": 26.992334
+      }
+    },
+    {
+      "source": "w65536-d16.csv",
+      "protocol": "spdzwise-f61",
+      "width": 65536,
+      "depth": 16,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 1048578,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.017792,
+          "min_ms": 0.016834,
+          "max_ms": 0.022792
+        },
+        "expand_ms": {
+          "median_ms": 2.182875,
+          "min_ms": 2.093583,
+          "max_ms": 2.405834
+        },
+        "circuit_ms": {
+          "median_ms": 58.387167,
+          "min_ms": 55.897292,
+          "max_ms": 63.937542
+        },
+        "mul_ms": {
+          "median_ms": 33.259498,
+          "min_ms": 31.086291,
+          "max_ms": 37.937248
+        },
+        "local_ms": {
+          "median_ms": 25.569209,
+          "min_ms": 24.874748,
+          "max_ms": 27.76996
+        },
+        "verify_ms": {
+          "median_ms": 11.495333,
+          "min_ms": 10.477459,
+          "max_ms": 12.200125
+        }
+      },
+      "core": {
+        "median_ms": 69.395417,
+        "min_ms": 66.374751,
+        "max_ms": 75.475167
+      },
+      "all_timed_phases": {
+        "median_ms": 71.594751,
+        "min_ms": 68.492293,
+        "max_ms": 77.747751
+      }
+    }
+  ]
+}

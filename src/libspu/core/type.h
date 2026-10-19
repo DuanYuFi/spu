@@ -190,6 +190,10 @@ class TypeObject {
   // Warn: change attributes of a type object should NOT affect the object size.
   virtual size_t size() const = 0;
 
+  // Protocol-private values may be printable but must not leave the runtime.
+  // Export kernels convert them to a serializable, client-facing type first.
+  virtual bool isSerializable() const { return true; }
+
   // Return the string representation of this concept.
   virtual std::string toString() const = 0;
 
@@ -236,6 +240,8 @@ class Type final {
 
   // return object of this type's size in bytes.
   inline size_t size() const { return cached_model_size_; }
+
+  bool isSerializable() const { return model_->isSerializable(); }
 
   // object oriented relationship
   template <typename T>

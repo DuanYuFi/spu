@@ -156,6 +156,7 @@ class ProtocolKind(enum.IntEnum):
     ABY3 = 3
     CHEETAH = 4
     SECURENN = 5
+    SPDZWISE = 7
     # SWIFT = 6
 
 class ClientSSLConfig:

@@ -129,6 +129,10 @@ class Object final {
   Kernel* getKernel(const std::string& name) const;
   bool hasKernel(const std::string& name) const;
 
+  bool hasState(const std::string& name) const {
+    return states_.find(name) != states_.end();
+  }
+
   void addState(const std::string& name, std::unique_ptr<State> state) {
     const auto& itr = states_.find(name);
     SPU_ENFORCE(itr == states_.end(), "state={} already exist", name);

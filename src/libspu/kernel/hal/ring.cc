@@ -457,6 +457,20 @@ Value _sign(SPUContext* ctx, const Value& x) {
 Value _less(SPUContext* ctx, const Value& x, const Value& y) {
   SPU_TRACE_HAL_LEAF(ctx, x, y);
 
+  // F4: field protocols compare signed operands without reducing x-y first.
+  // Preserve operand order: less_ps is not a commutative less_sp call.
+  const char* kernel = nullptr;
+  if (x.isSecret() && y.isSecret()) {
+    kernel = "less_ss";
+  } else if (x.isSecret() && y.isPublic()) {
+    kernel = "less_sp";
+  } else if (x.isPublic() && y.isSecret()) {
+    kernel = "less_ps";
+  }
+  if (kernel && ctx->hasKernel(kernel)) {
+    return dynDispatch(ctx, kernel, x, y);
+  }
+
   // Note: the impl assume inputs are signed with two's complement encoding.
   // test msb(x-y) == 1
   return _msb(ctx, _sub(ctx, x, y));

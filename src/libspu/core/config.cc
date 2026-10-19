@@ -50,7 +50,9 @@ void populateRuntimeConfig(RuntimeConfig& cfg) {
 
   //
   if (cfg.fxp_fraction_bits == 0) {
-    cfg.fxp_fraction_bits = defaultFxpBits(cfg.field);
+    cfg.fxp_fraction_bits = cfg.protocol == ProtocolKind::SPDZWISE
+                                ? 16
+                                : defaultFxpBits(cfg.field);
   }
 
   if (cfg.fxp_div_goldschmidt_iters == 0) {

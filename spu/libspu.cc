@@ -44,6 +44,7 @@
 #include "libspu/device/pphlo/pphlo_executor.h"
 #include "libspu/device/symbol_table.h"
 #include "libspu/mpc/factory.h"
+#include "libspu/mpc/protocol_session.h"
 #include "libspu/spu.h"
 #include "libspu/version.h"
 
@@ -468,24 +469,47 @@ class RuntimeWrapper {
   }
 
   void SetVar(const std::string& name, const PyBindShare& share) {
-    env_.setVar(name, ValueFromPyBindShare(share));
+    auto value = ValueFromPyBindShare(share);
+    if (auto* session = mpc::getProtocolSession(sctx_.get())) {
+      session->requireHealthy();
+      session->validateExternalInput(value);
+      session->invalidateExport(name);
+    }
+    env_.setVar(name, value);
+  }
+
+  Value GetExportValue(const std::string& name) const {
+    if (auto* session = mpc::getProtocolSession(sctx_.get())) {
+      return session->exportedValue(name);
+    }
+    return env_.getVar(name);
   }
 
   PyBindShare GetVar(const std::string& name) const {
-    return ValueToPyBindShare(env_.getVar(name), max_chunk_size_);
+    return ValueToPyBindShare(GetExportValue(name), max_chunk_size_);
   }
 
   size_t GetVarChunksCount(const std::string& name) {
-    return env_.getVar(name).chunksCount(max_chunk_size_);
+    return GetExportValue(name).chunksCount(max_chunk_size_);
   }
 
   pb::ValueMetaProto GetVarMeta(const std::string& name) const {
-    return env_.getVar(name).toMetaProto();
+    return GetExportValue(name).toMetaProto();
   }
 
-  void DelVar(const std::string& name) { env_.delVar(name); }
+  void DelVar(const std::string& name) {
+    if (auto* session = mpc::getProtocolSession(sctx_.get())) {
+      session->invalidateExport(name);
+    }
+    env_.delVar(name);
+  }
 
-  void Clear() { env_.clear(); }
+  void Clear() {
+    if (auto* session = mpc::getProtocolSession(sctx_.get())) {
+      session->clearExports();
+    }
+    env_.clear();
+  }
 };
 
 // numpy type naming:
@@ -687,6 +711,7 @@ void BindSPU(py::module& m) {
       .value("ABY3", ProtocolKind::ABY3)
       .value("CHEETAH", ProtocolKind::CHEETAH)
       .value("SECURENN", ProtocolKind::SECURENN)
+      .value("SPDZWISE", ProtocolKind::SPDZWISE)
       // .value("SWIFT", ProtocolKind::SWIFT)
       .export_values();
 

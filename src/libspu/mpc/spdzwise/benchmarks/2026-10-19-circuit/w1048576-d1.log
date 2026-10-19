@@ -1,0 +1,30 @@
+sh: /bin/ps: Operation not permitted
+W1019 20:35:05.465075   259     0 external/brpc~/src/bvar/default_variables.cpp:118 read_proc_status] Fail to sscanf: Undefined error: 0
+sh: /bin/ps: Operation not permitted
+E1019 20:35:05.476512  2819     0 external/brpc~/src/bvar/default_variables.cpp:233 read_proc_memory] Fail to read memory state
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+E1019 20:35:05.481209  2819     0 external/brpc~/src/bvar/default_variables.cpp:295 read_load_average] Fail to read loadavg
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 6.41675 ms, circuit 37.0787 ms (mul 25.3984), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 6.61071 ms, circuit 27.4469 ms (mul 18.0951), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 6.21779 ms, circuit 26.9742 ms (mul 17.7767), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 5.98075 ms, circuit 27.5337 ms (mul 18.0598), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 6.10446 ms, circuit 26.1239 ms (mul 16.5431), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 5.86142 ms, circuit 28.0459 ms (mul 18.2531), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 6.53812 ms, circuit 43.9539 ms (mul 30.6195), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 12.825 ms, circuit 35.6045 ms (mul 23.0629), verify 0 ms
+aby3-f61-adapter: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.015833 ms, expand 85.9276 ms, circuit 95.7517 ms (mul 66.538), verify 14.7982 ms
+spdzwise-f61 iteration 1: input MAC 0.1105 ms, expand 41.6615 ms, circuit 73.2565 ms (mul 47.534), verify 12.1936 ms
+spdzwise-f61 iteration 2: input MAC 0.00825 ms, expand 35.5028 ms, circuit 62.0408 ms (mul 36.4396), verify 10.4427 ms
+spdzwise-f61 iteration 3: input MAC 0.018208 ms, expand 35.0502 ms, circuit 63.2709 ms (mul 38.2278), verify 12.8805 ms
+sh: /bin/ps: Operation not permitted
+W1019 20:35:06.487752  2819     0 external/brpc~/src/bvar/default_variables.cpp:118 read_proc_status] Fail to sscanf: Undefined error: 0
+sh: /bin/ps: Operation not permitted
+E1019 20:35:06.491475  2819     0 external/brpc~/src/bvar/default_variables.cpp:233 read_proc_memory] Fail to read memory state
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+spdzwise-f61 iteration 4: input MAC 0.0125 ms, expand 34.1981 ms, circuit 64.3011 ms (mul 39.383), verify 11.0519 ms
+E1019 20:35:06.499508  2819     0 external/brpc~/src/bvar/default_variables.cpp:295 read_load_average] Fail to read loadavg
+spdzwise-f61 iteration 5: input MAC 0.01775 ms, expand 34.4274 ms, circuit 61.8028 ms (mul 36.8638), verify 10.9518 ms
+spdzwise-f61 iteration 6: input MAC 0.0185 ms, expand 36.6316 ms, circuit 64.9346 ms (mul 34.9025), verify 10.5681 ms
+spdzwise-f61 iteration 7: input MAC 0.008791 ms, expand 34.4778 ms, circuit 59.7113 ms (mul 35.1417), verify 11.2995 ms
+spdzwise-f61: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements

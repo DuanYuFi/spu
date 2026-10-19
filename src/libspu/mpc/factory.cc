@@ -28,6 +28,7 @@
 #include "libspu/mpc/securenn/protocol.h"
 #include "libspu/mpc/semi2k/io.h"
 #include "libspu/mpc/semi2k/protocol.h"
+#include "libspu/mpc/spdzwise/io.h"
 
 namespace spu::mpc {
 
@@ -35,6 +36,10 @@ void Factory::RegisterProtocol(
     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& lctx) {
   // TODO: support multi-protocols.
   switch (ctx->config().protocol) {
+    case ProtocolKind::SPDZWISE: {
+      SPU_THROW("SPDZWISE is under development: mixed protocols and security "
+                "acceptance are incomplete; production execution is disabled");
+    }
     case ProtocolKind::REF2K: {
       return regRef2kProtocol(ctx, lctx);
     }
@@ -62,6 +67,9 @@ void Factory::RegisterProtocol(
 std::unique_ptr<IoInterface> Factory::CreateIO(const RuntimeConfig& conf,
                                                size_t npc) {
   switch (conf.protocol) {
+    case ProtocolKind::SPDZWISE: {
+      return spdzwise::makeSpdzWiseIo(conf.field, npc);
+    }
     case ProtocolKind::REF2K: {
       return makeRef2kIo(conf.field, npc);
     }

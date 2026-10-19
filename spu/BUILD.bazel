@@ -45,6 +45,7 @@ pybind_extension(
         "@spulib//libspu/compiler/common:compilation_context",
         "@spulib//libspu/core:logging",
         "@spulib//libspu/device:api",
+        "@spulib//libspu/mpc:protocol_session",
         "@spulib//libspu/device:io",
         "@spulib//libspu/device/pphlo:pphlo_executor",
         "@yacl//yacl/link",

@@ -12,9 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//bazel:spu.bzl", "spu_cc_library")
+load("//bazel:spu.bzl", "spu_cc_library", "spu_cc_test")
 
 package(default_visibility = ["//visibility:public"])
+
+spu_cc_test(
+    name = "protocol_session_test",
+    srcs = ["protocol_session_test.cc"],
+    deps = [
+        ":protocol_session",
+        "//libspu/mpc/common:pv2k",
+    ],
+)
+
+spu_cc_library(
+    name = "protocol_session",
+    srcs = ["protocol_session.cc"],
+    hdrs = ["protocol_session.h"],
+    deps = [
+        ":api",
+        "//libspu/core:context",
+    ],
+)
 
 spu_cc_library(
     name = "io_interface",
@@ -52,6 +71,7 @@ spu_cc_library(
         "//libspu/mpc/ref2k",
         "//libspu/mpc/securenn",
         "//libspu/mpc/semi2k",
+        "//libspu/mpc/spdzwise:io",
     ],
 )
 

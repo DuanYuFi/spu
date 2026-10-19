@@ -242,6 +242,8 @@ def parse_protocol_kind(v: str) -> libspu.ProtocolKind:
             return libspu.ProtocolKind.CHEETAH
         case "SECURENN":
             return libspu.ProtocolKind.SECURENN
+        case "SPDZWISE":
+            return libspu.ProtocolKind.SPDZWISE
         case _:
             raise ValueError(f"Invalid protocol kind: {v}")
 

@@ -126,6 +126,9 @@ enum ProtocolKind {
   // This is an experimental protocol! Don't use it.
   // (https://eprint.iacr.org/2020/592)
   SWIFT = 6,
+
+  // Under development; factory execution is gated until PPML acceptance.
+  SPDZWISE = 7,
 };
 
 //////////////////////////////////////////////////////////////////////////
