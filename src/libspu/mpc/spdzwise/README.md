@@ -14,7 +14,7 @@ entrypoint, not a production configuration.
   honest external clients, authenticated confidential channels, security with
   abort. Network identities and client authorization belong to the deployment.
 - Arithmetic: `p = 2^61 - 1`, FM64 storage, default 16 fractional bits. Boolean
-  target: ABFL post-sacrifice. Forty-bit statistical checking parameters are
+  prototype: ABFL post-sacrifice. Forty-bit statistical checking parameters are
   per reference procedure; a complete task needs a separately derived composed
   error bound. No security bound is certified for this prototype.
 - Target acceptance: logistic regression training/inference, depth-three tree
@@ -54,7 +54,7 @@ as a runtime dependency.
 | Input authentication | `Protocols/SpdzWiseInput.hpp::exchange` | Replicated-copy validation followed by shared-key multiplication and arithmetic check; external-client integrity still needs source/proof review |
 | Multiplication and dot product | `Protocols/SpdzWise.hpp::prepare_mul`, `prepare_dotprod` | Multiply value/value and tag/value, enqueue result; matrix terms accumulated locally before one batched exchange |
 | Arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
-| Boolean online and checking | `GC/PostSacriSecret.h`, `PostSacriBin.cpp` | **Not implemented**; preserve reference pool/sacrifice parameters before optimization |
+| Boolean online and checking | ABY3 online AND; `Protocols/ShuffleSacrifice.h`, `MalRepRingPrep.hpp` | ABFL prototype with 64-bit word buckets, final post-sacrifice and checked Boolean IO; uses one fresh random pool rather than `PostSacriBin`'s two-level pools |
 | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
 | A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
 | B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
@@ -93,6 +93,123 @@ work and are required before enabling external use.
 `openRaw()` is private to the arithmetic checker. It must never become a
 general reveal kernel. Application-level reveal kernels explicitly reject.
 No destructor performs network communication.
+
+## ABFL Boolean development prototype
+
+The existing `registerArithmeticPrototype()` entrypoint also registers `p2b`,
+`and_bb`, `and_bp`, `xor_bb`, and `xor_bp`. This remains a C++ development
+entrypoint; the production factory is still closed. Boolean values have two
+64-bit XOR-share components and 1–64 effective bits. AND uses the smaller operand
+width; XOR uses the larger width; public operands and `p2b` have width 64.
+Unused share bits are zero. Generic shape operations preserve the complete pair.
+
+Use `SpdzWiseIo::toBooleanShares(raw, nbits)` for packed FM64 input, or the
+standard `makeBitSecret(PtBufferView)` interface for individual bits (including
+packed bitsets). `toShares()` retains its arithmetic semantics. Import validates
+replicated copies. Internal `BShrTy` values bind to the runtime session and
+cannot be serialized; committed `BOutputTy` values carry rank, width and the
+execution/output binding. `fromShares()` checks these and reconstructs by XOR.
+
+Online secret AND performs the usual ABY3 local products, PRSS masking and one
+ring exchange (8 payload bytes per array element per party), then snapshots
+both operands and the result. It performs no sacrifice. The pending bit count
+is the sum of `numel * min(lhs.nbits, rhs.nbits)` across calls; snapshots are
+packed across call boundaries without counting padding bits. Full-word snapshots
+and one overflow triple replace per-bit insertion. Full-width batches own
+separate contiguous snapshot blocks without disturbing the overflow or
+relocating old records; narrower batches use word shifts and ORs in a buffer
+whose capacity grows geometrically. Completed words are not zeroed before
+being overwritten. All six share components follow the same mapping.
+
+The full-width online fast path borrows compact operands directly, normalizes
+noncontiguous views once, and fuses output construction with snapshot insertion.
+It avoids input/result staging vectors and, on little-endian hosts, sends the
+product buffer directly and loads received words with alignment-safe memcpy.
+The canonical little-endian wire format is unchanged; big-endian hosts retain
+explicit encoding/decoding. Empty inputs perform no exchange. Type/session
+validation is retained, but width-64 values skip the vacuous high-bit scan.
+Narrow-width values retain canonical checks and the general masked packing path.
+Verification visits the narrow-word buffer, full-width call blocks, then the
+tail in a deterministic public order, without concatenating the blocks. The
+batch agreement uses the `word64-v8-parallel-views` format tag and binds the
+65,536-word tile size. Mixed versions fail agreement before random generation.
+The sacrifice formula, bucket parameters and random-pool-only permutation are
+unchanged. The implementation uses existing parallel and transport APIs; it
+does not modify framework PRGs, communication implementations or thread pools.
+
+Finalization counts M=ceil(N/64) packed word triples, where N is the active
+bit count. It selects B=3 for M>=1048576, B=4 for M>=10368, and B=5 for
+M>=1024. A nonempty smaller word batch fails and poisons the session; N=0 is a
+no-op. Thus 1,024 **bits** no longer suffice: the smallest accepted bit count
+is 65,473 (1,023 full words plus a one-bit tail). No extra full words are added
+to reach a bucket threshold. One partial word, if present, is zero-extended
+with valid (0,0,0) lanes and checked in its entirety, including padding.
+The 10368 threshold follows the local MP-SPDZ `ShuffleSacrifice.h` reference.
+The checker generates `(B-1)*M+3` full-width random word triples using independent Boolean
+PRSS streams and the semi-honest AND primitive. It checks the online and random
+replicated copies before a fresh, session/execution/batch-bound commit–reveal
+coin. An unbiased Fisher–Yates permutation applies only to the random pool, with
+whole words as permutation entries. Three full random words (192 bit lanes)
+are opened and checked; each online word is checked against B-1 random word
+companions. The batch agreement binds the word64 format version, N, M, B,
+overflow width and call layout. Online inputs are never sampled for
+public opening.
+
+Verification buffers use the following optimizations:
+
+- Random generation and sacrifice reuse scratch space for 65,536-word tiles.
+  Random triples are all generated before the pool is fixed and the public
+  permutation coin is revealed. Generation tiles are not separate ABFL batches.
+- Fixed PRSS tasks own the First/Second streams and mutate distinct counters;
+  each stream generates a then b within a tile. Full tiles contain an even
+  number of words, preserving AES-block consumption across tile boundaries.
+  Serial-reference tests compare all generated shares and subsequent streams.
+- Independent word loops use the existing `yacl::parallel_for` and uint64_t
+  reductions (avoiding the shared-bit storage of `vector<bool>`). Outputs have
+  disjoint ranges; PRSS counters and communications are never updated by these
+  element workers. Scratch storage is fully written before reading.
+- Pre-coin replica checks hash both local components in bounded tiles using
+  BLAKE3-256. Each digest binds the session/execution/batch tag, component owner
+  and tile bounds. First-component digests are sent only to the party already
+  holding those exact components as its second shares. All comparisons and
+  the three-party status agreement complete before commit–reveal. This replaces
+  raw-copy transport with a collision-resistant equality check; it relies on
+  BLAKE3 collision resistance, as do the existing transcript checks.
+- Openings still exchange both shares, compare every replica and check public
+  view agreement before use. Each rank's payload is hashed independently in
+  parallel; an outer hash binds the opening tag, ordered lengths and payload
+  digests. Local inputs are borrowed, peer messages remain owned, and lengths
+  are checked before alignment-safe word loads. Wire words remain little-endian.
+- The existing synchronous `Send` API avoids an asynchronous staging copy for
+  borrowed buffers. Its completion means peer transport-buffer delivery, not
+  application `Recv`, so send-before-receive does not create a cyclic wait.
+- Companion collection and rho/sigma construction share a pass, with prefetch
+  based only on public permutation indices. The permutation PRG caches 4096
+  words. Swap indices are prepared in small batches, but rejection sampling
+  and swap order match the serial Fisher–Yates reference exactly.
+
+C2 measurements use FactoryMem with three parties in one process. The latest
+ABY3 / ABFL comparison uses the same binary and `YACL_NUM_THREADS=12`; no global
+thread default was changed. Both protocols run one warmup and seven measured
+iterations and check every output. Tiling adds communication rounds, so these
+local timings do not predict WAN performance. Only the latest Boolean
+performance experiment is retained; see the
+[results and commands](benchmarks/boolean-c2-latest/RESULTS.md).
+
+For each pair, open rho=x XOR a and sigma=y XOR b, then check that
+`z XOR c XOR (sigma AND a) XOR (rho AND b) XOR (rho AND sigma)` opens to zero.
+There is no per-bit permutation or companion repacking. Every
+opening validates replicated copies and compares ordered transcript digests
+before its values are used. Check failures abort the session and discard all
+pending outputs and checking state. Finalization runs even with no outputs;
+arithmetic input authentication still checks only the arithmetic queue.
+
+These are the requested prototype parameters, not a certified 40-bit bound for
+this modified, fixed-online-bucket construction. The parameter table and C=3
+come from reference procedures with different pooling/selection schedules;
+security analysis and whole-execution composition remain acceptance gates.
+A2B/B2A, daBits, comparisons, truncation and full Python/device integration are
+not supplied by these Boolean kernels.
 
 ## Numerical contract
 
@@ -156,6 +273,7 @@ Run the native development tests from the `src` Bazel module:
 
 ```sh
 USE_BAZEL_VERSION=7.7.1 bazel test \
+  //libspu/mpc/spdzwise:boolean_test \
   //libspu/mpc/spdzwise:io_test \
   //libspu/mpc/spdzwise:protocol_test \
   //libspu/mpc:protocol_session_test
@@ -169,7 +287,7 @@ Remaining acceptance gates, in order:
    corruption at all three server positions); see `VALIDATION.md`. Next test
    real device execution and additional fault paths. Review input/key/check composition and
    derive the bound rather than inferring it from finite fault tests.
-2. Implement ABFL and malicious daBits; prove/check the combined opening
+2. Review the ABFL prototype and implement malicious daBits; prove/check the combined opening
    schedule before enabling A2B/B2A, precise truncation and F4 comparisons.
 3. Add the specified LR/tree/CNN fixtures, pinned data splits and weights,
    actual secure executions, interval/range records and float/quantized

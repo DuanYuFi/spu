@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="9" failures="0" disabled="0" errors="0" time="0.297" timestamp="2026-10-20T08:29:47.317" name="AllTests">
+  <testsuite name="SpdzWiseProtocol" tests="9" failures="0" disabled="0" skipped="0" errors="0" time="0.297" timestamp="2026-10-20T08:29:47.317">
+    <testcase name="PrssCopiesStayAlignedAcrossOddAndEmptyBatches" file="libspu/mpc/spdzwise/protocol_test.cc" line="43" status="run" result="completed" time="0.003" timestamp="2026-10-20T08:29:47.317" classname="SpdzWiseProtocol" />
+    <testcase name="MultiplicationPayloadAndConstantSizeVerification" file="libspu/mpc/spdzwise/protocol_test.cc" line="65" status="run" result="completed" time="0.128" timestamp="2026-10-20T08:29:47.320" classname="SpdzWiseProtocol" />
+    <testcase name="F61WireEncodingRejectsInvalidResiduesAndLengths" file="libspu/mpc/spdzwise/protocol_test.cc" line="108" status="run" result="completed" time="0." timestamp="2026-10-20T08:29:47.449" classname="SpdzWiseProtocol" />
+    <testcase name="ArithmeticTransactionAndMacFreeExport" file="libspu/mpc/spdzwise/protocol_test.cc" line="117" status="run" result="completed" time="0." timestamp="2026-10-20T08:29:47.449" classname="SpdzWiseProtocol" />
+    <testcase name="MatrixProductAndAuthenticatedReuse" file="libspu/mpc/spdzwise/protocol_test.cc" line="151" status="run" result="completed" time="0." timestamp="2026-10-20T08:29:47.450" classname="SpdzWiseProtocol" />
+    <testcase name="PublicArithmeticAndShapeViewsPreserveMacs" file="libspu/mpc/spdzwise/protocol_test.cc" line="189" status="run" result="completed" time="0." timestamp="2026-10-20T08:29:47.451" classname="SpdzWiseProtocol" />
+    <testcase name="CorruptedMacPoisonsSessionForEveryParty" file="libspu/mpc/spdzwise/protocol_test.cc" line="224" status="run" result="completed" time="0.002" timestamp="2026-10-20T08:29:47.452" classname="SpdzWiseProtocol" />
+    <testcase name="ParallelBatchRejectsMacCorruptionAtDifferentPositions" file="libspu/mpc/spdzwise/protocol_test.cc" line="259" status="run" result="completed" time="0.16" timestamp="2026-10-20T08:29:47.454" classname="SpdzWiseProtocol" />
+    <testcase name="RejectsMixedOutputBatchesBeforeAuthentication" file="libspu/mpc/spdzwise/protocol_test.cc" line="303" status="run" result="completed" time="0." timestamp="2026-10-20T08:29:47.614" classname="SpdzWiseProtocol" />
+  </testsuite>
+</testsuites>

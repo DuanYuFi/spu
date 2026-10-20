@@ -1,0 +1,29 @@
+{
+  "note": "Previously passed tests on 2026-10-20, retained because executable C++ sources and BUILD files are unchanged. This benchmark rerun did not rerun unit tests. Thread-specific tests preceded a whitespace-only change.",
+  "source_sha256": {
+    "src/libspu/mpc/spdzwise/boolean.cc": "2444e161f488d1b632b0b4049206fea2a623b5e85fc9c428f2952a9616d57ce3",
+    "src/libspu/mpc/spdzwise/boolean_test.cc": "137875ec96577b99d2c3b4a5236dcc3c15e7c0c7acbc16f09213984bbc189925",
+    "src/libspu/mpc/spdzwise/io.cc": "3bc0ffefa16ad5d1dbc93282fd6403b2c2fa6786757a89619311303038c5f55b",
+    "src/libspu/mpc/spdzwise/io_test.cc": "3efded74c95a7ea3a5b8314367e7e9cc620b5515fec0d788917f781c5357b963",
+    "src/libspu/mpc/spdzwise/protocol.cc": "1a7cc5fd151f9d6e081adb0a22dbd62ccae0b30117a36d480dd811767701c130",
+    "src/libspu/mpc/spdzwise/protocol_test.cc": "390d4d44259e2a0d0fdf4ad858714a0941922903926598ed5896403fccad7ca6",
+    "src/libspu/mpc/spdzwise/replicated.cc": "b0b3f1e2482324840f8dbc53abd8349fd32649de7c508ce887177a74c0697ff0",
+    "src/libspu/mpc/spdzwise/state.cc": "f7e1e1c2013bc310a9900ce0148e54e67869d2d79b0dfbca6877f15616b539d2",
+    "src/libspu/mpc/spdzwise/type.cc": "f37fd92b4564b5bdac0858c0d703998c98979a836190e929e8b13372849731fb",
+    "src/libspu/mpc/spdzwise/boolean.h": "1aaa61f046a2bddcf077f4b5941b1710949521877f7240c393a333d2a6b3f9f2",
+    "src/libspu/mpc/spdzwise/field.h": "102739b993f35fc230e9c8fa4c4e89f9341dc2b17e4440c2c3d7319f47a8c8e3",
+    "src/libspu/mpc/spdzwise/io.h": "e2a618de513a2e16bc33bf78ffd38a9f26d1da884a89214c20c6dc96f9a80ab7",
+    "src/libspu/mpc/spdzwise/protocol.h": "a176310a514f3734f946eaa97e16de40cc5cbdd7d8f1d975d394e50b48a93096",
+    "src/libspu/mpc/spdzwise/replicated.h": "9255ffca95fda7ec73bb18d96bd4b845483e185bcd2a1a7c70d505bfe3013bec",
+    "src/libspu/mpc/spdzwise/state.h": "d243b4e42ee37f3b7f8d2a59f4fe869a29bdbb3f8a6b8846d8450b7e22339911",
+    "src/libspu/mpc/spdzwise/type.h": "b05b1a0033a13f2c8fcae25030f2ce2aec475352cb47cfd2e20d3a3cf08f45b5",
+    "src/libspu/mpc/spdzwise/BUILD.bazel": "18d6595db9398e043a0d650fde421b23efd669638263c10cf877d3575a73ad46",
+    "src/libspu/mpc/spdzwise/benchmarks/binary_bench.cc": "466ee20df0a69a6d431e63f9f98d3a1b6703fb3834be8b0938456fdb7f183e08",
+    "src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel": "1895a10bd5dbd66ae91ee48ddff90a7452d259a1636b4e2134ce764b6ec74f26",
+    "src/libspu/mpc/aby3/boolean.cc": "07c53b893c194de34d117bbcc3a61d89ebcefbee92ef2aa912fcf33e9a42f8be",
+    "src/libspu/mpc/aby3/type.h": "de0c1117ee376f73c68f0f6fe9141198d71f23b1aa1faa60365d7fe044b7ae21",
+    "src/libspu/mpc/common/communicator.h": "e770be73a14b71a10e53cfc37a1c67202ab2694483a7120128cffeaff4daca4c",
+    "src/libspu/mpc/common/prg_state.cc": "405483bbbc597b9a6806ad9a21253957bddb32d20f1beb7c1bb33d2bd1695f89",
+    "src/libspu/core/parallel_utils.h": "f81eb47379776866db1c369eae448b64f4e99b338a1004e38d5ed6d7460da9f3"
+  }
+}

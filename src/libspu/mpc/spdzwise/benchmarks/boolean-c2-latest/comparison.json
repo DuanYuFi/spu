@@ -1,0 +1,159 @@
+{
+  "configuration": {
+    "date": "2026-10-20",
+    "width": 65536,
+    "depth": 16,
+    "nbits": 64,
+    "YACL_NUM_THREADS": 12,
+    "warmups": 1,
+    "repetitions": 7,
+    "run_order": [
+      "aby3",
+      "abfl"
+    ],
+    "transport": "FactoryMem, three parties in one process"
+  },
+  "binary_sha256": "415d1984408d5a451c2d30d75d20cfc21918cf9578b66648e3ea1249553e287d",
+  "results": {
+    "aby3": {
+      "aggregation": "per repetition take maximum over parties for each phase; total=sum of phase maxima; report median/min/max over seven repetitions excluding warmup",
+      "iterations": [
+        {
+          "iteration": 1,
+          "online_ms": 23.340463,
+          "verify_ms": 0.0,
+          "total_ms": 23.340463
+        },
+        {
+          "iteration": 2,
+          "online_ms": 26.75353,
+          "verify_ms": 0.0,
+          "total_ms": 26.75353
+        },
+        {
+          "iteration": 3,
+          "online_ms": 23.659463,
+          "verify_ms": 0.0,
+          "total_ms": 23.659463
+        },
+        {
+          "iteration": 4,
+          "online_ms": 22.737035,
+          "verify_ms": 0.0,
+          "total_ms": 22.737035
+        },
+        {
+          "iteration": 5,
+          "online_ms": 24.439765,
+          "verify_ms": 0.0,
+          "total_ms": 24.439765
+        },
+        {
+          "iteration": 6,
+          "online_ms": 22.32076,
+          "verify_ms": 0.0,
+          "total_ms": 22.32076
+        },
+        {
+          "iteration": 7,
+          "online_ms": 23.000085,
+          "verify_ms": 0.0,
+          "total_ms": 23.000085
+        }
+      ],
+      "phases": {
+        "online_ms": {
+          "median_ms": 23.340463,
+          "min_ms": 22.32076,
+          "max_ms": 26.75353
+        },
+        "verify_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "total_ms": {
+          "median_ms": 23.340463,
+          "min_ms": 22.32076,
+          "max_ms": 26.75353
+        }
+      },
+      "bytes_per_party": {
+        "online_bytes": 8388608,
+        "verify_bytes": 0
+      },
+      "validated_output_words_per_iteration": 65536,
+      "validated_iterations": 8
+    },
+    "abfl": {
+      "aggregation": "per repetition take maximum over parties for each phase; total=sum of phase maxima; report median/min/max over seven repetitions excluding warmup",
+      "iterations": [
+        {
+          "iteration": 1,
+          "online_ms": 45.135237,
+          "verify_ms": 362.178023,
+          "total_ms": 407.31326
+        },
+        {
+          "iteration": 2,
+          "online_ms": 29.803438,
+          "verify_ms": 386.377229,
+          "total_ms": 416.18066699999997
+        },
+        {
+          "iteration": 3,
+          "online_ms": 28.45015,
+          "verify_ms": 386.208541,
+          "total_ms": 414.65869100000003
+        },
+        {
+          "iteration": 4,
+          "online_ms": 27.966086,
+          "verify_ms": 409.049603,
+          "total_ms": 437.015689
+        },
+        {
+          "iteration": 5,
+          "online_ms": 24.815039,
+          "verify_ms": 400.363465,
+          "total_ms": 425.17850400000003
+        },
+        {
+          "iteration": 6,
+          "online_ms": 24.428164,
+          "verify_ms": 410.311467,
+          "total_ms": 434.739631
+        },
+        {
+          "iteration": 7,
+          "online_ms": 24.768304,
+          "verify_ms": 414.744075,
+          "total_ms": 439.512379
+        }
+      ],
+      "phases": {
+        "online_ms": {
+          "median_ms": 27.966086,
+          "min_ms": 24.428164,
+          "max_ms": 45.135237
+        },
+        "verify_ms": {
+          "median_ms": 400.363465,
+          "min_ms": 362.178023,
+          "max_ms": 414.744075
+        },
+        "total_ms": {
+          "median_ms": 425.17850400000003,
+          "min_ms": 407.31326,
+          "max_ms": 439.512379
+        }
+      },
+      "bytes_per_party": {
+        "online_bytes": 8388608,
+        "verify_bytes": 218110266
+      },
+      "validated_output_words_per_iteration": 65536,
+      "validated_iterations": 8
+    }
+  }
+}

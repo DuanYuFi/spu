@@ -3,6 +3,21 @@ load("//bazel:spu.bzl", "spu_cc_library", "spu_cc_test")
 package(default_visibility = ["//visibility:public"])
 
 spu_cc_library(
+    name = "boolean",
+    srcs = ["boolean.cc"],
+    hdrs = ["boolean.h"],
+    deps = [
+        ":type",
+        "//libspu/core:parallel_utils",
+        "//libspu/mpc/common:prg_state",
+        "@yacl//yacl/crypto/hash:blake3",
+        "@yacl//yacl/crypto/rand",
+        "@yacl//yacl/crypto/tools:prg",
+        "@yacl//yacl/link/algorithm:allgather",
+    ],
+)
+
+spu_cc_library(
     name = "replicated",
     srcs = ["replicated.cc"],
     hdrs = ["replicated.h"],
@@ -18,6 +33,7 @@ spu_cc_library(
     srcs = ["state.cc"],
     hdrs = ["state.h"],
     deps = [
+        ":boolean",
         ":replicated",
         ":type",
         "//libspu/mpc:protocol_session",
@@ -85,5 +101,19 @@ spu_cc_test(
     deps = [
         ":io",
         "//libspu/core:value",
+    ],
+)
+
+spu_cc_test(
+    name = "boolean_test",
+    srcs = ["boolean_test.cc"],
+    deps = [
+        ":boolean",
+        ":io",
+        ":protocol",
+        ":state",
+        "//libspu/mpc:api",
+        "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
     ],
 )

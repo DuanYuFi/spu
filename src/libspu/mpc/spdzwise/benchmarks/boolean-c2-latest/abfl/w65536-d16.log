@@ -1,0 +1,8 @@
+iteration 0 (warmup): online_max_ms=51.4274, verify_max_ms=354.526; checked all 65536 outputs
+iteration 1: online_max_ms=45.1352, verify_max_ms=362.178; checked all 65536 outputs
+iteration 2: online_max_ms=29.8034, verify_max_ms=386.377; checked all 65536 outputs
+iteration 3: online_max_ms=28.4502, verify_max_ms=386.209; checked all 65536 outputs
+iteration 4: online_max_ms=27.9661, verify_max_ms=409.05; checked all 65536 outputs
+iteration 5: online_max_ms=24.815, verify_max_ms=400.363; checked all 65536 outputs
+iteration 6: online_max_ms=24.4282, verify_max_ms=410.311; checked all 65536 outputs
+iteration 7: online_max_ms=24.7683, verify_max_ms=414.744; checked all 65536 outputs

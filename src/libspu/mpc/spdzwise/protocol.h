@@ -15,8 +15,9 @@
 
 namespace spu::mpc::spdzwise {
 
-// Arithmetic integration harness, not a complete PPML protocol. Deliberately
-// not reachable through Factory::RegisterProtocol until the acceptance gate.
+// Arithmetic and ABFL Boolean integration harness, not a complete PPML
+// protocol. Deliberately not reachable through Factory::RegisterProtocol until
+// the acceptance gate.
 void registerArithmeticPrototype(
     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
 

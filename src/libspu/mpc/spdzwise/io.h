@@ -21,6 +21,11 @@ class SpdzWiseIo final : public BaseIo {
   Type getShareType(Visibility vis, int owner_rank = -1) const override;
   std::vector<NdArrayRef> toShares(const NdArrayRef& raw, Visibility vis,
                                    int owner_rank = -1) const override;
+  std::vector<NdArrayRef> toBooleanShares(const NdArrayRef& raw,
+                                          size_t nbits) const;
+  std::vector<NdArrayRef> makeBitSecret(const PtBufferView& raw) const override;
+  size_t getBitSecretShareSize(size_t numel) const override;
+  bool hasBitSecretSupport() const override { return true; }
   NdArrayRef fromShares(const std::vector<NdArrayRef>& shares) const override;
 };
 

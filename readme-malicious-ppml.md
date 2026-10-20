@@ -10,7 +10,9 @@
 - **框架集成**：`ProtocolSession` 提供导入、最终检查、暂存输出、提交和失败后禁用导出；device/Python 路径增加相应 hook，HAL 增加协议比较分派。现有协议未安装 session 时沿用原路径。device/Python 完整集成仍未验收。
 - **正确性覆盖**：C++ 协议、IO、会话和 HAL 分派测试；Python 使用真实 C++ 域头文件与大整数对照，并测试明文数值规格。篡改用例覆盖不同服务器和大批次不同位置的 MAC、失败后的会话中止和输出阻断。
 
-当前缺口：ABFL/post-sacrifice、恶意安全 daBits、密码学 A2B/B2A、精确截断、比较及非线性算子尚未实现；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
+ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR sharing、ABY3 online AND、64-bit word 分桶以及最终验证后导出，详见 [Boolean 原型说明](src/libspu/mpc/spdzwise/README.md#abfl-boolean-development-prototype)。生产 factory 仍未启用。
+
+当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、密码学 A2B/B2A、精确截断、比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
 
 实现位于 [`src/libspu/mpc/spdzwise`](src/libspu/mpc/spdzwise/)，协议参考映射和数值约定见其 [README](src/libspu/mpc/spdzwise/README.md)。
 
@@ -109,15 +111,16 @@ z[l+1,i] = z[l,i] & x[l+1,i]     (l = 0,...,D-1)
 
 ### Binary Benchmark
 
-使用同一统计和通信口径；输入分享不计时，无公开展开或 MAC 阶段，总计即电路计算。
+最新测量：2026-10-20。同一构建产物、相同 C2 输入、三方 FactoryMem，均为 `YACL_NUM_THREADS=12`；W=65,536、D=16，共 1,048,576 个 64-bit packed AND。ABY3 与 ABFL 依次运行，各预热 1 次、测量 7 次，每轮各阶段取三方最大值，再取七轮中位数。
 
 | 机器 | 协议 | 电路 | Domain | 电路计算（ms / B） | Verification（ms / B） | 总计（ms / B） |
 |---|---|---|---|---:|---:|---:|
-| Server | ABY3 Boolean | C2（AND） | GF(2)，64-bit 打包 | 19.274 / 8,388,608 | 0.000 / 0 | 19.274 / 8,388,608 |
+| Server | ABY3 Boolean | C2（AND） | GF(2)，64-bit 打包 | 23.340 / 8,388,608 | 0.000 / 0 | 23.340 / 8,388,608 |
+| Server | SPDZwise-ABFL | C2（AND） | GF(2)，64-bit 打包 | 27.966 / 8,388,608 | 400.363 / 218,110,266 | 425.179 / 226,498,874 |
 
-七轮耗时范围为 19.086–22.340 ms，吞吐量为 54.403 M uint64 AND/s，三方发送合计 25,165,824 B（24 MiB）。目前没有 Laptop 或 SPDZwise binary 测量。
+通信量为每方发送的应用 payload。总耗时先逐轮相加后取中位数，不等于阶段中位数之和。ABY3 不保存 triple、没有最终验证；ABFL online 包含快照保存，verification 包含随机池生成及全部检查。输入分享、初始化、导入检查、输出导出及重构核对不计时。两种协议各 8 轮均核对全部 65,536 个输出。
 
-[Binary 实验目录](src/libspu/mpc/spdzwise/benchmarks/ubuntu-aby3-binary-2026-10-20/) 保存原文记录、七轮三方最大耗时和基本参数。原三方逐轮日志、临时源码及构建产物此前已被清理，因此这些最大值是从已记录文档转存的，并非恢复的三方原始日志。以上汇总沿用已有实验数据，未重跑完整规模的实验。
+[最新 Boolean 实验及复现命令](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/RESULTS.md)包含 [ABY3 原始数据](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/aby3/)、[ABFL 原始数据](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/abfl/)及统一参数、源码/二进制指纹和资源记录。仅保留本次最新 Boolean 性能实验；旧版本与中间 profiling/packing 实验已清理。共享机器负载未隔离，本机结果不代表 LAN/WAN。
 
 ## 构建准备
 
@@ -158,4 +161,4 @@ python3 src/libspu/mpc/spdzwise/reference_test.py
 
 ## 运行 benchmark
 
-实验源码、Bazel 构建目标、数据和基本参数统一位于 [`src/libspu/mpc/spdzwise/benchmarks`](src/libspu/mpc/spdzwise/benchmarks/)。简要构建与运行入口见该目录的 [README](src/libspu/mpc/spdzwise/benchmarks/README.md)；重新测量使用新输出目录，保留已归档数据。
+实验源码、Bazel 构建目标、数据和基本参数统一位于 [`src/libspu/mpc/spdzwise/benchmarks`](src/libspu/mpc/spdzwise/benchmarks/)。简要构建与运行入口见该目录的 [README](src/libspu/mpc/spdzwise/benchmarks/README.md)；重新测量使用新输出目录；Boolean 目录只保留最新实验，算术历史记录保留。

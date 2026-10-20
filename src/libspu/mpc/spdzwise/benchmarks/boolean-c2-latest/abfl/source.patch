@@ -1,0 +1,2620 @@
+diff --git a/src/libspu/mpc/spdzwise/BUILD.bazel b/src/libspu/mpc/spdzwise/BUILD.bazel
+index 183ea9af..cd0b7eec 100644
+--- a/src/libspu/mpc/spdzwise/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/BUILD.bazel
+@@ -2,6 +2,21 @@ load("//bazel:spu.bzl", "spu_cc_library", "spu_cc_test")
+ 
+ package(default_visibility = ["//visibility:public"])
+ 
++spu_cc_library(
++    name = "boolean",
++    srcs = ["boolean.cc"],
++    hdrs = ["boolean.h"],
++    deps = [
++        ":type",
++        "//libspu/core:parallel_utils",
++        "//libspu/mpc/common:prg_state",
++        "@yacl//yacl/crypto/hash:blake3",
++        "@yacl//yacl/crypto/rand",
++        "@yacl//yacl/crypto/tools:prg",
++        "@yacl//yacl/link/algorithm:allgather",
++    ],
++)
++
+ spu_cc_library(
+     name = "replicated",
+     srcs = ["replicated.cc"],
+@@ -18,6 +33,7 @@ spu_cc_library(
+     srcs = ["state.cc"],
+     hdrs = ["state.h"],
+     deps = [
++        ":boolean",
+         ":replicated",
+         ":type",
+         "//libspu/mpc:protocol_session",
+@@ -87,3 +103,17 @@ spu_cc_test(
+         "//libspu/core:value",
+     ],
+ )
++
++spu_cc_test(
++    name = "boolean_test",
++    srcs = ["boolean_test.cc"],
++    deps = [
++        ":boolean",
++        ":io",
++        ":protocol",
++        ":state",
++        "//libspu/mpc:api",
++        "//libspu/mpc/common:pv2k",
++        "//libspu/mpc/utils:simulate",
++    ],
++)
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+index 0331115b..7e8a7309 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+@@ -16,3 +16,17 @@ spu_cc_binary(
+         "@spulib//libspu/mpc/utils:simulate",
+     ],
+ )
++
++spu_cc_binary(
++    name = "binary_bench",
++    srcs = ["binary_bench.cc"],
++    deps = [
++        "@spulib//libspu/mpc:api",
++        "@spulib//libspu/mpc/aby3:protocol",
++        "@spulib//libspu/mpc/aby3:type",
++        "@spulib//libspu/mpc/spdzwise:io",
++        "@spulib//libspu/mpc/spdzwise:protocol",
++        "@spulib//libspu/mpc/spdzwise:state",
++        "@spulib//libspu/mpc/utils:simulate",
++    ],
++)
+diff --git a/src/libspu/mpc/spdzwise/io.cc b/src/libspu/mpc/spdzwise/io.cc
+index 82bce5c9..9273d67c 100644
+--- a/src/libspu/mpc/spdzwise/io.cc
++++ b/src/libspu/mpc/spdzwise/io.cc
+@@ -11,6 +11,8 @@
+ 
+ #include "libspu/mpc/spdzwise/io.h"
+ 
++#include <limits>
++
+ #include "yacl/crypto/rand/rand.h"
+ 
+ #include "libspu/mpc/common/pv2k.h"
+@@ -77,10 +79,93 @@ std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
+   return shares;
+ }
+ 
++std::vector<NdArrayRef> SpdzWiseIo::toBooleanShares(const NdArrayRef& raw,
++                                                    size_t nbits) const {
++  const auto mask = BooleanMask(nbits);
++  SPU_ENFORCE(
++      raw.eltype().isa<RingTy>() && raw.eltype().as<Ring2k>()->field() == FM64,
++      "Boolean input requires FM64 storage");
++  std::vector<NdArrayRef> shares;
++  for (size_t rank = 0; rank < 3; ++rank) {
++    shares.emplace_back(makeType<BInputTy>(rank, nbits), raw.shape());
++  }
++  const NdArrayView<uint64_t> input(raw);
++  for (int64_t i = 0; i < raw.numel(); ++i) {
++    SPU_ENFORCE((input[i] & ~mask) == 0, "Boolean input exceeds its bit width");
++    const auto a = uint64_t(yacl::crypto::SecureRandSeed()) & mask;
++    const auto b = uint64_t(yacl::crypto::SecureRandSeed()) & mask;
++    const auto c = input[i] ^ a ^ b;
++    shares[0].data<RepShare>()[i] = {a, b};
++    shares[1].data<RepShare>()[i] = {b, c};
++    shares[2].data<RepShare>()[i] = {c, a};
++  }
++  return shares;
++}
++size_t SpdzWiseIo::getBitSecretShareSize(size_t numel) const {
++  SPU_ENFORCE(numel <= std::numeric_limits<size_t>::max() / sizeof(RepShare),
++              "Boolean share size overflow");
++  return numel * sizeof(RepShare);
++}
++std::vector<NdArrayRef> SpdzWiseIo::makeBitSecret(
++    const PtBufferView& raw) const {
++  NdArrayRef words(makeType<RingTy>(FM64), raw.shape);
++  auto* out = words.data<uint64_t>();
++  if (raw.isBitSet()) {
++    for (int64_t i = 0; i < words.numel(); ++i) {
++      out[i] = raw.getBit(i);
++    }
++  } else {
++    DISPATCH_INT_PT_TYPES(raw.pt_type, [&]() {
++      for (int64_t i = 0; i < words.numel(); ++i) {
++        out[i] = static_cast<uint64_t>(raw.get<ScalarT>(i)) & 1;
++      }
++    });
++  }
++  return toBooleanShares(words, 1);
++}
++
+ NdArrayRef SpdzWiseIo::fromShares(const std::vector<NdArrayRef>& shares) const {
+   SPU_ENFORCE(shares.size() == 3,
+               "SPDZWISE reconstruction requires all parties");
+   const auto& first = shares[0];
++  if (first.eltype().isa<BInputTy>() || first.eltype().isa<BOutputTy>()) {
++    const bool input = first.eltype().isa<BInputTy>();
++    const auto width = first.eltype().as<BShare>()->nbits();
++    const auto mask = BooleanMask(width);
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& type = shares[rank].eltype();
++      SPU_ENFORCE(shares[rank].shape() == first.shape(),
++                  "Boolean shape mismatch");
++      if (input) {
++        SPU_ENFORCE(type.isa<BInputTy>() && type.as<BInputTy>()->rank() == rank,
++                    "Boolean input rank/type mismatch");
++      } else {
++        SPU_ENFORCE(type.isa<BOutputTy>() &&
++                        type.as<BOutputTy>()->rank() == rank &&
++                        type.as<BOutputTy>()->binding() ==
++                            first.eltype().as<BOutputTy>()->binding(),
++                    "Boolean output binding/rank/type mismatch");
++      }
++      SPU_ENFORCE(type.as<BShare>()->nbits() == width,
++                  "Boolean width mismatch");
++    }
++    NdArrayRef result(makeType<RingTy>(FM64), first.shape());
++    const std::array<NdArrayView<RepShare>, 3> in = {
++        NdArrayView<RepShare>(shares[0]), NdArrayView<RepShare>(shares[1]),
++        NdArrayView<RepShare>(shares[2])};
++    auto* out = result.data<uint64_t>();
++    for (int64_t i = 0; i < first.numel(); ++i) {
++      out[i] = 0;
++      for (size_t rank = 0; rank < 3; ++rank) {
++        SPU_ENFORCE(((in[rank][i][0] | in[rank][i][1]) & ~mask) == 0,
++                    "noncanonical Boolean share");
++        SPU_ENFORCE(in[rank][i][1] == in[(rank + 1) % 3][i][0],
++                    "Boolean copies disagree");
++        out[i] ^= in[rank][i][0];
++      }
++    }
++    return result;
++  }
+   const bool is_public = first.eltype().isa<Pub2kTy>();
+   const bool is_input = first.eltype().isa<InputTy>();
+   SPU_ENFORCE(is_public || is_input || first.eltype().isa<OutputTy>(),
+diff --git a/src/libspu/mpc/spdzwise/io.h b/src/libspu/mpc/spdzwise/io.h
+index 7f391563..e6f3bbbe 100644
+--- a/src/libspu/mpc/spdzwise/io.h
++++ b/src/libspu/mpc/spdzwise/io.h
+@@ -21,6 +21,11 @@ class SpdzWiseIo final : public BaseIo {
+   Type getShareType(Visibility vis, int owner_rank = -1) const override;
+   std::vector<NdArrayRef> toShares(const NdArrayRef& raw, Visibility vis,
+                                    int owner_rank = -1) const override;
++  std::vector<NdArrayRef> toBooleanShares(const NdArrayRef& raw,
++                                          size_t nbits) const;
++  std::vector<NdArrayRef> makeBitSecret(const PtBufferView& raw) const override;
++  size_t getBitSecretShareSize(size_t numel) const override;
++  bool hasBitSecretSupport() const override { return true; }
+   NdArrayRef fromShares(const std::vector<NdArrayRef>& shares) const override;
+ };
+ 
+diff --git a/src/libspu/mpc/spdzwise/protocol.cc b/src/libspu/mpc/spdzwise/protocol.cc
+index 88ae2bb5..726a7c94 100644
+--- a/src/libspu/mpc/spdzwise/protocol.cc
++++ b/src/libspu/mpc/spdzwise/protocol.cc
+@@ -45,7 +45,7 @@ class Finalize final : public Kernel {
+  public:
+   static constexpr const char* kBindName() { return "finalize_protocol"; }
+   void evaluate(KernelEvalContext* ctx) const override {
+-    ctx->getState<SpdzWiseState>()->check();
++    ctx->getState<SpdzWiseState>()->finalize();
+   }
+ };
+ 
+@@ -120,6 +120,27 @@ class MatmulAP final : public MatmulKernel {
+   }
+ };
+ 
++class P2B final : public UnaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "p2b"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
++    return ctx->getState<SpdzWiseState>()->publicBoolean(in);
++  }
++};
++template <bool IsAnd, bool PublicRhs>
++class BooleanBinary final : public BinaryKernel {
++ public:
++  static constexpr const char* kBindName() {
++    return IsAnd ? (PublicRhs ? "and_bp" : "and_bb")
++                 : (PublicRhs ? "xor_bp" : "xor_bb");
++  }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override {
++    return ctx->getState<SpdzWiseState>()->booleanBinary(x, y, IsAnd,
++                                                         PublicRhs);
++  }
++};
++
+ class DenyReveal final : public Kernel {
+  public:
+   void evaluate(KernelEvalContext*) const override {
+@@ -138,7 +159,9 @@ void registerArithmeticPrototype(
+   regStandardShapeOps(ctx);
+   ctx->prot()
+       ->regKernel<Import, Export, Finalize, P2A, Negate, AddAA, AddAP, MulAA,
+-                  MulAP, MatmulAA, MatmulAP>();
++                  MulAP, MatmulAA, MatmulAP, P2B, BooleanBinary<true, false>,
++                  BooleanBinary<true, true>, BooleanBinary<false, false>,
++                  BooleanBinary<false, true>>();
+   for (const auto* name : {"a2p", "b2p", "a2v", "b2v", "s2p", "s2v"}) {
+     ctx->prot()->regKernel<DenyReveal>(name);
+   }
+diff --git a/src/libspu/mpc/spdzwise/protocol.h b/src/libspu/mpc/spdzwise/protocol.h
+index 324c1202..6a3f64ef 100644
+--- a/src/libspu/mpc/spdzwise/protocol.h
++++ b/src/libspu/mpc/spdzwise/protocol.h
+@@ -15,8 +15,9 @@
+ 
+ namespace spu::mpc::spdzwise {
+ 
+-// Arithmetic integration harness, not a complete PPML protocol. Deliberately
+-// not reachable through Factory::RegisterProtocol until the acceptance gate.
++// Arithmetic and ABFL Boolean integration harness, not a complete PPML
++// protocol. Deliberately not reachable through Factory::RegisterProtocol until
++// the acceptance gate.
+ void registerArithmeticPrototype(
+     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
+ 
+diff --git a/src/libspu/mpc/spdzwise/state.cc b/src/libspu/mpc/spdzwise/state.cc
+index f809a3f9..beefa7b9 100644
+--- a/src/libspu/mpc/spdzwise/state.cc
++++ b/src/libspu/mpc/spdzwise/state.cc
+@@ -133,6 +133,9 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+         words[i] = view[i];
+       }
+       Append(descriptor, EncodeF61(words));
++    } else if (value.storage_type().isa<BShrTy>()) {
++      validateBoolean(value.data());
++      Append(descriptor, value.storage_type().toString());
+     } else if (value.storage_type().isa<AShrTy>()) {
+       validateInternal(value.data());
+       Append(descriptor, "authenticated");
+@@ -142,7 +145,16 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+       // Rank is deliberately excluded: it differs across the three parties.
+       // The kind and prior output binding must agree before any authentication
+       // messages, otherwise parties can import different execution batches.
+-      if (value.storage_type().isa<OutputTy>()) {
++      if (value.storage_type().isa<BInputTy>()) {
++        Append(descriptor, "boolean-input");
++        Append(descriptor,
++               std::to_string(value.storage_type().as<BInputTy>()->nbits()));
++      } else if (value.storage_type().isa<BOutputTy>()) {
++        Append(descriptor, "boolean-output");
++        Append(descriptor,
++               std::to_string(value.storage_type().as<BOutputTy>()->nbits()));
++        Append(descriptor, value.storage_type().as<BOutputTy>()->binding());
++      } else if (value.storage_type().isa<OutputTy>()) {
+         Append(descriptor, "external-output");
+         Append(descriptor, value.storage_type().as<OutputTy>()->binding());
+       } else {
+@@ -165,6 +177,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+     key_prg_ = std::make_unique<PrgState>(link_);
+     mask_prg_ = std::make_unique<PrgState>(link_);
+     check_prg_ = std::make_unique<PrgState>(link_);
++    boolean_ = std::make_unique<BooleanState>(
++        link_, [this](std::string_view operation) {
++          return session_ + "/" + tag(operation);
++        });
+     key_ = RandomF61Rep(key_prg_.get(), 1)[0];
+     checkCopies({key_});
+   }
+@@ -178,11 +194,19 @@ Type SpdzWiseState::exportType(const std::string& name,
+   Append(descriptor, name);
+   Append(descriptor, fmt::format("{}", value.shape()));
+   Append(descriptor, std::to_string(value.dtype()));
++  if (value.storage_type().isa<BShrTy>()) {
++    validateBoolean(value.data());
++    const auto width = value.storage_type().as<BShrTy>()->nbits();
++    Append(descriptor, "boolean");
++    Append(descriptor, std::to_string(width));
++    return makeType<BOutputTy>(rank(), width, Digest(descriptor));
++  }
+   return makeType<OutputTy>(rank(), Digest(descriptor));
+ }
+ 
+ void SpdzWiseState::onAbort() noexcept {
+   pending_.clear();
++  boolean_.reset();
+   key_ = {};
+   key_prg_.reset();
+   mask_prg_.reset();
+@@ -196,6 +220,16 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
+   const auto& type = value.storage_type();
+   if (value.isPublic()) {
+     RequirePublic(value.data());
++  } else if (type.isa<BInputTy>() || type.isa<BOutputTy>()) {
++    SPU_ENFORCE(type.isa<BInputTy>() ? type.as<BInputTy>()->rank() == rank()
++                                     : type.as<BOutputTy>()->rank() == rank(),
++                "Boolean external input rank mismatch");
++    const auto mask = BooleanMask(type.as<BShare>()->nbits());
++    const NdArrayView<RepShare> words(value.data());
++    for (int64_t i = 0; i < value.numel(); ++i) {
++      SPU_ENFORCE(((words[i][0] | words[i][1]) & ~mask) == 0,
++                  "noncanonical Boolean input");
++    }
+   } else {
+     SPU_ENFORCE(
+         (type.isa<InputTy>() && type.as<InputTy>()->rank() == rank()) ||
+@@ -317,6 +351,21 @@ NdArrayRef SpdzWiseState::authenticateInput(const std::vector<RepShare>& values,
+ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
+   try {
+     requireRunning();
++    if (value.eltype().isa<BShrTy>()) {
++      validateBoolean(value);
++      return value;
++    }
++    if (value.eltype().isa<BInputTy>() || value.eltype().isa<BOutputTy>()) {
++      validateExternalInput(Value(value, DT_I64));
++      const NdArrayView<RepShare> in(value);
++      std::vector<RepShare> shares(value.numel());
++      for (int64_t i = 0; i < value.numel(); ++i) {
++        shares[i] = in[i];
++      }
++      boolean_->checkCopies(shares);
++      return value.clone().as(
++          makeType<BShrTy>(session_, value.eltype().as<BShare>()->nbits()));
++    }
+     if (value.eltype().isa<AShrTy>()) {
+       validateInternal(value);
+       return value;
+@@ -476,11 +525,103 @@ NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
+   return result;
+ }
+ 
++void SpdzWiseState::finalize() {
++  try {
++    requireRunning();
++    check();
++    boolean_->check();
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++
++void SpdzWiseState::validateBoolean(const NdArrayRef& value) const {
++  requireRunning();
++  SPU_ENFORCE(value.eltype().isa<BShrTy>() &&
++                  value.eltype().as<BShrTy>()->session() == session_,
++              "Boolean value belongs to a different session/type");
++  const auto width = value.eltype().as<BShrTy>()->nbits();
++  // Every uint64_t is canonical at full width. Keep session/type validation,
++  // but avoid a vacuous whole-array scan on the packed AND hot path.
++  if (width == 64) {
++    return;
++  }
++  const auto mask = BooleanMask(width);
++  const NdArrayView<RepShare> view(value);
++  for (int64_t i = 0; i < value.numel(); ++i) {
++    SPU_ENFORCE(((view[i][0] | view[i][1]) & ~mask) == 0,
++                "noncanonical Boolean share");
++  }
++}
++NdArrayRef SpdzWiseState::publicBoolean(const NdArrayRef& value) const {
++  requireRunning();
++  RequirePublic(value);
++  NdArrayRef out(makeType<BShrTy>(session_, 64), value.shape());
++  const NdArrayView<uint64_t> in(value);
++  for (int64_t i = 0; i < value.numel(); ++i) {
++    out.data<RepShare>()[i] = {rank() == 0 ? in[i] : 0,
++                               rank() == 2 ? in[i] : 0};
++  }
++  return out;
++}
++NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
++                                        const NdArrayRef& y, bool is_and,
++                                        bool public_rhs) {
++  try {
++    validateBoolean(x);
++    SPU_ENFORCE(x.shape() == y.shape(), "Boolean shape mismatch");
++    if (public_rhs) {
++      RequirePublic(y);
++    } else {
++      validateBoolean(y);
++    }
++    if (is_and && !public_rhs) {
++      return boolean_->andBB(x, y, session_);
++    }
++    const size_t xbits = x.eltype().as<BShrTy>()->nbits();
++    const size_t ybits = public_rhs ? 64 : y.eltype().as<BShrTy>()->nbits();
++    const size_t width =
++        is_and ? std::min(xbits, ybits) : std::max(xbits, ybits);
++    const auto mask = BooleanMask(width);
++    NdArrayRef out(makeType<BShrTy>(session_, width), x.shape());
++    const NdArrayView<RepShare> xv(x);
++    for (int64_t i = 0; i < x.numel(); ++i) {
++      RepShare rhs;
++      if (public_rhs) {
++        const auto word = NdArrayView<uint64_t>(y)[i];
++        rhs = is_and ? RepShare{word, word}
++                     : RepShare{rank() == 0 ? word : 0, rank() == 2 ? word : 0};
++      } else {
++        rhs = NdArrayView<RepShare>(y)[i];
++      }
++      for (size_t j = 0; j < 2; ++j) {
++        out.data<RepShare>()[i][j] =
++            (is_and ? xv[i][j] & rhs[j] : xv[i][j] ^ rhs[j]) & mask;
++      }
++    }
++    return out;
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++
+ NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
+                                       const Type& type) const {
+-  validateInternal(value);
+-  SPU_ENFORCE(pending_.empty(),
++  requireRunning();
++  SPU_ENFORCE(pending_.empty() && pendingBooleanBits() == 0,
+               "unchecked SPDZWISE results cannot be exported");
++  if (value.eltype().isa<BShrTy>()) {
++    validateBoolean(value);
++    SPU_ENFORCE(type.isa<BOutputTy>() &&
++                    type.as<BOutputTy>()->rank() == rank() &&
++                    type.as<BOutputTy>()->nbits() ==
++                        value.eltype().as<BShrTy>()->nbits(),
++                "invalid Boolean export type");
++    return value.clone().as(type);
++  }
++  validateInternal(value);
+   SPU_ENFORCE(type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank(),
+               "invalid export type");
+   NdArrayRef result(type, value.shape());
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index dc825689..cc3f6b5d 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -13,6 +13,7 @@
+ 
+ #include "libspu/mpc/common/prg_state.h"
+ #include "libspu/mpc/protocol_session.h"
++#include "libspu/mpc/spdzwise/boolean.h"
+ #include "libspu/mpc/spdzwise/type.h"
+ 
+ namespace spu::mpc::spdzwise {
+@@ -24,6 +25,8 @@ class SpdzWiseState final : public ProtocolSession {
+   // The benchmark separates MAC generation from the final batched check.
+   // Normal imports retain their mandatory immediate check.
+   friend class SpdzWiseBenchmarkAccess;
++  friend class BooleanTestAccess;
++  std::unique_ptr<BooleanState> boolean_;
+   std::shared_ptr<yacl::link::Context> link_;
+   RuntimeConfig config_;
+   std::string session_;
+@@ -73,6 +76,15 @@ class SpdzWiseState final : public ProtocolSession {
+   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
+   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
+   void check();
++  void finalize();
++  void validateBoolean(const NdArrayRef& value) const;
++  NdArrayRef publicBoolean(const NdArrayRef& value) const;
++  NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,
++                           bool is_and, bool public_rhs);
++  size_t pendingBooleanBits() const {
++    return boolean_ ? boolean_->pendingBits() : 0;
++  }
++  uint64_t booleanChecks() const { return boolean_ ? boolean_->checks() : 0; }
+ };
+ 
+ }  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/type.cc b/src/libspu/mpc/spdzwise/type.cc
+index 0dc0729d..485d1296 100644
+--- a/src/libspu/mpc/spdzwise/type.cc
++++ b/src/libspu/mpc/spdzwise/type.cc
+@@ -12,6 +12,7 @@
+ #include "libspu/mpc/spdzwise/type.h"
+ 
+ #include <algorithm>
++#include <charconv>
+ #include <mutex>
+ #include <utility>
+ 
+@@ -80,11 +81,91 @@ bool OutputTy::equals(const TypeObject* other) const {
+          binding_ == typed->binding_;
+ }
+ 
++uint64_t BooleanMask(size_t nbits) {
++  SPU_ENFORCE(nbits >= 1 && nbits <= 64, "Boolean width must be in [1,64]");
++  return nbits == 64 ? ~uint64_t{0} : (uint64_t{1} << nbits) - 1;
++}
++
++namespace {
++size_t ParseBooleanNumber(std::string_view text) {
++  size_t result = 0;
++  const auto parsed =
++      std::from_chars(text.data(), text.data() + text.size(), result);
++  SPU_ENFORCE(!text.empty() && parsed.ec == std::errc{} &&
++                  parsed.ptr == text.data() + text.size(),
++              "invalid Boolean type");
++  return result;
++}
++}  // namespace
++
++BInputTy::BInputTy(size_t rank, size_t nbits) : rank_(rank) {
++  SPU_ENFORCE(rank < 3, "invalid Boolean rank");
++  BooleanMask(nbits);
++  nbits_ = nbits;
++}
++std::string BInputTy::toString() const {
++  return std::to_string(rank_) + ":" + std::to_string(nbits_);
++}
++void BInputTy::fromString(std::string_view detail) {
++  const auto split = detail.find(':');
++  SPU_ENFORCE(split != std::string_view::npos, "invalid Boolean input type");
++  *this = BInputTy(ParseBooleanNumber(detail.substr(0, split)),
++                   ParseBooleanNumber(detail.substr(split + 1)));
++}
++bool BInputTy::equals(const TypeObject* other) const {
++  const auto* t = dynamic_cast<const BInputTy*>(other);
++  return t && rank_ == t->rank_ && nbits_ == t->nbits_;
++}
++BShrTy::BShrTy(std::string session, size_t nbits)
++    : session_(std::move(session)) {
++  SPU_ENFORCE(!session_.empty(), "Boolean shares require a session");
++  BooleanMask(nbits);
++  nbits_ = nbits;
++}
++std::string BShrTy::toString() const {
++  return session_ + ":" + std::to_string(nbits_);
++}
++void BShrTy::fromString(std::string_view) {
++  SPU_THROW("internal Boolean shares cannot be deserialized");
++}
++bool BShrTy::equals(const TypeObject* other) const {
++  const auto* t = dynamic_cast<const BShrTy*>(other);
++  return t && session_ == t->session_ && nbits_ == t->nbits_;
++}
++BOutputTy::BOutputTy(size_t rank, size_t nbits, std::string binding)
++    : rank_(rank), binding_(std::move(binding)) {
++  // Reuse the existing rank/digest syntax validation.
++  OutputTy validated(rank_, binding_);
++  BooleanMask(nbits);
++  nbits_ = nbits;
++}
++std::string BOutputTy::toString() const {
++  return std::to_string(rank_) + ":" + std::to_string(nbits_) + ":" + binding_;
++}
++void BOutputTy::fromString(std::string_view detail) {
++  const auto first = detail.find(':');
++  const auto second =
++      detail.find(':', first == std::string_view::npos ? 0 : first + 1);
++  SPU_ENFORCE(
++      first != std::string_view::npos && second != std::string_view::npos,
++      "invalid Boolean output type");
++  *this = BOutputTy(
++      ParseBooleanNumber(detail.substr(0, first)),
++      ParseBooleanNumber(detail.substr(first + 1, second - first - 1)),
++      std::string(detail.substr(second + 1)));
++}
++bool BOutputTy::equals(const TypeObject* other) const {
++  const auto* t = dynamic_cast<const BOutputTy*>(other);
++  return t && rank_ == t->rank_ && nbits_ == t->nbits_ &&
++         binding_ == t->binding_;
++}
++
+ void registerTypes() {
+   regPV2kTypes();
+   static std::once_flag flag;
+   std::call_once(flag, [] {
+-    TypeContext::getTypeContext()->addTypes<InputTy, OutputTy>();
++    TypeContext::getTypeContext()
++        ->addTypes<InputTy, OutputTy, BInputTy, BOutputTy>();
+   });
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/type.h b/src/libspu/mpc/spdzwise/type.h
+index 45d8cfbd..b3aa4771 100644
+--- a/src/libspu/mpc/spdzwise/type.h
++++ b/src/libspu/mpc/spdzwise/type.h
+@@ -77,6 +77,54 @@ class OutputTy final : public TypeImpl<OutputTy, TypeObject, Secret, AShare> {
+   bool equals(const TypeObject* other) const override;
+ };
+ 
++// Boolean words use XOR reconstruction; they must never enter F61 helpers.
++uint64_t BooleanMask(size_t nbits);
++
++class BInputTy final : public TypeImpl<BInputTy, TypeObject, Secret, BShare> {
++  size_t rank_ = 0;
++
++ public:
++  BInputTy() = default;
++  BInputTy(size_t rank, size_t nbits);
++  static std::string_view getStaticId() { return "spdzwise.BInputTy"; }
++  size_t size() const override { return sizeof(RepShare); }
++  size_t rank() const { return rank_; }
++  std::string toString() const override;
++  void fromString(std::string_view detail) override;
++  bool equals(const TypeObject* other) const override;
++};
++
++class BShrTy final : public TypeImpl<BShrTy, TypeObject, Secret, BShare> {
++  std::string session_;
++
++ public:
++  BShrTy() = default;
++  BShrTy(std::string session, size_t nbits);
++  static std::string_view getStaticId() { return "spdzwise.BShrTy"; }
++  size_t size() const override { return sizeof(RepShare); }
++  const std::string& session() const { return session_; }
++  bool isSerializable() const override { return false; }
++  std::string toString() const override;
++  void fromString(std::string_view detail) override;
++  bool equals(const TypeObject* other) const override;
++};
++
++class BOutputTy final : public TypeImpl<BOutputTy, TypeObject, Secret, BShare> {
++  size_t rank_ = 0;
++  std::string binding_;
++
++ public:
++  BOutputTy() = default;
++  BOutputTy(size_t rank, size_t nbits, std::string binding);
++  static std::string_view getStaticId() { return "spdzwise.BOutputTy"; }
++  size_t size() const override { return sizeof(RepShare); }
++  size_t rank() const { return rank_; }
++  const std::string& binding() const { return binding_; }
++  std::string toString() const override;
++  void fromString(std::string_view detail) override;
++  bool equals(const TypeObject* other) const override;
++};
++
+ // Register external types only. Internal authentication cannot be deserialized.
+ void registerTypes();
+ 
+diff --git a/src/libspu/mpc/spdzwise/boolean.cc b/src/libspu/mpc/spdzwise/boolean.cc
+new file mode 100644
+index 00000000..44ffd03a
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/boolean.cc
+@@ -0,0 +1,742 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "libspu/mpc/spdzwise/boolean.h"
++
++#include <cstring>
++#include <limits>
++#include <memory>
++#include <numeric>
++
++#include "yacl/crypto/hash/blake3.h"
++#include "yacl/crypto/rand/rand.h"
++#include "yacl/crypto/tools/prg.h"
++#include "yacl/link/algorithm/allgather.h"
++
++#include "libspu/core/parallel_utils.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++constexpr int64_t kVerifyGrain = 131072;
++constexpr size_t kSacrificeTile = 65536;
++constexpr int64_t kTileGrain = 16384;
++std::string Hash(std::string_view bytes) {
++  yacl::crypto::Blake3Hash hash;
++  hash.Update(bytes);
++  const auto digest = hash.CumulativeHash();
++  return std::string(reinterpret_cast<const char*>(digest.data()),
++                     digest.size());
++}
++std::string Encode(absl::Span<const uint64_t> words) {
++  SPU_ENFORCE(words.size() <= std::numeric_limits<size_t>::max() / 8,
++              "Boolean wire length overflow");
++  std::string bytes(words.size() * 8, '\0');
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  if (!words.empty()) std::memcpy(bytes.data(), words.data(), bytes.size());
++#else
++  for (size_t i = 0; i < words.size(); ++i) {
++    for (size_t b = 0; b < 8; ++b) {
++      bytes[8 * i + b] = char(words[i] >> (8 * b));
++    }
++  }
++#endif
++  return bytes;
++}
++// Wire buffers need not be aligned. Validate their length before reading.
++uint64_t ReadWord(const char* bytes) {
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  uint64_t word;
++  std::memcpy(&word, bytes, sizeof(word));
++  return word;
++#else
++  uint64_t word = 0;
++  for (size_t b = 0; b < 8; ++b) {
++    word |= uint64_t(static_cast<unsigned char>(bytes[b])) << (8 * b);
++  }
++  return word;
++#endif
++}
++void WriteWord(char* bytes, uint64_t word) {
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  std::memcpy(bytes, &word, sizeof(word));
++#else
++  for (size_t b = 0; b < 8; ++b) bytes[b] = char(word >> (8 * b));
++#endif
++}
++void SendWords(const std::shared_ptr<yacl::link::Context>& link,
++               absl::Span<const uint64_t> words, const std::string& tag) {
++  SPU_ENFORCE(words.size() <= std::numeric_limits<size_t>::max() / 8,
++              "Boolean wire length overflow");
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  link->Send(link->PrevRank(),
++             yacl::ByteContainerView(words.data(), words.size() * 8), tag);
++#else
++  const auto bytes = Encode(words);
++  link->Send(link->PrevRank(), yacl::ByteContainerView(bytes), tag);
++#endif
++}
++uint64_t LocalAnd(uint64_t x0, uint64_t x1, uint64_t y0, uint64_t y1) {
++  return (x0 & (y0 ^ y1)) ^ (x1 & y0);
++}
++std::vector<uint64_t> Decode(std::string_view bytes, size_t count) {
++  SPU_ENFORCE(count <= std::numeric_limits<size_t>::max() / 8 &&
++                  bytes.size() == count * 8,
++              "Boolean wire length mismatch");
++  std::vector<uint64_t> words(count);
++  for (size_t i = 0; i < count; ++i) {
++    words[i] = ReadWord(bytes.data() + 8 * i);
++  }
++  return words;
++}
++size_t Words(size_t bits) { return bits / 64 + (bits % 64 != 0); }
++size_t PoolWords(size_t n, size_t bucket) {
++  SPU_ENFORCE(n <= (std::numeric_limits<size_t>::max() - 3) / (bucket - 1),
++              "ABFL pool size overflow");
++  return (bucket - 1) * n + 3;
++}
++}  // namespace
++
++size_t AbflBucketSize(size_t words) {
++  if (words == 0) {
++    return 0;
++  }
++  if (words >= 1048576) {
++    return 3;
++  }
++  if (words >= 10368) {
++    return 4;
++  }
++  SPU_ENFORCE(words >= 1024,
++              "ABFL needs at least 1024 packed AND words, got {}", words);
++  return 5;
++}
++
++BooleanState::BooleanState(std::shared_ptr<yacl::link::Context> link,
++                           std::function<std::string(std::string_view)> tag)
++    : link_(std::move(link)),
++      tag_(std::move(tag)),
++      random_prg_(link_),
++      mask_prg_(link_) {}
++
++std::vector<yacl::Buffer> BooleanState::gather(std::string_view bytes,
++                                               std::string_view name,
++                                               bool borrow_local) {
++  const auto tag = tag_(name);
++  std::vector<yacl::Buffer> buffers;
++  if (borrow_local) {
++    // Same all-to-all exchange as AllGather, without its local Buffer copy.
++    // Send completes at the peer's transport buffer, without requiring its
++    // application to Recv. Avoid the extra asynchronous staging copy.
++    buffers.resize(3);
++    for (size_t rank = 0; rank < 3; ++rank) {
++      if (rank != link_->Rank()) {
++        link_->Send(rank, yacl::ByteContainerView(bytes), tag);
++      }
++    }
++    for (size_t rank = 0; rank < 3; ++rank) {
++      if (rank != link_->Rank()) buffers[rank] = link_->Recv(rank, tag);
++    }
++  } else {
++    buffers = yacl::link::AllGather(link_, yacl::ByteContainerView(bytes), tag);
++  }
++  std::vector<std::string> payload_hashes;
++  if (borrow_local) {
++    payload_hashes.resize(buffers.size());
++    // Independent payload hashes can run concurrently. The outer hash binds
++    // their lengths, rank order and opening domain; no view check is omitted.
++    yacl::parallel_for(0, buffers.size(), bytes.size() >= 65536 ? 1 : 4,
++                       [&](int64_t begin, int64_t end) {
++                         for (auto rank = begin; rank < end; ++rank) {
++                           payload_hashes[rank] =
++                               Hash(size_t(rank) == link_->Rank()
++                                        ? bytes
++                                        : std::string_view(buffers[rank]));
++                         }
++                       });
++  }
++  yacl::crypto::Blake3Hash hash;
++  if (borrow_local) hash.Update(tag + ":opening-views:");
++  for (size_t rank = 0; rank < buffers.size(); ++rank) {
++    const auto view = borrow_local && rank == link_->Rank()
++                          ? bytes
++                          : std::string_view(buffers[rank]);
++    hash.Update(std::to_string(view.size()) + ":");
++    hash.Update(borrow_local ? std::string_view(payload_hashes[rank]) : view);
++  }
++  // AllGather alone is not a malicious broadcast. Compare the ordered views
++  // before using any opened value or moving to the next protocol phase.
++  const auto digest = hash.CumulativeHash();
++  const auto views = yacl::link::AllGather(
++      link_, yacl::ByteContainerView(digest), tag_("boolean-views"));
++  for (const auto& view : views) {
++    SPU_ENFORCE(
++        std::string_view(view) ==
++            std::string_view(reinterpret_cast<const char*>(digest.data()),
++                             digest.size()),
++        "Boolean transcript disagreement");
++  }
++  return buffers;
++}
++void BooleanState::agree(std::string_view bytes) {
++  const auto digest = Hash(bytes);
++  for (const auto& peer : gather(digest, "boolean-agree")) {
++    SPU_ENFORCE(std::string_view(peer) == digest, "Boolean batch disagreement");
++  }
++}
++void BooleanState::requireAll(bool valid, std::string_view reason) {
++  for (const auto& peer : gather(valid ? "1" : "0", "boolean-status")) {
++    SPU_ENFORCE(std::string_view(peer) == "1", "{}", reason);
++  }
++}
++
++std::vector<RepShare> BooleanState::andRaw(const std::vector<RepShare>& x,
++                                           const std::vector<RepShare>& y) {
++  SPU_ENFORCE(x.size() == y.size(), "Boolean AND shape mismatch");
++  if (x.empty()) {
++    return {};
++  }
++  std::vector<uint64_t> a(x.size()), b(x.size());
++  mask_prg_.fillPrssPair(a.data(), b.data(), a.size(),
++                         PrgState::GenPrssCtrl::Both);
++  for (size_t i = 0; i < x.size(); ++i) {
++    a[i] ^= b[i] ^ LocalAnd(x[i][0], x[i][1], y[i][0], y[i][1]);
++  }
++  const auto tag = tag_("boolean-and");
++  SendWords(link_, a, tag);
++  const auto received = link_->Recv(link_->NextRank(), tag);
++  SPU_ENFORCE(size_t(received.size()) == a.size() * 8,
++              "Boolean wire length mismatch");
++  std::vector<RepShare> out;
++  out.reserve(x.size());
++  for (size_t i = 0; i < x.size(); ++i) {
++    out.push_back({a[i], ReadWord(received.data<char>() + i * 8)});
++  }
++  return out;
++}
++void BooleanState::checkCopies(const std::vector<RepShare>& shares) {
++  if (shares.empty()) {
++    return;
++  }
++  std::vector<uint64_t> first;
++  first.reserve(shares.size());
++  for (const auto& share : shares) first.push_back(share[0]);
++  const auto tag = tag_("boolean-copies");
++  SendWords(link_, first, tag);
++  const auto received = link_->Recv(link_->NextRank(), tag);
++  bool valid = static_cast<size_t>(received.size()) == first.size() * 8;
++  if (valid) {
++    for (size_t i = 0; i < shares.size(); ++i) {
++      valid &= ReadWord(received.data<char>() + i * 8) == shares[i][1];
++    }
++  }
++  requireAll(valid, "Boolean replicated copies disagree");
++}
++std::vector<uint64_t> BooleanState::open(absl::Span<const RepShare> shares) {
++  std::vector<uint64_t> result(shares.size());
++  open(shares, absl::MakeSpan(result));
++  return result;
++}
++void BooleanState::open(absl::Span<const RepShare> shares,
++                        absl::Span<uint64_t> result) {
++  SPU_ENFORCE(result.size() == shares.size(), "Boolean opening shape mismatch");
++  SPU_ENFORCE(shares.size() <= std::numeric_limits<size_t>::max() / 16,
++              "Boolean opening length overflow");
++  static_assert(sizeof(RepShare) == 2 * sizeof(uint64_t));
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  const auto bytes =
++      shares.empty()
++          ? std::string_view()
++          : std::string_view(reinterpret_cast<const char*>(shares.data()),
++                             shares.size() * sizeof(RepShare));
++#else
++  std::vector<uint64_t> words;
++  words.reserve(shares.size() * 2);
++  for (const auto& share : shares) {
++    words.push_back(share[0]);
++    words.push_back(share[1]);
++  }
++  const auto encoded = Encode(words);
++  const auto bytes = std::string_view(encoded);
++#endif
++  const auto buffers = gather(bytes, "boolean-open", true);
++  std::array<const char*, 3> data;
++  for (size_t rank = 0; rank < 3; ++rank) {
++    if (rank == link_->Rank()) {
++      data[rank] = bytes.data();
++      continue;
++    }
++    SPU_ENFORCE(size_t(buffers[rank].size()) == shares.size() * 16,
++                "Boolean wire length mismatch");
++    data[rank] = buffers[rank].data<char>();
++  }
++  // Do not use parallel_reduce<bool>: its vector<bool> partials share bits.
++  const bool valid =
++      shares.empty() || yacl::parallel_reduce<uint64_t>(
++                            0, shares.size(), kTileGrain,
++                            [&](int64_t begin, int64_t end) {
++                              bool ok = true;
++                              for (int64_t i = begin; i < end; ++i) {
++                                const auto x0 = ReadWord(data[0] + 16 * i);
++                                const auto x1 = ReadWord(data[1] + 16 * i);
++                                const auto x2 = ReadWord(data[2] + 16 * i);
++                                ok &= ReadWord(data[0] + 16 * i + 8) == x1;
++                                ok &= ReadWord(data[1] + 16 * i + 8) == x2;
++                                ok &= ReadWord(data[2] + 16 * i + 8) == x0;
++                                result[i] = x0 ^ x1 ^ x2;
++                              }
++                              return uint64_t(ok);
++                            },
++                            [](uint64_t a, uint64_t b) { return a & b; });
++  SPU_ENFORCE(valid, "Boolean opening copies disagree");
++}
++void BooleanState::reservePending(size_t full_words) {
++  SPU_ENFORCE(full_words <= pending_.max_size(), "ABFL queue size overflow");
++  if (full_words > pending_.capacity()) {
++    // One capacity decision per batch; preserve amortized linear growth.
++    const auto capacity = pending_.capacity();
++    const auto grown = capacity <= pending_.max_size() / 2
++                           ? 2 * capacity
++                           : pending_.max_size();
++    pending_.reserve(std::max(full_words, grown));
++  }
++}
++void BooleanState::append(const std::vector<RepShare>& a,
++                          const std::vector<RepShare>& b,
++                          const std::vector<RepShare>& c, size_t width) {
++  SPU_ENFORCE(
++      width >= 1 && width <= 64 && a.size() == b.size() && a.size() == c.size(),
++      "ABFL invalid packing batch");
++  SPU_ENFORCE(a.size() <= (std::numeric_limits<size_t>::max() - bits_) / width,
++              "ABFL bit count overflow");
++  const auto new_bits = bits_ + a.size() * width;
++  const auto full_words =
++      pending_.size() + (overflow_bits_ + a.size() * width) / 64;
++  reservePending(full_words);
++  if (width == 64) {
++    // Independent records may be reordered. Keep any old partial word out of
++    // the full-width path, preserving the same mapping for all six components.
++    for (size_t i = 0; i < a.size(); ++i) {
++      pending_.push_back({a[i], b[i], c[i]});
++    }
++  } else {
++    auto acc = overflow_;
++    auto used = overflow_bits_;
++    for (size_t i = 0; i < a.size(); ++i) {
++      const Triple t{a[i], b[i], c[i]};
++      for (size_t j = 0; j < 3; ++j) {
++        for (size_t s = 0; s < 2; ++s) {
++          acc[j][s] |= t[j][s] << used;
++        }
++      }
++      const auto total = used + width;
++      if (total >= 64) {
++        pending_.push_back(acc);
++        if (total > 64) {
++          // Here used > 0, so the shift is strictly between 0 and 64.
++          for (size_t j = 0; j < 3; ++j) {
++            for (size_t s = 0; s < 2; ++s) {
++              acc[j][s] = t[j][s] >> (64 - used);
++            }
++          }
++        } else {
++          acc = {};
++        }
++        used = total - 64;
++      } else {
++        used = total;
++      }
++    }
++    overflow_ = acc;
++    overflow_bits_ = used;
++  }
++  bits_ = new_bits;
++}
++NdArrayRef BooleanState::andBB(const NdArrayRef& x, const NdArrayRef& y,
++                               const std::string& session) {
++  const auto width = std::min(x.eltype().as<BShrTy>()->nbits(),
++                              y.eltype().as<BShrTy>()->nbits());
++  const auto mask = BooleanMask(width);
++  SPU_ENFORCE(x.shape() == y.shape(), "Boolean AND shape mismatch");
++  SPU_ENFORCE(
++      size_t(x.numel()) <= (std::numeric_limits<size_t>::max() - bits_) / width,
++      "ABFL bit count overflow");
++  if (width == 64) {
++    const auto count = size_t(x.numel());
++    const auto new_bits = bits_ + count * 64;
++    std::vector<Triple> snapshots;
++    SPU_ENFORCE(count <= snapshots.max_size(), "ABFL queue size overflow");
++    snapshots.reserve(count);
++    NdArrayRef out(makeType<BShrTy>(session, 64), x.shape());
++    if (count) {
++      // Normalize a strided view once instead of indexing it repeatedly in the
++      // product and snapshot loops. Compact inputs are borrowed, not copied.
++      const auto lhs = x.isCompact() ? x : x.clone();
++      const auto rhs = y.isCompact() ? y : y.clone();
++      const auto* xp = lhs.data<RepShare>();
++      const auto* yp = rhs.data<RepShare>();
++      auto* zp = out.data<RepShare>();
++      std::vector<uint64_t> first(count), second(count);
++      mask_prg_.fillPrssPair(first.data(), second.data(), count,
++                             PrgState::GenPrssCtrl::Both);
++      for (size_t i = 0; i < count; ++i) {
++        first[i] ^= second[i] ^ (xp[i][0] & yp[i][0]) ^ (xp[i][0] & yp[i][1]) ^
++                    (xp[i][1] & yp[i][0]);
++      }
++      const auto tag = tag_("boolean-and");
++      // Preserve the little-endian wire format. On little-endian machines
++      // send the PRSS/product buffer directly, as in native ABY3 rotate().
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++      link_->SendAsync(link_->PrevRank(),
++                       yacl::ByteContainerView(first.data(), count * 8), tag);
++#else
++      const auto bytes = Encode(first);
++      link_->SendAsync(link_->PrevRank(), yacl::ByteContainerView(bytes), tag);
++#endif
++      const auto received = link_->Recv(link_->NextRank(), tag);
++      SPU_ENFORCE(size_t(received.size()) == count * 8,
++                  "Boolean wire length mismatch");
++#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
++      second = Decode(std::string_view(received), count);
++#endif
++      for (size_t i = 0; i < count; ++i) {
++        uint64_t next;
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++        // memcpy avoids any alignment assumption about transport buffers.
++        std::memcpy(&next, received.data<char>() + i * 8, 8);
++#else
++        next = second[i];
++#endif
++        const RepShare z{first[i], next};
++        zp[i] = z;
++        snapshots.push_back({xp[i], yp[i], z});
++      }
++    }
++    if (count) pending_batches_.push_back(std::move(snapshots));
++    bits_ = new_bits;
++    layout_ += fmt::format("{}:{};", x.shape(), width);
++    return out;
++  }
++  std::vector<RepShare> a(x.numel()), b(x.numel());
++  const NdArrayView<RepShare> xv(x), yv(y);
++  for (int64_t i = 0; i < x.numel(); ++i) {
++    a[i] = {xv[i][0] & mask, xv[i][1] & mask};
++    b[i] = {yv[i][0] & mask, yv[i][1] & mask};
++  }
++  auto c = andRaw(a, b);
++  NdArrayRef out(makeType<BShrTy>(session, width), x.shape());
++  NdArrayView<RepShare> ov(out);
++  for (size_t i = 0; i < a.size(); ++i) {
++    c[i][0] &= mask;
++    c[i][1] &= mask;
++    ov[i] = c[i];
++  }
++  append(a, b, c, width);
++  layout_ += fmt::format("{}:{};", x.shape(), width);
++  return out;
++}
++BooleanState::TriplePool BooleanState::generate(size_t words) {
++  SPU_ENFORCE(words <= std::vector<Triple>().max_size(),
++              "ABFL random pool allocation overflow");
++  if (!words) return TriplePool(0);
++  SPU_ENFORCE(words <= std::numeric_limits<size_t>::max() / (6 * 8),
++              "ABFL random buffer size overflow");
++  // Generate complete tiles using bounded scratch. Every full tile contains
++  // an even number of uint64_t words, so splitting an AES-CTR stream discards
++  // no partial block except at the same final tail as a single large fill.
++  const auto capacity = std::min(words, kSacrificeTile);
++  std::unique_ptr<uint64_t[]> random(new uint64_t[6 * capacity]);
++  auto* a0 = random.get();
++  auto* a1 = a0 + capacity;
++  auto* b0 = a1 + capacity;
++  auto* b1 = b0 + capacity;
++  auto* r0 = b1 + capacity;
++  auto* r1 = r0 + capacity;
++  TriplePool out(words);
++  for (size_t first = 0; first < words; first += capacity) {
++    const auto size = std::min(capacity, words - first);
++    // A fixed worker owns each entire PRSS stream. First/Second mutate
++    // disjoint counters; within each stream a precedes b for every tile.
++    yacl::parallel_for(
++        0, 4, size >= kTileGrain ? 1 : 5, [&](int64_t begin, int64_t end) {
++          for (auto task = begin; task < end; ++task) {
++            if (task < 2) {
++              const auto ctrl = task == 0 ? PrgState::GenPrssCtrl::First
++                                          : PrgState::GenPrssCtrl::Second;
++              random_prg_.fillPrssPair(a0, a1, size, ctrl);
++              random_prg_.fillPrssPair(b0, b1, size, ctrl);
++            } else {
++              mask_prg_.fillPrssPair(r0, r1, size,
++                                     task == 2 ? PrgState::GenPrssCtrl::First
++                                               : PrgState::GenPrssCtrl::Second);
++            }
++          }
++        });
++    yacl::parallel_for(0, size, kTileGrain, [&](int64_t begin, int64_t end) {
++      for (auto i = begin; i < end; ++i)
++        r0[i] ^= r1[i] ^ LocalAnd(a0[i], a1[i], b0[i], b1[i]);
++    });
++    const auto tag = tag_("boolean-and");
++    SendWords(link_, absl::Span<const uint64_t>(r0, size), tag);
++    const auto received = link_->Recv(link_->NextRank(), tag);
++    SPU_ENFORCE(size_t(received.size()) == size * 8,
++                "Boolean wire length mismatch");
++    yacl::parallel_for(0, size, kTileGrain, [&](int64_t begin, int64_t end) {
++      for (auto i = begin; i < end; ++i) {
++        out[first + i] = {
++            RepShare{a0[i], a1[i]}, RepShare{b0[i], b1[i]},
++            RepShare{r0[i], ReadWord(received.data<char>() + 8 * i)}};
++      }
++    });
++  }
++
++  return out;
++}
++std::vector<size_t> BooleanState::permutation(size_t count) {
++  const auto domain = tag_("boolean-coin");
++  const auto seed = yacl::crypto::SecureRandSeed();
++  const auto bytes = Encode({uint64_t(seed), uint64_t(seed >> 64)});
++  const auto commits =
++      gather(Hash(domain + ":" + std::to_string(link_->Rank()) + ":" + bytes),
++             "boolean-commit");
++  const auto reveals = gather(bytes, "boolean-reveal");
++  uint128_t common = 0;
++  for (size_t rank = 0; rank < 3; ++rank) {
++    SPU_ENFORCE(std::string_view(commits[rank]) ==
++                    Hash(domain + ":" + std::to_string(rank) + ":" +
++                         std::string(std::string_view(reveals[rank]))),
++                "Boolean random commitment mismatch");
++    const auto words = Decode(reveals[rank], 2);
++    common ^= uint128_t(words[0]) | (uint128_t(words[1]) << 64);
++  }
++  return shuffledIndices(count, common);
++}
++std::vector<size_t> BooleanState::shuffledIndices(size_t count,
++                                                  uint128_t seed) {
++  // Amortize cipher-context setup over 32 KiB rather than the default 128 B.
++  // AES counter order and rejection-sampled Fisher–Yates remain unchanged.
++  yacl::crypto::Prg<uint64_t, 4096> prg(seed);
++  std::vector<size_t> perm(count);
++  std::iota(perm.begin(), perm.end(), 0);
++  // Draw in the original order, then apply swaps in the original order.
++  // Batching only exposes future public addresses for prefetch; it does not
++  // parallelize dependent swaps or change the Fisher-Yates distribution.
++  std::array<size_t, 64> swaps;
++  for (size_t first = 0; first < count; first += swaps.size()) {
++    const auto size = std::min(swaps.size(), count - first);
++    for (size_t j = 0; j < size; ++j) {
++      const auto i = first + j;
++      const uint64_t range = count - i;
++      uint64_t draw = prg();
++      // threshold < range: the overwhelmingly common case needs no division
++      // to calculate threshold. Rejected draws are identical to the reference.
++      if (draw < range) {
++        const uint64_t threshold = -range % range;
++        while (draw < threshold) draw = prg();
++      }
++      swaps[j] = i + draw % range;
++      __builtin_prefetch(&perm[swaps[j]], 1, 1);
++    }
++    for (size_t j = 0; j < size; ++j)
++      std::swap(perm[first + j], perm[swaps[j]]);
++  }
++  return perm;
++}
++void BooleanState::checkPrepared(TriplePool pool) {
++  const auto words = Words(bits_);
++  const auto bucket = AbflBucketSize(words);
++  const auto count = PoolWords(words, bucket);
++  SPU_ENFORCE(pool.size() == count, "ABFL random pool length mismatch");
++  // Build only a small table of views. Records remain in their original owned
++  // blocks. Validate the total before writing any fixed-size scratch buffer.
++  std::vector<absl::Span<const Triple>> blocks;
++  blocks.emplace_back(pending_);
++  for (const auto& batch : pending_batches_) blocks.emplace_back(batch);
++  if (overflow_bits_) blocks.emplace_back(&overflow_, 1);
++  size_t total = 0;
++  for (const auto& block : blocks) {
++    SPU_ENFORCE(block.size() <= words - total,
++                "ABFL online pool length mismatch");
++    total += block.size();
++  }
++  SPU_ENFORCE(total == words, "ABFL online pool length mismatch");
++  // Each worker owns an output range, irrespective of call-block boundaries.
++  // No task mutates snapshots, counters, PRGs, or communication state.
++  auto visitRange = [&](size_t first, size_t last, auto&& fn) {
++    yacl::parallel_for(
++        first, last, last - first <= kSacrificeTile ? kTileGrain : kVerifyGrain,
++        [&](int64_t begin, int64_t end) {
++          size_t offset = 0;
++          for (const auto& block : blocks) {
++            const auto limit = offset + block.size();
++            for (size_t i = std::max(size_t(begin), offset);
++                 i < std::min(size_t(end), limit); ++i) {
++              fn(i, block[i - offset]);
++            }
++            offset = limit;
++            if (offset >= size_t(end)) break;
++          }
++        });
++  };
++  // Freeze the complete online and random pools before the public coin.
++  {
++    constexpr size_t max_triples = std::numeric_limits<int64_t>::max() / 24;
++    SPU_ENFORCE(words <= max_triples && count <= max_triples - words,
++                "ABFL copy buffer size overflow");
++    const auto total = words + count;
++    const auto tiles = total / kSacrificeTile + (total % kSacrificeTile != 0);
++    using Digest = std::array<uint8_t, 32>;
++    std::vector<Digest> first_hashes(tiles), second_hashes(tiles);
++    const auto tag = tag_("boolean-copies");
++    // A digest goes only to the party that already holds this exact share.
++    // Hash both local replicas with identical owner/batch/tile domains. This
++    // uses the same BLAKE3 collision resistance as transcript agreement.
++    // Bound concurrent scratch space independently of the global pool size.
++    const auto tasks = std::min(size_t{6}, tiles);
++    yacl::parallel_for(0, tasks, 1, [&](int64_t begin, int64_t end) {
++      const auto capacity = std::min(kSacrificeTile, total);
++      std::unique_ptr<char[]> scratch(new char[48 * capacity]);
++      auto* first_bytes = scratch.get();
++      auto* second_bytes = first_bytes + 24 * capacity;
++      for (auto task = begin; task < end; ++task) {
++        for (size_t tile = task; tile < tiles; tile += tasks) {
++          const auto first = tile * kSacrificeTile;
++          const auto last = first + std::min(kSacrificeTile, total - first);
++          const auto bytes = 24 * (last - first);
++          auto pack = [&](size_t i, const Triple& t) {
++            for (size_t j = 0; j < 3; ++j) {
++              WriteWord(first_bytes + 24 * (i - first) + 8 * j, t[j][0]);
++              WriteWord(second_bytes + 24 * (i - first) + 8 * j, t[j][1]);
++            }
++          };
++          size_t offset = 0;
++          for (const auto& block : blocks) {
++            const auto limit = offset + block.size();
++            for (size_t i = std::max(first, offset); i < std::min(last, limit);
++                 ++i)
++              pack(i, block[i - offset]);
++            offset = limit;
++            if (offset >= last) break;
++          }
++          for (size_t i = std::max(first, words); i < last; ++i)
++            pack(i, pool[i - words]);
++          for (size_t replica = 0; replica < 2; ++replica) {
++            yacl::crypto::Blake3Hash hash;
++            hash.Update(fmt::format("{}:{}:{}:{}:", tag,
++                                    (link_->Rank() + replica) % 3, first,
++                                    last));
++            hash.Update(
++                std::string_view(replica ? second_bytes : first_bytes, bytes));
++            const auto digest = hash.CumulativeHash();
++            std::memcpy((replica ? second_hashes : first_hashes)[tile].data(),
++                        digest.data(), sizeof(Digest));
++          }
++        }
++      }
++    });
++    const auto bytes = tiles * sizeof(Digest);
++    link_->Send(link_->PrevRank(),
++                yacl::ByteContainerView(first_hashes.data(), bytes), tag);
++    const auto received = link_->Recv(link_->NextRank(), tag);
++    const bool valid =
++        size_t(received.size()) == bytes &&
++        std::memcmp(received.data(), second_hashes.data(), bytes) == 0;
++    requireAll(valid, "Boolean replicated copies disagree");
++  }
++
++  const auto perm = permutation(count);
++  std::vector<RepShare> sample;
++  for (size_t i = 0; i < 3; ++i) {
++    for (size_t j = 0; j < 3; ++j) sample.push_back(pool[perm[i]][j]);
++  }
++  const auto opened = open(sample);
++  for (size_t i = 0; i < 3; ++i) {
++    SPU_ENFORCE((opened[3 * i] & opened[3 * i + 1]) == opened[3 * i + 2],
++                "ABFL cut-and-choose failed");
++  }
++
++  SPU_ENFORCE(words <= std::vector<RepShare>().max_size() / 2,
++              "ABFL opening buffer size overflow");
++  // All scratch elements are overwritten by disjoint parallel ranges before
++  // their first read. Reuse the allocation across all bucket columns.
++  const auto capacity = std::min(words, kSacrificeTile);
++  std::unique_ptr<Triple[]> companions(new Triple[capacity]);
++  std::unique_ptr<RepShare[]> masked(new RepShare[2 * capacity]);
++  std::unique_ptr<RepShare[]> checks(new RepShare[capacity]);
++  std::unique_ptr<uint64_t[]> differences(new uint64_t[2 * capacity]);
++  std::unique_ptr<uint64_t[]> zeros(new uint64_t[capacity]);
++  const bool public0 = link_->Rank() == 0;
++  const bool public1 = link_->Rank() == 2;
++  for (size_t column = 0; column < bucket - 1; ++column) {
++    for (size_t first = 0; first < words; first += capacity) {
++      const auto size = std::min(capacity, words - first);
++      visitRange(first, first + size, [&](size_t index, const Triple& t) {
++        const auto i = index - first;
++        // The permutation is public. Prefetch future random records, including
++        // their last component when a 48-byte triple straddles cache lines.
++        if (index + 16 < first + size) {
++          const auto& next = pool[perm[3 + column * words + index + 16]];
++          __builtin_prefetch(&next[0], 0, 1);
++          __builtin_prefetch(&next[2], 0, 1);
++        }
++        const auto& companion = pool[perm[3 + column * words + index]];
++        companions[i] = companion;
++        for (size_t j = 0; j < 2; ++j) {
++          masked[2 * i + j] = {t[j][0] ^ companion[j][0],
++                               t[j][1] ^ companion[j][1]};
++        }
++      });
++      open({masked.get(), 2 * size}, {differences.get(), 2 * size});
++      visitRange(first, first + size, [&](size_t index, const Triple& t) {
++        const auto i = index - first;
++        const auto rho = differences[2 * i], sigma = differences[2 * i + 1];
++        for (size_t share = 0; share < 2; ++share) {
++          checks[i][share] = t[2][share] ^ companions[i][2][share] ^
++                             (sigma & companions[i][0][share]) ^
++                             (rho & companions[i][1][share]);
++        }
++        if (public0) checks[i][0] ^= rho & sigma;
++        if (public1) checks[i][1] ^= rho & sigma;
++      });
++      open({checks.get(), size}, {zeros.get(), size});
++      const auto nonzero = yacl::parallel_reduce<uint64_t>(
++          0, size, kVerifyGrain,
++          [&](int64_t begin, int64_t end) {
++            uint64_t any = 0;
++            for (auto i = begin; i < end; ++i) any |= zeros[i];
++            return any;
++          },
++          [](uint64_t a, uint64_t b) { return a | b; });
++      SPU_ENFORCE(nonzero == 0, "ABFL sacrifice failed");
++    }
++  }
++  SPU_ENFORCE(checks_ != std::numeric_limits<uint64_t>::max(),
++              "ABFL check count overflow");
++  ++checks_;
++  pending_.clear();
++  pending_batches_.clear();
++  overflow_ = {};
++  overflow_bits_ = 0;
++  bits_ = 0;
++  layout_.clear();
++}
++void BooleanState::check() {
++  if (!bits_) {
++    layout_.clear();
++    return;
++  }
++  const auto words = Words(bits_);
++  const auto bucket = AbflBucketSize(words);
++  agree(fmt::format("word64-v8-parallel-views:{}:{}:{}:{}:{}:{}", bits_, words,
++                    bucket, overflow_bits_, kSacrificeTile, layout_));
++  checkPrepared(generate(PoolWords(words, bucket)));
++}
++
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/boolean_test.cc b/src/libspu/mpc/spdzwise/boolean_test.cc
+new file mode 100644
+index 00000000..ffc78f6e
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/boolean_test.cc
+@@ -0,0 +1,727 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "libspu/mpc/spdzwise/boolean.h"
++
++#include <numeric>
++#include <random>
++
++#include "gtest/gtest.h"
++
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++
++class BooleanTestAccess {
++ public:
++  static void shuffleOracle() {
++    for (size_t count : {0U, 1U, 63U, 64U, 65U, 4099U, 131075U, 1048576U}) {
++      const uint128_t seed = 0x123456789abcdefULL;
++      yacl::crypto::Prg<uint64_t, 4096> prg(seed);
++      std::vector<size_t> expected(count);
++      std::iota(expected.begin(), expected.end(), 0);
++      for (size_t i = 0; i < count; ++i) {
++        const uint64_t range = count - i, threshold = -range % range;
++        uint64_t draw;
++        do {
++          draw = prg();
++        } while (draw < threshold);
++        std::swap(expected[i], expected[i + draw % range]);
++      }
++      EXPECT_EQ(BooleanState::shuffledIndices(count, seed), expected);
++    }
++  }
++  static void generationOracle(SpdzWiseState* state) {
++    auto& checker = *state->boolean_;
++    for (size_t words :
++         {0U, 1U, 3U, 65535U, 65536U, 65537U, 131071U, 131072U, 131075U}) {
++      // Independent serial reference, including the PRSS continuation. This
++      // catches a reordered/reused stream even if multiplication still works.
++      auto random = checker.random_prg_;
++      auto masks = checker.mask_prg_;
++      std::vector<uint64_t> a0(words), a1(words), b0(words), b1(words),
++          r0(words), r1(words);
++      // Serial reference uses the protocol's public 65536-word tile layout.
++      // Compare all fields and the subsequent counters, including odd tails.
++      for (size_t first = 0; first < words; first += 65536) {
++        const auto size = std::min(size_t{65536}, words - first);
++        random.fillPrssPair(a0.data() + first, a1.data() + first, size,
++                            PrgState::GenPrssCtrl::Both);
++        random.fillPrssPair(b0.data() + first, b1.data() + first, size,
++                            PrgState::GenPrssCtrl::Both);
++        masks.fillPrssPair(r0.data() + first, r1.data() + first, size,
++                           PrgState::GenPrssCtrl::Both);
++      }
++      auto pool = checker.generate(words);
++      ASSERT_EQ(pool.size(), words);
++      for (size_t i = 0; i < words; ++i) {
++        ASSERT_EQ(pool[i][0], (RepShare{a0[i], a1[i]}));
++        ASSERT_EQ(pool[i][1], (RepShare{b0[i], b1[i]}));
++        ASSERT_EQ(pool[i][2][0], r0[i] ^ r1[i] ^ (a0[i] & b0[i]) ^
++                                     (a0[i] & b1[i]) ^ (a1[i] & b0[i]));
++      }
++      std::array<uint64_t, 2> expected0, expected1, actual0, actual1;
++      for (bool mask : {false, true}) {
++        auto& reference = mask ? masks : random;
++        auto& actual = mask ? checker.mask_prg_ : checker.random_prg_;
++        reference.fillPrssPair(expected0.data(), expected1.data(), 2,
++                               PrgState::GenPrssCtrl::Both);
++        actual.fillPrssPair(actual0.data(), actual1.data(), 2,
++                            PrgState::GenPrssCtrl::Both);
++        ASSERT_EQ(expected0, actual0);
++        ASSERT_EQ(expected1, actual1);
++      }
++    }
++  }
++  static std::vector<uint64_t> open(BooleanState& checker,
++                                    const std::vector<RepShare>& shares) {
++    return checker.open(shares);
++  }
++  static void corrupt(SpdzWiseState* state, size_t party, bool consistent,
++                      size_t position = 0) {
++    auto& checker = *state->boolean_;
++    auto word = position / 64;
++    auto* selected = &checker.overflow_;
++    if (word < checker.pending_.size()) {
++      selected = &checker.pending_.at(word);
++    } else {
++      word -= checker.pending_.size();
++      for (auto& batch : checker.pending_batches_) {
++        if (word < batch.size()) {
++          selected = &batch.at(word);
++          break;
++        }
++        word -= batch.size();
++      }
++    }
++    auto& triple = *selected;
++    if (state->rank() == party) {
++      triple[2][0] ^= uint64_t{1} << (position % 64);
++    }
++    if (consistent && state->rank() == (party + 2) % 3) {
++      triple[2][1] ^= uint64_t{1} << (position % 64);
++    }
++  }
++  static void randomFault(SpdzWiseState* state, size_t party, bool all) {
++    auto& checker = *state->boolean_;
++    const auto words = checker.bits_ / 64 + (checker.bits_ % 64 != 0);
++    auto pool = checker.generate((AbflBucketSize(words) - 1) * words + 3);
++    for (size_t i = 0; i < pool.size(); ++i) {
++      const uint64_t error = all ? ~uint64_t{0} : (i == 0 ? 1 : 0);
++      if (state->rank() == party) {
++        pool[i][2][0] ^= error;
++      }
++      if (state->rank() == (party + 2) % 3) {
++        pool[i][2][1] ^= error;
++      }
++    }
++    try {
++      checker.checkPrepared(std::move(pool));
++    } catch (...) {
++      state->abort();
++      throw;
++    }
++  }
++  static void packingOracle(SpdzWiseState* state) {
++    auto& checker = *state->boolean_;
++    using Triple = BooleanState::Triple;
++    std::mt19937_64 rng(87342);
++    for (size_t width = 1; width <= 64; ++width) {
++      for (size_t used = 0; used < 64; ++used) {
++        for (size_t count : {0U, 1U, 63U, 64U, 129U}) {
++          checker.pending_.clear();
++          checker.overflow_bits_ = used;
++          checker.bits_ = used;
++          for (auto& share : checker.overflow_) {
++            for (auto& word : share) {
++              word = used ? rng() & BooleanMask(used) : 0;
++            }
++          }
++          const auto initial = checker.overflow_;
++          std::vector<RepShare> a(count), b(count), c(count);
++          for (auto* arr : {&a, &b, &c}) {
++            for (auto& share : *arr) {
++              for (auto& word : share) word = rng() & BooleanMask(width);
++            }
++          }
++          const auto total = used + count * width;
++          std::vector<Triple> expected(total / 64 + (total % 64 != 0));
++          size_t bit = 0;
++          auto add = [&](const Triple& t, size_t nbits) {
++            for (size_t k = 0; k < nbits; ++k, ++bit) {
++              for (size_t j = 0; j < 3; ++j) {
++                for (size_t s = 0; s < 2; ++s) {
++                  expected[bit / 64][j][s] |= ((t[j][s] >> k) & 1)
++                                              << (bit % 64);
++                }
++              }
++            }
++          };
++          if (width != 64) add(initial, used);
++          for (size_t i = 0; i < count; ++i) add({a[i], b[i], c[i]}, width);
++          if (width == 64) add(initial, used);
++          checker.append(a, b, c, width);
++          ASSERT_EQ(checker.bits_, total);
++          ASSERT_EQ(checker.pending_.size(), total / 64);
++          ASSERT_EQ(checker.overflow_bits_, total % 64);
++          for (size_t i = 0; i < checker.pending_.size(); ++i) {
++            ASSERT_EQ(checker.pending_[i], expected[i]);
++          }
++          ASSERT_EQ(checker.overflow_, total % 64 ? expected.back() : Triple{});
++        }
++      }
++    }
++    checker.pending_.clear();
++    checker.overflow_ = {};
++    checker.overflow_bits_ = 0;
++    checker.bits_ = 0;
++  }
++  static void phase(SpdzWiseState* state,
++                    std::function<void(std::string_view)> fn) {
++    auto old = state->boolean_->tag_;
++    state->boolean_->tag_ = [old, fn](std::string_view name) {
++      fn(name);
++      return old(name);
++    };
++  }
++};
++
++namespace {
++RuntimeConfig Config() {
++  RuntimeConfig cfg;
++  cfg.protocol = SPDZWISE;
++  cfg.field = FM64;
++  return cfg;
++}
++NdArrayRef Plain(int64_t count, size_t width, uint64_t salt = 0) {
++  NdArrayRef out(makeType<RingTy>(FM64), {count});
++  for (int64_t i = 0; i < count; ++i) {
++    out.data<uint64_t>()[i] =
++        (uint64_t(i) * 0x9e3779b97f4a7c15ULL + salt) & BooleanMask(width);
++  }
++  return out;
++}
++void Begin(SpdzWiseState* state, const std::vector<Value>& inputs = {}) {
++  std::vector<std::string> names;
++  for (size_t i = 0; i < inputs.size(); ++i) {
++    names.push_back(std::to_string(i));
++  }
++  state->begin(ExecutableProto("boolean", names, {"out"}, "test"), inputs);
++}
++
++void ExpectFailure(const std::function<void()>& operation,
++                   std::string_view reason) {
++  try {
++    operation();
++    FAIL() << "expected protocol rejection";
++  } catch (const std::exception& error) {
++    EXPECT_NE(std::string(error.what()).find(reason), std::string::npos)
++        << error.what();
++  }
++}
++
++TEST(Abfl, BucketBoundaries) {
++  EXPECT_EQ(AbflBucketSize(0), 0);
++  for (size_t n : {1, 1023}) {
++    EXPECT_ANY_THROW(AbflBucketSize(n));
++  }
++  EXPECT_EQ(AbflBucketSize(1024), 5);
++  EXPECT_EQ(AbflBucketSize(10367), 5);
++  EXPECT_EQ(AbflBucketSize(10368), 4);
++  EXPECT_EQ(AbflBucketSize(1048575), 4);
++  EXPECT_EQ(AbflBucketSize(1048576), 3);
++}
++
++TEST(Abfl, BatchedShuffleMatchesSerialFisherYates) {
++  BooleanTestAccess::shuffleOracle();
++}
++
++TEST(Abfl, ParallelGenerationPreservesSerialRandomStreams) {
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Begin(state);
++    BooleanTestAccess::generationOracle(state);
++  });
++}
++
++TEST(Abfl, DirectBufferOpeningChecksLastReplicaAndLengths) {
++  utils::simulate(3, [&](const auto& link) {
++    size_t sequence = 0;
++    BooleanState checker(link, [&](std::string_view name) {
++      return fmt::format("direct-open/{}/{}", sequence++, name);
++    });
++    auto component = [](size_t rank, size_t i) {
++      return uint64_t(i + 1) * 0x9e3779b97f4a7c15ULL ^
++             (uint64_t{0xfedcba9876543210} >> (rank * 7));
++    };
++    for (size_t count : {0U, 1U, 7U, 65537U}) {
++      std::vector<RepShare> shares;
++      for (size_t i = 0; i < count; ++i) {
++        shares.push_back(
++            {component(link->Rank(), i), component(link->NextRank(), i)});
++      }
++      const auto opened = BooleanTestAccess::open(checker, shares);
++      ASSERT_EQ(opened.size(), count);
++      for (size_t i = 0; i < count; ++i) {
++        ASSERT_EQ(opened[i],
++                  component(0, i) ^ component(1, i) ^ component(2, i));
++      }
++      if (!count) continue;
++      // All parties see the same transcript, but its last replica is wrong.
++      if (link->Rank() == 1) shares.back()[1] ^= uint64_t{1} << 63;
++      ExpectFailure([&] { BooleanTestAccess::open(checker, shares); },
++                    "Boolean opening copies disagree");
++      // A consistently broadcast short message must fail before direct loads.
++      if (link->Rank() == 1) shares.pop_back();
++      ExpectFailure([&] { BooleanTestAccess::open(checker, shares); },
++                    "Boolean wire length mismatch");
++    }
++  });
++}
++
++TEST(Abfl, PackingAllWidthsAndOverflowOccupancies) {
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Begin(state);
++    BooleanTestAccess::packingOracle(state);
++    state->prepareOutputs(&ctx, {}, {});
++    state->commit();
++  });
++}
++
++TEST(Abfl, AllBucketsAndWidthsEndToEnd) {
++  SpdzWiseIo io(FM64, 3);
++  for (const auto& [count, width] :
++       std::vector<std::pair<int64_t, size_t>>{{65536, 1},
++                                               {9363, 7},
++                                               {20736, 32},
++                                               {65535, 64},
++                                               {65536, 64},
++                                               {65537, 64},
++                                               {599187, 7},
++                                               {1048576, 64}}) {
++    const auto a = Plain(count, width, 17), b = Plain(count, width, 91);
++    const auto xs = io.toBooleanShares(a, width),
++               ys = io.toBooleanShares(b, width);
++    const auto outputs = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      ProtocolRunGuard guard(&ctx);
++      Value x(xs[link->Rank()], DT_U64), y(ys[link->Rank()], DT_U64);
++      Begin(state, {x, y});
++      x = import_s(&ctx, x);
++      y = import_s(&ctx, y);
++      EXPECT_ANY_THROW(x.toProto(1024));
++      const auto stats = link->GetStats();
++      const auto actions = stats->sent_actions.load(),
++                 bytes = stats->sent_bytes.load();
++      auto z = dynDispatch(&ctx, "and_bb", x, y);
++      EXPECT_EQ(stats->sent_actions.load() - actions, 1);
++      EXPECT_EQ(stats->sent_bytes.load() - bytes, 8 * count);
++      EXPECT_EQ(state->pendingBooleanBits(), count * width);
++      EXPECT_EQ(state->booleanChecks(), 0);
++      EXPECT_ANY_THROW(state->exportedValue("out"));
++      EXPECT_ANY_THROW(state->exportValue(
++          z.data(),
++          makeType<BOutputTy>(link->Rank(), width, std::string(64, 'a'))));
++      z.setDtype(DT_U64);
++      state->prepareOutputs(&ctx, {"out"}, {z});
++      EXPECT_EQ(state->booleanChecks(), 1);
++      EXPECT_EQ(state->pendingBooleanBits(), 0);
++      const auto after = stats->sent_actions.load();
++      state->finalize();
++      EXPECT_EQ(stats->sent_actions.load(), after);
++      guard.commit();
++      return state->exportedValue("out").data();
++    });
++    const auto actual = io.fromShares(outputs);
++    for (int64_t i = 0; i < count; ++i) {
++      EXPECT_EQ(actual.data<uint64_t>()[i],
++                a.data<uint64_t>()[i] & b.data<uint64_t>()[i]);
++    }
++  }
++}
++
++TEST(Abfl, FullWidthStridedAndEmptyFastPath) {
++  SpdzWiseIo io(FM64, 3);
++  for (int64_t rows : {0, 32}) {
++    const auto input = Plain(rows * 64, 64, 139).reshape({rows, 64});
++    const auto shares = io.toBooleanShares(input, 64);
++    const auto outputs = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      Value x(shares[link->Rank()], DT_U64);
++      Begin(state, {x});
++      x = dynDispatch(&ctx, "transpose", import_s(&ctx, x), Axes{1, 0});
++      const auto stats = link->GetStats();
++      const auto before = stats->sent_actions.load();
++      auto z = dynDispatch(&ctx, "and_bb", x, x);
++      EXPECT_EQ(stats->sent_actions.load() - before, rows ? 1 : 0);
++      if (rows) x.data().data<RepShare>()[0][0] ^= ~uint64_t{0};
++      state->prepareOutputs(&ctx, {"out"}, {z});
++      state->commit();
++      return state->exportedValue("out").data();
++    });
++    const auto actual = io.fromShares(outputs);
++    for (int64_t i = 0; i < rows * 64; ++i) {
++      EXPECT_EQ(actual.data<uint64_t>()[i],
++                input.data<uint64_t>()[(i % rows) * 64 + i / rows]);
++    }
++  }
++}
++
++TEST(Abfl, MixedWidthsViewsAndDeferredBatch) {
++  SpdzWiseIo io(FM64, 3);
++  auto a = Plain(75, 7, 21).reshape({3, 25});
++  auto b = Plain(75, 32, 177).reshape({3, 25});
++  const auto xs = io.toBooleanShares(a, 7), ys = io.toBooleanShares(b, 32);
++  const auto arithmetic = io.toShares(Plain(1, 7), VIS_SECRET);
++  const auto outputs = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    Value x(xs[link->Rank()], DT_U64), y(ys[link->Rank()], DT_U64);
++    Begin(state, {x, y});
++    x = dynDispatch(&ctx, "transpose", import_s(&ctx, x), Axes{1, 0});
++    y = dynDispatch(&ctx, "transpose", import_s(&ctx, y), Axes{1, 0});
++    auto z = dynDispatch(&ctx, "and_bb", x, y);
++    EXPECT_EQ(state->pendingBooleanBits(), 525);
++    // An intervening arithmetic import must not trigger Boolean sacrifice.
++    auto imported = import_s(&ctx, Value(arithmetic[link->Rank()], DT_U64));
++    (void)imported;
++    auto p = Value(Plain(1, 7).as(makeType<Pub2kTy>(FM64)), DT_U64);
++    auto aa = dynDispatch(&ctx, "p2a", p);
++    auto product = dynDispatch(&ctx, "mul_aa", aa, aa);
++    (void)product;
++    state->check();
++    EXPECT_ANY_THROW(state->exportValue(
++        product.data(),
++        makeType<OutputTy>(link->Rank(), std::string(64, 'a'))));
++    EXPECT_EQ(state->pendingBooleanBits(), 525);
++    z = dynDispatch(&ctx, "and_bb", z, x);
++    EXPECT_EQ(state->pendingBooleanBits(), 1050);
++    // A full-width batch must bypass the existing overflow without losing it.
++    auto full =
++        state->publicBoolean(Plain(1024, 64).as(makeType<Pub2kTy>(FM64)));
++    state->booleanBinary(full, full, true, false);
++    EXPECT_EQ(state->pendingBooleanBits(), 1050 + 1024 * 64);
++    state->booleanBinary(x.data(), y.data(), true, false);
++    EXPECT_EQ(state->pendingBooleanBits(), 1575 + 1024 * 64);
++    auto q = Value(
++        Plain(75, 64, 9).reshape({25, 3}).as(makeType<Pub2kTy>(FM64)), DT_U64);
++    z = dynDispatch(&ctx, "xor_bb", z, dynDispatch(&ctx, "p2b", q));
++    z = dynDispatch(&ctx, "xor_bp", z, q);
++    z = dynDispatch(&ctx, "and_bp", z, q);
++    z.setDtype(DT_U64);
++    state->prepareOutputs(&ctx, {"out"}, {z});
++    guard.commit();
++    return state->exportedValue("out").data();
++  });
++  auto actual = io.fromShares(outputs);
++  auto q = Plain(75, 64, 9);
++  for (int64_t i = 0; i < 75; ++i) {
++    const auto original = (i % 3) * 25 + i / 3;
++    EXPECT_EQ(actual.data<uint64_t>()[i], a.data<uint64_t>()[original] &
++                                              b.data<uint64_t>()[original] &
++                                              q.data<uint64_t>()[i]);
++  }
++}
++
++TEST(Abfl, EmptySmallAndNoOutputExecutions) {
++  for (int64_t count : {0, 1, 1023, 1024, 65472, 65473, 65535, 65536}) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      Begin(state);
++      auto p = Plain(count, 1).as(makeType<Pub2kTy>(FM64));
++      auto b =
++          state->publicBoolean(p).as(makeType<BShrTy>(state->session(), 1));
++      state->booleanBinary(b, b, true, false);
++      if (count > 0 && count <= 65472) {
++        EXPECT_ANY_THROW(state->prepareOutputs(&ctx, {}, {}));
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(Begin(state));
++      } else {
++        state->prepareOutputs(&ctx, {}, {});
++        EXPECT_EQ(state->booleanChecks(), count == 0 ? 0 : 1);
++        state->commit();
++      }
++    });
++  }
++}
++
++TEST(Abfl, SnapshotAndReuse) {
++  SpdzWiseIo io(FM64, 3);
++  const auto input = Plain(1024, 64, 11);
++  const auto shares = io.toBooleanShares(input, 64);
++  const auto outputs = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Value x(shares[link->Rank()], DT_U64);
++    Begin(state, {x});
++    x = import_s(&ctx, x);
++    auto z = dynDispatch(&ctx, "and_bb", x, x);
++    // A mutation after AND must not alter its saved inputs.
++    x.data().data<RepShare>()[0][0] ^= 1;
++    state->prepareOutputs(&ctx, {"out"}, {z});
++    state->commit();
++    const auto first = state->exportedValue("out");
++    Begin(state, {z});
++    z = import_s(&ctx, z);
++    z = dynDispatch(&ctx, "and_bb", z, z);
++    state->prepareOutputs(&ctx, {"out"}, {z});
++    state->commit();
++    EXPECT_EQ(state->booleanChecks(), 2);
++    EXPECT_NE(first.storage_type(), state->exportedValue("out").storage_type());
++    // Re-import a committed Boolean output through the external IO path.
++    Begin(state, {first});
++    auto again = import_s(&ctx, first);
++    state->prepareOutputs(&ctx, {"out"}, {again});
++    state->commit();
++    auto wrong = z.data().as(makeType<BShrTy>("another-session", 64));
++    Begin(state);
++    EXPECT_ANY_THROW(state->validateBoolean(wrong));
++    state->prepareOutputs(&ctx, {}, {});
++    state->commit();
++    return first.data();
++  });
++  const auto actual = io.fromShares(outputs);
++  for (int64_t i = 0; i < 1024; ++i) {
++    EXPECT_EQ(actual.data<uint64_t>()[i], input.data<uint64_t>()[i]);
++  }
++}
++
++TEST(Abfl, OnlineAndRandomFaultsAtEveryParty) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (int fault = 0; fault < 4; ++fault) {
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        Begin(state);
++        auto x = state->publicBoolean(
++            Plain(1024, 64, 73).as(makeType<Pub2kTy>(FM64)));
++        state->booleanBinary(x, x, true, false);
++        if (fault < 2) {
++          BooleanTestAccess::corrupt(state, party, fault == 1);
++          ExpectFailure([&] { state->finalize(); },
++                        fault == 0 ? "Boolean replicated copies disagree"
++                                   : "ABFL sacrifice failed");
++        } else {
++          ExpectFailure(
++              [&] { BooleanTestAccess::randomFault(state, party, fault == 3); },
++              fault == 3 ? "ABFL cut-and-choose failed" : "ABFL");
++        }
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(state->exportedValue("out"));
++        EXPECT_ANY_THROW(Begin(state));
++      });
++    }
++  }
++}
++
++TEST(Abfl, DetectsFaultInLastPartialWord) {
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Begin(state);
++    auto x = state->publicBoolean(Plain(9363, 7).as(makeType<Pub2kTy>(FM64)))
++                 .as(makeType<BShrTy>(state->session(), 7));
++    state->booleanBinary(x, x, true, false);
++    EXPECT_EQ(state->pendingBooleanBits(), 65541);
++    BooleanTestAccess::corrupt(state, 1, true, 65540);
++    EXPECT_ANY_THROW(state->finalize());
++    EXPECT_TRUE(state->failed());
++  });
++}
++
++TEST(Abfl, DetectsCorruptionInZeroExtendedPadding) {
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Begin(state);
++    auto x = state->publicBoolean(Plain(9363, 7).as(makeType<Pub2kTy>(FM64)))
++                 .as(makeType<BShrTy>(state->session(), 7));
++    state->booleanBinary(x, x, true, false);
++    // Last word has five valid bits. Even its padding is checked, not masked.
++    BooleanTestAccess::corrupt(state, 2, true, 65599);
++    ExpectFailure([&] { state->finalize(); }, "ABFL sacrifice failed");
++    EXPECT_TRUE(state->failed());
++  });
++}
++
++TEST(Abfl, DetectsFaultInLastSacrificeTile) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (bool consistent : {false, true}) {
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        Begin(state);
++        auto x =
++            state->publicBoolean(Plain(65537, 64).as(makeType<Pub2kTy>(FM64)));
++        state->booleanBinary(x, x, true, false);
++        BooleanTestAccess::corrupt(state, party, consistent, 65537 * 64 - 1);
++        ExpectFailure([&] { state->finalize(); },
++                      consistent ? "ABFL sacrifice failed"
++                                 : "Boolean replicated copies disagree");
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(Begin(state));
++      });
++    }
++  }
++}
++
++// Test-only channel decorator: mutate actual wire messages without adding
++// fault-injection branches to the protocol implementation.
++class FaultChannel : public yacl::link::transport::IChannel {
++  std::shared_ptr<yacl::link::transport::IChannel> inner_;
++  std::shared_ptr<bool> active_;
++  yacl::Buffer change(yacl::Buffer value) {
++    if (*active_ && value.size()) {
++      value.data<char>()[0] ^= 1;
++    }
++    return value;
++  }
++
++ public:
++  FaultChannel(std::shared_ptr<yacl::link::transport::IChannel> inner,
++               std::shared_ptr<bool> active)
++      : inner_(std::move(inner)), active_(std::move(active)) {}
++  void SendAsync(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsync(k, change(std::move(v)));
++  }
++  void SendAsyncThrottled(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsyncThrottled(k, change(std::move(v)));
++  }
++  void Send(const std::string& k, yacl::ByteContainerView v) override {
++    auto b = change(yacl::Buffer(v));
++    inner_->Send(k, yacl::ByteContainerView(b));
++  }
++  yacl::Buffer Recv(const std::string& k) override { return inner_->Recv(k); }
++  void SetRecvTimeout(uint64_t t) override { inner_->SetRecvTimeout(t); }
++  uint64_t GetRecvTimeout() const override { return inner_->GetRecvTimeout(); }
++  void WaitLinkTaskFinish() override { inner_->WaitLinkTaskFinish(); }
++  void Abort() override { inner_->Abort(); }
++  void SetThrottleWindowSize(size_t s) override {
++    inner_->SetThrottleWindowSize(s);
++  }
++  void TestSend(uint32_t t) override { inner_->TestSend(t); }
++  void TestRecv() override { inner_->TestRecv(); }
++  void SetChunkParallelSendSize(size_t s) override {
++    inner_->SetChunkParallelSendSize(s);
++  }
++};
++TEST(Abfl, RejectsWireTampering) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (const auto* phase : {"boolean-and", "boolean-copies", "boolean-commit",
++                              "boolean-reveal", "boolean-open"}) {
++      utils::simulate(3, [&](const auto& base) {
++        auto active = std::make_shared<bool>(false);
++        yacl::link::ContextDesc desc;
++        desc.id = base->Id();
++        std::vector<std::shared_ptr<yacl::link::transport::IChannel>> channels(
++            3);
++        for (size_t i = 0; i < 3; ++i) {
++          desc.parties.push_back({std::to_string(i), "memory"});
++          if (i != base->Rank()) {
++            channels[i] =
++                std::make_shared<FaultChannel>(base->GetChannel(i), active);
++          }
++        }
++        auto link = std::make_shared<yacl::link::Context>(desc, base->Rank(),
++                                                          channels, nullptr);
++        link->SetRecvTimeout(5000);
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        Begin(state);
++        auto x =
++            state->publicBoolean(Plain(1024, 64).as(makeType<Pub2kTy>(FM64)));
++        BooleanTestAccess::phase(
++            state,
++            [active, party, phase, rank = link->Rank()](std::string_view name) {
++              *active = rank == party && name == phase;
++            });
++        state->booleanBinary(x, x, true, false);
++        ExpectFailure([&] { state->finalize(); },
++                      (std::string_view(phase) == "boolean-and" ||
++                       std::string_view(phase) == "boolean-copies")
++                          ? "Boolean replicated copies disagree"
++                          : "Boolean transcript disagreement");
++        EXPECT_TRUE(state->failed());
++      });
++    }
++  }
++}
++
++TEST(AbflIo, PackedAndBitInputsAndMetadata) {
++  SpdzWiseIo io(FM64, 3);
++  EXPECT_TRUE(io.hasBitSecretSupport());
++  EXPECT_EQ(io.getBitSecretShareSize(9), 9 * sizeof(RepShare));
++  const std::vector<int32_t> data = {-3, -2, -1, 0, 1, 2, 3};
++  auto bits = io.makeBitSecret(PtBufferView(data));
++  auto out = io.fromShares(bits);
++  for (size_t i = 0; i < data.size(); ++i) {
++    EXPECT_EQ(out.data<uint64_t>()[i], uint64_t(data[i]) & 1);
++  }
++  const uint8_t packed = 0xa5;
++  out = io.fromShares(
++      io.makeBitSecret(PtBufferView(&packed, PT_I1, {8}, {1}, true)));
++  for (size_t i = 0; i < 8; ++i) {
++    EXPECT_EQ(out.data<uint64_t>()[i], (packed >> i) & 1);
++  }
++  const auto input = Plain(3, 7);
++  auto shares = io.toBooleanShares(input, 7);
++  EXPECT_ANY_THROW(io.toBooleanShares(input, 0));
++  EXPECT_ANY_THROW(io.toBooleanShares(input, 65));
++  EXPECT_ANY_THROW(io.toBooleanShares(Plain(3, 64, 128), 7));
++  auto wrong = shares;
++  wrong[1] = shares[1].as(makeType<BInputTy>(1, 8));
++  EXPECT_ANY_THROW(io.fromShares(wrong));
++  wrong = shares;
++  std::swap(wrong[0], wrong[1]);
++  EXPECT_ANY_THROW(io.fromShares(wrong));
++  for (size_t r = 0; r < 3; ++r) {
++    shares[r] = shares[r].as(
++        makeType<BOutputTy>(r, 7, std::string(64, r == 1 ? 'b' : 'a')));
++  }
++  EXPECT_ANY_THROW(io.fromShares(shares));
++  BInputTy parsed;
++  parsed.fromString("2:7");
++  const BInputTy expected(2, 7);
++  EXPECT_TRUE(parsed.equals(&expected));
++  EXPECT_ANY_THROW(parsed.fromString("2:7junk"));
++  BOutputTy output;
++  output.fromString("2:7:" + std::string(64, 'a'));
++  EXPECT_EQ(output.nbits(), 7);
++  BShrTy internal("test", 7);
++  EXPECT_FALSE(internal.isSerializable());
++  EXPECT_ANY_THROW(internal.fromString("test:7"));
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/boolean.h b/src/libspu/mpc/spdzwise/boolean.h
+new file mode 100644
+index 00000000..d8c90d08
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/boolean.h
+@@ -0,0 +1,85 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#pragma once
++
++#include <functional>
++#include <memory>
++
++#include "yacl/base/buffer.h"
++
++#include "libspu/mpc/common/prg_state.h"
++#include "libspu/mpc/spdzwise/type.h"
++
++namespace spu::mpc::spdzwise {
++
++// Counts packed 64-bit triples (including one zero-extended partial word),
++// not the number of active bit lanes. Small nonempty batches are unsupported.
++size_t AbflBucketSize(size_t words);
++
++// Owned by the checked session. No application reveal API is exposed.
++class BooleanState {
++  friend class BooleanTestAccess;
++  using Triple = std::array<RepShare, 3>;
++  // Default-initialized storage: parallel writers touch each element once.
++  // Unlike vector(size), this does not zero large buffers on the caller thread.
++  struct TriplePool {
++    size_t count;
++    std::unique_ptr<Triple[]> storage;
++    explicit TriplePool(size_t n) : count(n), storage(new Triple[n]) {}
++    size_t size() const { return count; }
++    Triple& operator[](size_t i) { return storage[i]; }
++    const Triple& operator[](size_t i) const { return storage[i]; }
++  };
++  std::shared_ptr<yacl::link::Context> link_;
++  std::function<std::string(std::string_view)> tag_;
++  PrgState random_prg_, mask_prg_;
++  std::vector<Triple> pending_;  // full words packed from narrow inputs
++  // Full-width calls own contiguous snapshots; adding a call never relocates
++  // the records of previous calls. Verification traverses blocks directly.
++  std::vector<std::vector<Triple>> pending_batches_;
++  Triple overflow_{};
++  size_t overflow_bits_ = 0;
++  size_t bits_ = 0;
++  std::string layout_;
++  uint64_t checks_ = 0;
++
++  // With borrow_local, the local result slot is empty; the caller keeps bytes
++  // alive and reads its local view directly. Peer slots always own their data.
++  std::vector<yacl::Buffer> gather(std::string_view bytes,
++                                   std::string_view name,
++                                   bool borrow_local = false);
++  void agree(std::string_view bytes);
++  void requireAll(bool valid, std::string_view reason);
++  std::vector<RepShare> andRaw(const std::vector<RepShare>& x,
++                               const std::vector<RepShare>& y);
++  std::vector<uint64_t> open(absl::Span<const RepShare> shares);
++  void open(absl::Span<const RepShare> shares, absl::Span<uint64_t> result);
++  void reservePending(size_t full_words);
++  void append(const std::vector<RepShare>& a, const std::vector<RepShare>& b,
++              const std::vector<RepShare>& c, size_t width);
++  TriplePool generate(size_t words);
++  void checkPrepared(TriplePool pool);
++  std::vector<size_t> permutation(size_t count);
++  static std::vector<size_t> shuffledIndices(size_t count, uint128_t seed);
++
++ public:
++  BooleanState(std::shared_ptr<yacl::link::Context> link,
++               std::function<std::string(std::string_view)> tag);
++  size_t pendingBits() const { return bits_; }
++  uint64_t checks() const { return checks_; }
++  void checkCopies(const std::vector<RepShare>& shares);
++  NdArrayRef andBB(const NdArrayRef& x, const NdArrayRef& y,
++                   const std::string& session);
++  void check();
++};
++
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/binary_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/binary_bench.cc
+new file mode 100644
+index 00000000..ab886d33
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/binary_bench.cc
+@@ -0,0 +1,184 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++
++#include <chrono>
++#include <condition_variable>
++#include <iomanip>
++#include <iostream>
++#include <mutex>
++
++#include "libspu/mpc/aby3/protocol.h"
++#include "libspu/mpc/aby3/type.h"
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++constexpr int64_t kWidth = 65536;
++constexpr int64_t kDepth = 16;
++constexpr size_t kBits = kWidth * kDepth * 64;
++constexpr int kRepetitions = 7;
++
++// Fully specified reproducible plaintext workload, not cryptographic
++// randomness.
++uint64_t InputWord(uint64_t index) {
++  uint64_t z = index + 0x9e3779b97f4a7c15ULL;
++  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
++  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
++  return z ^ (z >> 31);
++}
++class Barrier {
++  std::mutex mutex_;
++  std::condition_variable cv_;
++  size_t arrived_ = 0, generation_ = 0;
++
++ public:
++  void wait() {
++    std::unique_lock<std::mutex> lock(mutex_);
++    const auto generation = generation_;
++    if (++arrived_ == 3) {
++      arrived_ = 0;
++      ++generation_;
++      cv_.notify_all();
++    } else {
++      cv_.wait(lock, [&] { return generation_ != generation; });
++    }
++  }
++};
++struct Result {
++  double online_ms = 0, verify_ms = 0;
++  size_t online_bytes = 0, verify_bytes = 0;
++  NdArrayRef output;
++};
++
++void Run(bool native_aby3) {
++  SpdzWiseIo io(FM64, 3);
++  std::vector<std::vector<NdArrayRef>> shares;
++  std::vector<uint64_t> expected(kWidth, ~uint64_t{0});
++  for (int64_t layer = 0; layer <= kDepth; ++layer) {
++    NdArrayRef input(makeType<RingTy>(FM64), {kWidth});
++    for (int64_t i = 0; i < kWidth; ++i) {
++      const auto word = InputWord(layer * kWidth + i);
++      input.data<uint64_t>()[i] = word;
++      expected[i] &= word;
++    }
++    shares.push_back(io.toBooleanShares(input, 64));
++  }
++  std::cout
++      << std::fixed << std::setprecision(6)
++      << "protocol,width,depth,word_ands,bit_ands,bucket_size,iteration,rank,"
++         "online_ms,verify_ms,total_ms,online_bytes,verify_bytes,checks\n";
++  for (int iteration = 0; iteration <= kRepetitions; ++iteration) {
++    Barrier barrier;
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      RuntimeConfig config;
++      config.protocol = native_aby3 ? ABY3 : SPDZWISE;
++      config.field = FM64;
++      config.fxp_fraction_bits = 16;
++      SPUContext ctx(config, link);
++      if (native_aby3) {
++        regAby3Protocol(&ctx, link);
++      } else {
++        registerArithmeticPrototype(&ctx, link);
++      }
++      auto* state =
++          native_aby3 ? nullptr : ctx.prot()->getState<SpdzWiseState>();
++      ProtocolRunGuard guard(&ctx);
++      std::vector<Value> inputs;
++      std::vector<std::string> names;
++      for (int64_t layer = 0; layer <= kDepth; ++layer) {
++        // The external XOR shares have the same replicated layout in both
++        // protocols. Only benchmark type adaptation occurs outside timing.
++        auto share = shares[layer][link->Rank()];
++        if (native_aby3) share = share.as(makeType<aby3::BShrTy>(PT_U64, 64));
++        inputs.emplace_back(share, DT_U64);
++        names.push_back(std::to_string(layer));
++      }
++      if (state) {
++        state->begin(ExecutableProto("abfl_c2", names, {"z"}, "benchmark"),
++                     inputs);
++        for (auto& input : inputs) input = import_s(&ctx, input);
++      }
++      Value z = inputs[0];
++      Result result;
++      const auto stats = link->GetStats();
++      auto phase = [&](double& ms, size_t& bytes, auto&& operation) {
++        barrier.wait();
++        const auto before = stats->sent_bytes.load();
++        const auto start = std::chrono::steady_clock::now();
++        operation();
++        ms = std::chrono::duration<double, std::milli>(
++                 std::chrono::steady_clock::now() - start)
++                 .count();
++        bytes = stats->sent_bytes.load() - before;
++      };
++      phase(result.online_ms, result.online_bytes, [&] {
++        for (int64_t layer = 0; layer < kDepth; ++layer) {
++          z = dynDispatch(&ctx, "and_bb", z, inputs[layer + 1]);
++        }
++      });
++      SPU_ENFORCE(result.online_bytes == kWidth * kDepth * sizeof(uint64_t));
++      if (state) {
++        SPU_ENFORCE(state->pendingBooleanBits() == kBits);
++        SPU_ENFORCE(state->booleanChecks() == 0);
++        phase(result.verify_ms, result.verify_bytes,
++              [&] { state->finalize(); });
++        SPU_ENFORCE(state->pendingBooleanBits() == 0 &&
++                    state->booleanChecks() == 1);
++        z.setDtype(DT_U64);
++        const auto before_export = stats->sent_bytes.load();
++        state->prepareOutputs(&ctx, {"z"}, {z});
++        guard.commit();
++        SPU_ENFORCE(stats->sent_bytes.load() == before_export);
++        SPU_ENFORCE(state->booleanChecks() == 1);
++        result.output = state->exportedValue("z").data();
++      } else {
++        result.output = z.data().as(makeType<BInputTy>(link->Rank(), 64));
++        guard.commit();
++      }
++      return result;
++    });
++    std::vector<NdArrayRef> output;
++    for (const auto& result : results) {
++      output.push_back(result.output);
++    }
++    const auto actual = io.fromShares(output);
++    for (int64_t i = 0; i < kWidth; ++i) {
++      SPU_ENFORCE(actual.data<uint64_t>()[i] == expected[i],
++                  "C2 output mismatch at {}", i);
++    }
++    double online_max = 0, verify_max = 0;
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& r = results[rank];
++      online_max = std::max(online_max, r.online_ms);
++      verify_max = std::max(verify_max, r.verify_ms);
++      std::cout << (native_aby3 ? "aby3-boolean," : "spdzwise-abfl,") << kWidth
++                << ',' << kDepth << ',' << kWidth * kDepth << ',' << kBits
++                << ',' << (native_aby3 ? 0 : AbflBucketSize(kWidth * kDepth))
++                << ',' << iteration << ',' << rank << ',' << r.online_ms << ','
++                << r.verify_ms << ',' << r.online_ms + r.verify_ms << ','
++                << r.online_bytes << ',' << r.verify_bytes << ","
++                << (native_aby3 ? 0 : 1) << "\n";
++    }
++    std::cout.flush();
++    std::cerr << "iteration " << iteration
++              << (iteration == 0 ? " (warmup)" : "")
++              << ": online_max_ms=" << online_max
++              << ", verify_max_ms=" << verify_max << "; checked all " << kWidth
++              << " outputs\n";
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
++
++int main(int argc, char** argv) {
++  SPU_ENFORCE(argc == 1 || (argc == 2 && std::string_view(argv[1]) == "--aby3"),
++              "usage: binary_bench [--aby3]");
++  spu::mpc::spdzwise::Run(argc == 2);
++}
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_binary.py b/src/libspu/mpc/spdzwise/benchmarks/run_binary.py
+new file mode 100644
+index 00000000..e8b16345
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_binary.py
+@@ -0,0 +1,178 @@
++"""Run the ABFL C2 benchmark and archive raw samples, provenance and statistics.
++
++Build //:binary_bench in this benchmark workspace first, then run:
++  python3 run_binary.py NEW_OUTPUT_DIRECTORY [--aby3]
++An existing directory containing only build.log is also accepted.
++"""
++import csv
++import hashlib
++import json
++import os
++import platform
++import statistics
++import subprocess
++import sys
++import time
++from datetime import datetime
++from pathlib import Path
++from zoneinfo import ZoneInfo
++
++BENCH = Path(__file__).resolve().parent
++ROOT = BENCH.parents[4]
++
++
++def digest(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def main():
++    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != "--aby3"):
++        raise SystemExit("usage: run_binary.py NEW_OUTPUT_DIRECTORY [--aby3]")
++    native = len(sys.argv) == 3
++    protocol = "aby3-boolean" if native else "spdzwise-abfl"
++    checks = 0 if native else 1
++    bucket = 0 if native else 3
++    out = Path(sys.argv[1]).resolve()
++    out.mkdir(parents=True, exist_ok=True)
++    if any(p.name != "build.log" for p in out.iterdir()):
++        raise SystemExit("Refusing to overwrite an existing experiment")
++    binary = BENCH / "bazel-bin/binary_bench"
++    sources = sorted((BENCH.parent).glob("*.cc")) + sorted((BENCH.parent).glob("*.h"))
++    sources += [BENCH.parent / "BUILD.bazel"]
++    sources += [BENCH / n for n in ("binary_bench.cc", "BUILD.bazel", "MODULE.bazel", "MODULE.bazel.lock", ".bazelrc", "run_binary.py")]
++    sources += [ROOT / "src" / path for path in (
++        "libspu/mpc/aby3/boolean.cc", "libspu/mpc/aby3/type.h",
++        "libspu/mpc/common/communicator.h", "libspu/mpc/common/prg_state.cc",
++        "libspu/core/parallel_utils.h")]
++    parameters = {
++        "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++        "protocol": protocol, "width": 65536, "depth": 16,
++        "word_ands": 1048576, "bit_ands": 67108864, "nbits": 64,
++        "bucket_size": bucket, "verification_unit": "none" if native else "64-bit word", "cut_and_choose_words": 0 if native else 3,
++        "cut_and_choose_bits": 0 if native else 192, "random_word_triples": 0 if native else 2097155,
++        "random_bit_triples": 0 if native else 134217920,
++        "input_vectors": 17, "secret_input_words": 1114112,
++        "input_generator": "SplitMix64 finalizer(index + 0x9e3779b97f4a7c15), index=layer*65536+i; see source",
++        "circuit": "z[0,i]=x[0,i]; z[l+1,i]=z[l,i]&x[l+1,i]",
++        "tiling": False, "warmups": 1, "repetitions": 7,
++        "verification_tile_words": 0 if native else 65536,
++        "random_generation_tile_words": 0 if native else 65536,
++        "replica_check_tile_words": 0 if native else 65536,
++        "replica_check": "none" if native else "BLAKE3-256 per tile, sent only to replica holder",
++        "transport": "FactoryMem, three parties in one process",
++        "timing": "native ABY3 AND, PRSS masks and communication only" if native else "online includes AND, PRSS masks and saved triples; verification includes random triple generation, copy checks, commit-reveal, cut-and-choose and sacrifice",
++        "excluded": "input sharing, runtime/PRSS setup, input import/copy checks, output export/reconstruction and plaintext comparison",
++        "aggregation": "per repetition take maximum over parties for each phase; total=sum of phase maxima; report median/min/max over seven repetitions excluding warmup",
++        "platform": platform.platform(), "logical_cpus": os.cpu_count(),
++        "cpu_affinity": sorted(os.sched_getaffinity(0)),
++        "loadavg_at_start": os.getloadavg(),
++        "YACL_NUM_THREADS": os.environ.get("YACL_NUM_THREADS"),
++        "compiler": subprocess.check_output(["c++", "--version"], text=True).splitlines()[0],
++        "build": "Bazel 7.7.1, -c opt; see build.log",
++        "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
++        "git_status": subprocess.check_output(["git", "status", "--short"], cwd=ROOT, text=True),
++        "binary_sha256": digest(binary),
++        "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
++    }
++    (out / "parameters.json").write_text(json.dumps(parameters, indent=2) + "\n")
++    (out / "lscpu.txt").write_text(subprocess.check_output(["lscpu"], text=True))
++    (out / "meminfo.txt").write_text(Path("/proc/meminfo").read_text())
++    (out / "run_binary.py").write_bytes(Path(__file__).read_bytes())
++    # Archive executable inputs only, not old experiment data or report edits.
++    patch = subprocess.check_output(
++        ["git", "diff", "--binary", "HEAD", "--"] +
++        [str(p.relative_to(ROOT)) for p in sources], cwd=ROOT)
++    for path in sources:
++        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(path.relative_to(ROOT))], cwd=ROOT, capture_output=True)
++        if tracked.returncode:
++            diff = subprocess.run(["git", "diff", "--no-index", "--", "/dev/null", str(path.relative_to(ROOT))], cwd=ROOT, capture_output=True)
++            if diff.returncode != 1:
++                raise RuntimeError(diff.stderr.decode())
++            patch += diff.stdout
++    (out / "source.patch").write_bytes(patch)
++    start = time.monotonic()
++    with (out / "w65536-d16.stdout").open("w") as stdout, (out / "w65536-d16.log").open("w") as stderr:
++        process = subprocess.Popen([str(binary)] + (["--aby3"] if native else []), stdout=stdout, stderr=stderr)
++        _, status, usage = os.wait4(process.pid, 0)
++        process.returncode = os.waitstatus_to_exitcode(status)
++    resources = {
++        "exit_code": process.returncode, "wall_seconds": time.monotonic() - start,
++        "user_seconds": usage.ru_utime, "system_seconds": usage.ru_stime,
++        "max_rss_kib": usage.ru_maxrss, "loadavg_at_end": os.getloadavg(),
++        "finished_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++    }
++    (out / "resources.json").write_text(json.dumps(resources, indent=2) + "\n")
++    if process.returncode:
++        raise SystemExit(f"Benchmark failed ({process.returncode}); see archived logs")
++    lines = [s for s in (out / "w65536-d16.stdout").read_text().splitlines(True)
++             if s.startswith(("protocol,", protocol + ","))]
++    (out / "w65536-d16.csv").write_text("".join(lines))
++    rows = list(csv.DictReader(lines))
++    assert len(rows) == 24
++    maxima = []
++    for iteration in range(8):
++        batch = [r for r in rows if int(r["iteration"]) == iteration]
++        assert len(batch) == 3 and {int(r["rank"]) for r in batch} == {0, 1, 2}
++        for r in batch:
++            for key, value in {"width":65536, "depth":16, "word_ands":1048576,
++                               "bit_ands":67108864, "bucket_size":bucket,
++                               "online_bytes":8388608, "verify_bytes":0 if native else 218110266,
++                               "checks":checks}.items():
++                assert int(r[key]) == value, (key, r)
++            assert abs(float(r["total_ms"]) - float(r["online_ms"]) - float(r["verify_ms"])) < 0.00001
++        online, verify = [max(float(r[key]) for r in batch) for key in ("online_ms", "verify_ms")]
++        if iteration:
++            maxima.append({"iteration":iteration, "online_ms":online,
++                           "verify_ms":verify, "total_ms":online+verify})
++    payloads = {key: {int(r[key]) for r in rows} for key in ("online_bytes", "verify_bytes")}
++    assert all(len(v) == 1 for v in payloads.values())
++    summary = {"aggregation":parameters["aggregation"], "iterations":maxima,
++               "phases":{key:{"median_ms":statistics.median(r[key] for r in maxima),
++                              "min_ms":min(r[key] for r in maxima),
++                              "max_ms":max(r[key] for r in maxima)}
++                         for key in ("online_ms", "verify_ms", "total_ms")},
++               "bytes_per_party":{k:next(iter(v)) for k,v in payloads.items()},
++               "validated_output_words_per_iteration":65536, "validated_iterations":8}
++    (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
++    (out / "summary.txt").write_text(json.dumps(summary["phases"], indent=2) + "\n")
++    phase = summary["phases"]
++    comm = summary["bytes_per_party"]
++    title = "ABY3 Boolean" if native else "SPDZwise-ABFL word64"
++    verification = ("原生 ABY3 半诚实 AND，无最终 verification，也不保存 triple。输入使用同一 XOR replicated sharing 布局，在计时外适配为 ABY3 Boolean 类型。" if native else
++                    "B=3，随机 triple 2,097,155 个 64-bit word（134,217,920 bit lanes）。置换、分桶和抽查均以 word 为单位；抽查 3 个随机 word，B 按在线 packed word 数选择。")
++    report = f'''# {title} C2 — {parameters["started_at"].split("T")[0]}
++
++三方 FactoryMem 本机实验；W=65,536，D=16，64-bit packed AND，电路不分块。
++YACL_NUM_THREADS={parameters["YACL_NUM_THREADS"] or "默认"}；ABFL verification 使用 65,536-word 工作块。
++共 1,048,576 个 word AND / 67,108,864 个 bit AND。
++{verification}
++预热 1 次，正式测量 7 次；每轮各阶段取三方最大耗时，再取七轮中位数。
++总耗时按每轮的 online 最大值与 verification 最大值相加后统计。
++
++| 阶段 | 中位数 ms | 最小 ms | 最大 ms | 每方发送 payload bytes |
++|---|---:|---:|---:|---:|
++| Online AND{"（含保存 triple）" if not native else ""} | {phase['online_ms']['median_ms']:.3f} | {phase['online_ms']['min_ms']:.3f} | {phase['online_ms']['max_ms']:.3f} | {comm['online_bytes']} |
++| Final verification | {phase['verify_ms']['median_ms']:.3f} | {phase['verify_ms']['min_ms']:.3f} | {phase['verify_ms']['max_ms']:.3f} | {comm['verify_bytes']} |
++| 合计 | {phase['total_ms']['median_ms']:.3f} | {phase['total_ms']['min_ms']:.3f} | {phase['total_ms']['max_ms']:.3f} | {comm['online_bytes']+comm['verify_bytes']} |
++
++{"Verification 包含随机 triple 生成、copy 检查、commit–reveal、cut-and-choose 和 sacrifice。" if not native else "未运行恶意安全验证。"}
++输入分享、runtime/PRSS 初始化、导入检查、输出导出及重构核对均不计入上表。
++8 轮均核对全部 65,536 个输出，且断言 online payload 正确、verification 检查次数为 {checks}。ABFL 另外断言导出不额外通信。
++
++进程峰值 RSS：{usage.ru_maxrss / 1024 / 1024:.3f} GiB（三方合计，含输入和验证缓冲区）。
++进程 wall time：{resources['wall_seconds']:.3f} 秒（包含未计入阶段耗时的准备与核对）。
++未隔离其他机器负载；本机内存通信结果不代表 LAN/WAN。
++这是开发原型性能记录，不代表完整恶意安全后端或安全界限验收。
++
++原始逐方数据：[CSV](w65536-d16.csv)，[stdout](w65536-d16.stdout)，[日志](w65536-d16.log)。
++参数和源码/二进制指纹：[parameters.json](parameters.json)；源码差异：[source.patch](source.patch)。
++环境：[lscpu.txt](lscpu.txt)、[meminfo.txt](meminfo.txt)；进程资源：[resources.json](resources.json)。
++重跑：在 benchmarks 目录构建 `//:binary_bench`，执行 `{"YACL_NUM_THREADS=" + parameters["YACL_NUM_THREADS"] + " " if parameters["YACL_NUM_THREADS"] else ""}python3 run_binary.py 新目录{" --aby3" if native else ""}`。
++'''
++    (out / "RESULTS.md").write_text(report)
++    files = sorted(p for p in out.iterdir() if p.is_file() and p.name != "SHA256SUMS")
++    (out / "SHA256SUMS").write_text("".join(f"{digest(p)}  {p.name}\n" for p in files))
++    print(report)
++
++if __name__ == "__main__":
++    main()

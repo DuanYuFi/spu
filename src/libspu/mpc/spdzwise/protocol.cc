@@ -45,7 +45,7 @@ class Finalize final : public Kernel {
  public:
   static constexpr const char* kBindName() { return "finalize_protocol"; }
   void evaluate(KernelEvalContext* ctx) const override {
-    ctx->getState<SpdzWiseState>()->check();
+    ctx->getState<SpdzWiseState>()->finalize();
   }
 };
 
@@ -120,6 +120,27 @@ class MatmulAP final : public MatmulKernel {
   }
 };
 
+class P2B final : public UnaryKernel {
+ public:
+  static constexpr const char* kBindName() { return "p2b"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
+    return ctx->getState<SpdzWiseState>()->publicBoolean(in);
+  }
+};
+template <bool IsAnd, bool PublicRhs>
+class BooleanBinary final : public BinaryKernel {
+ public:
+  static constexpr const char* kBindName() {
+    return IsAnd ? (PublicRhs ? "and_bp" : "and_bb")
+                 : (PublicRhs ? "xor_bp" : "xor_bb");
+  }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
+                  const NdArrayRef& y) const override {
+    return ctx->getState<SpdzWiseState>()->booleanBinary(x, y, IsAnd,
+                                                         PublicRhs);
+  }
+};
+
 class DenyReveal final : public Kernel {
  public:
   void evaluate(KernelEvalContext*) const override {
@@ -138,7 +159,9 @@ void registerArithmeticPrototype(
   regStandardShapeOps(ctx);
   ctx->prot()
       ->regKernel<Import, Export, Finalize, P2A, Negate, AddAA, AddAP, MulAA,
-                  MulAP, MatmulAA, MatmulAP>();
+                  MulAP, MatmulAA, MatmulAP, P2B, BooleanBinary<true, false>,
+                  BooleanBinary<true, true>, BooleanBinary<false, false>,
+                  BooleanBinary<false, true>>();
   for (const auto* name : {"a2p", "b2p", "a2v", "b2v", "s2p", "s2v"}) {
     ctx->prot()->regKernel<DenyReveal>(name);
   }

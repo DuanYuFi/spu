@@ -133,6 +133,9 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
         words[i] = view[i];
       }
       Append(descriptor, EncodeF61(words));
+    } else if (value.storage_type().isa<BShrTy>()) {
+      validateBoolean(value.data());
+      Append(descriptor, value.storage_type().toString());
     } else if (value.storage_type().isa<AShrTy>()) {
       validateInternal(value.data());
       Append(descriptor, "authenticated");
@@ -142,7 +145,16 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
       // Rank is deliberately excluded: it differs across the three parties.
       // The kind and prior output binding must agree before any authentication
       // messages, otherwise parties can import different execution batches.
-      if (value.storage_type().isa<OutputTy>()) {
+      if (value.storage_type().isa<BInputTy>()) {
+        Append(descriptor, "boolean-input");
+        Append(descriptor,
+               std::to_string(value.storage_type().as<BInputTy>()->nbits()));
+      } else if (value.storage_type().isa<BOutputTy>()) {
+        Append(descriptor, "boolean-output");
+        Append(descriptor,
+               std::to_string(value.storage_type().as<BOutputTy>()->nbits()));
+        Append(descriptor, value.storage_type().as<BOutputTy>()->binding());
+      } else if (value.storage_type().isa<OutputTy>()) {
         Append(descriptor, "external-output");
         Append(descriptor, value.storage_type().as<OutputTy>()->binding());
       } else {
@@ -165,6 +177,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
     key_prg_ = std::make_unique<PrgState>(link_);
     mask_prg_ = std::make_unique<PrgState>(link_);
     check_prg_ = std::make_unique<PrgState>(link_);
+    boolean_ = std::make_unique<BooleanState>(
+        link_, [this](std::string_view operation) {
+          return session_ + "/" + tag(operation);
+        });
     key_ = RandomF61Rep(key_prg_.get(), 1)[0];
     checkCopies({key_});
   }
@@ -178,11 +194,19 @@ Type SpdzWiseState::exportType(const std::string& name,
   Append(descriptor, name);
   Append(descriptor, fmt::format("{}", value.shape()));
   Append(descriptor, std::to_string(value.dtype()));
+  if (value.storage_type().isa<BShrTy>()) {
+    validateBoolean(value.data());
+    const auto width = value.storage_type().as<BShrTy>()->nbits();
+    Append(descriptor, "boolean");
+    Append(descriptor, std::to_string(width));
+    return makeType<BOutputTy>(rank(), width, Digest(descriptor));
+  }
   return makeType<OutputTy>(rank(), Digest(descriptor));
 }
 
 void SpdzWiseState::onAbort() noexcept {
   pending_.clear();
+  boolean_.reset();
   key_ = {};
   key_prg_.reset();
   mask_prg_.reset();
@@ -196,6 +220,16 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
   const auto& type = value.storage_type();
   if (value.isPublic()) {
     RequirePublic(value.data());
+  } else if (type.isa<BInputTy>() || type.isa<BOutputTy>()) {
+    SPU_ENFORCE(type.isa<BInputTy>() ? type.as<BInputTy>()->rank() == rank()
+                                     : type.as<BOutputTy>()->rank() == rank(),
+                "Boolean external input rank mismatch");
+    const auto mask = BooleanMask(type.as<BShare>()->nbits());
+    const NdArrayView<RepShare> words(value.data());
+    for (int64_t i = 0; i < value.numel(); ++i) {
+      SPU_ENFORCE(((words[i][0] | words[i][1]) & ~mask) == 0,
+                  "noncanonical Boolean input");
+    }
   } else {
     SPU_ENFORCE(
         (type.isa<InputTy>() && type.as<InputTy>()->rank() == rank()) ||
@@ -317,6 +351,21 @@ NdArrayRef SpdzWiseState::authenticateInput(const std::vector<RepShare>& values,
 NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
   try {
     requireRunning();
+    if (value.eltype().isa<BShrTy>()) {
+      validateBoolean(value);
+      return value;
+    }
+    if (value.eltype().isa<BInputTy>() || value.eltype().isa<BOutputTy>()) {
+      validateExternalInput(Value(value, DT_I64));
+      const NdArrayView<RepShare> in(value);
+      std::vector<RepShare> shares(value.numel());
+      for (int64_t i = 0; i < value.numel(); ++i) {
+        shares[i] = in[i];
+      }
+      boolean_->checkCopies(shares);
+      return value.clone().as(
+          makeType<BShrTy>(session_, value.eltype().as<BShare>()->nbits()));
+    }
     if (value.eltype().isa<AShrTy>()) {
       validateInternal(value);
       return value;
@@ -476,11 +525,103 @@ NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
   return result;
 }
 
+void SpdzWiseState::finalize() {
+  try {
+    requireRunning();
+    check();
+    boolean_->check();
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
+void SpdzWiseState::validateBoolean(const NdArrayRef& value) const {
+  requireRunning();
+  SPU_ENFORCE(value.eltype().isa<BShrTy>() &&
+                  value.eltype().as<BShrTy>()->session() == session_,
+              "Boolean value belongs to a different session/type");
+  const auto width = value.eltype().as<BShrTy>()->nbits();
+  // Every uint64_t is canonical at full width. Keep session/type validation,
+  // but avoid a vacuous whole-array scan on the packed AND hot path.
+  if (width == 64) {
+    return;
+  }
+  const auto mask = BooleanMask(width);
+  const NdArrayView<RepShare> view(value);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    SPU_ENFORCE(((view[i][0] | view[i][1]) & ~mask) == 0,
+                "noncanonical Boolean share");
+  }
+}
+NdArrayRef SpdzWiseState::publicBoolean(const NdArrayRef& value) const {
+  requireRunning();
+  RequirePublic(value);
+  NdArrayRef out(makeType<BShrTy>(session_, 64), value.shape());
+  const NdArrayView<uint64_t> in(value);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    out.data<RepShare>()[i] = {rank() == 0 ? in[i] : 0,
+                               rank() == 2 ? in[i] : 0};
+  }
+  return out;
+}
+NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
+                                        const NdArrayRef& y, bool is_and,
+                                        bool public_rhs) {
+  try {
+    validateBoolean(x);
+    SPU_ENFORCE(x.shape() == y.shape(), "Boolean shape mismatch");
+    if (public_rhs) {
+      RequirePublic(y);
+    } else {
+      validateBoolean(y);
+    }
+    if (is_and && !public_rhs) {
+      return boolean_->andBB(x, y, session_);
+    }
+    const size_t xbits = x.eltype().as<BShrTy>()->nbits();
+    const size_t ybits = public_rhs ? 64 : y.eltype().as<BShrTy>()->nbits();
+    const size_t width =
+        is_and ? std::min(xbits, ybits) : std::max(xbits, ybits);
+    const auto mask = BooleanMask(width);
+    NdArrayRef out(makeType<BShrTy>(session_, width), x.shape());
+    const NdArrayView<RepShare> xv(x);
+    for (int64_t i = 0; i < x.numel(); ++i) {
+      RepShare rhs;
+      if (public_rhs) {
+        const auto word = NdArrayView<uint64_t>(y)[i];
+        rhs = is_and ? RepShare{word, word}
+                     : RepShare{rank() == 0 ? word : 0, rank() == 2 ? word : 0};
+      } else {
+        rhs = NdArrayView<RepShare>(y)[i];
+      }
+      for (size_t j = 0; j < 2; ++j) {
+        out.data<RepShare>()[i][j] =
+            (is_and ? xv[i][j] & rhs[j] : xv[i][j] ^ rhs[j]) & mask;
+      }
+    }
+    return out;
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
 NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
                                       const Type& type) const {
-  validateInternal(value);
-  SPU_ENFORCE(pending_.empty(),
+  requireRunning();
+  SPU_ENFORCE(pending_.empty() && pendingBooleanBits() == 0,
               "unchecked SPDZWISE results cannot be exported");
+  if (value.eltype().isa<BShrTy>()) {
+    validateBoolean(value);
+    SPU_ENFORCE(type.isa<BOutputTy>() &&
+                    type.as<BOutputTy>()->rank() == rank() &&
+                    type.as<BOutputTy>()->nbits() ==
+                        value.eltype().as<BShrTy>()->nbits(),
+                "invalid Boolean export type");
+    return value.clone().as(type);
+  }
+  validateInternal(value);
   SPU_ENFORCE(type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank(),
               "invalid export type");
   NdArrayRef result(type, value.shape());

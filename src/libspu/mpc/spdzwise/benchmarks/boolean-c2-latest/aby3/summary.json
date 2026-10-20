@@ -1,0 +1,70 @@
+{
+  "aggregation": "per repetition take maximum over parties for each phase; total=sum of phase maxima; report median/min/max over seven repetitions excluding warmup",
+  "iterations": [
+    {
+      "iteration": 1,
+      "online_ms": 23.340463,
+      "verify_ms": 0.0,
+      "total_ms": 23.340463
+    },
+    {
+      "iteration": 2,
+      "online_ms": 26.75353,
+      "verify_ms": 0.0,
+      "total_ms": 26.75353
+    },
+    {
+      "iteration": 3,
+      "online_ms": 23.659463,
+      "verify_ms": 0.0,
+      "total_ms": 23.659463
+    },
+    {
+      "iteration": 4,
+      "online_ms": 22.737035,
+      "verify_ms": 0.0,
+      "total_ms": 22.737035
+    },
+    {
+      "iteration": 5,
+      "online_ms": 24.439765,
+      "verify_ms": 0.0,
+      "total_ms": 24.439765
+    },
+    {
+      "iteration": 6,
+      "online_ms": 22.32076,
+      "verify_ms": 0.0,
+      "total_ms": 22.32076
+    },
+    {
+      "iteration": 7,
+      "online_ms": 23.000085,
+      "verify_ms": 0.0,
+      "total_ms": 23.000085
+    }
+  ],
+  "phases": {
+    "online_ms": {
+      "median_ms": 23.340463,
+      "min_ms": 22.32076,
+      "max_ms": 26.75353
+    },
+    "verify_ms": {
+      "median_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "total_ms": {
+      "median_ms": 23.340463,
+      "min_ms": 22.32076,
+      "max_ms": 26.75353
+    }
+  },
+  "bytes_per_party": {
+    "online_bytes": 8388608,
+    "verify_bytes": 0
+  },
+  "validated_output_words_per_iteration": 65536,
+  "validated_iterations": 8
+}

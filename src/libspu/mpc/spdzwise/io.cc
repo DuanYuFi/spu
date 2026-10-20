@@ -11,6 +11,8 @@
 
 #include "libspu/mpc/spdzwise/io.h"
 
+#include <limits>
+
 #include "yacl/crypto/rand/rand.h"
 
 #include "libspu/mpc/common/pv2k.h"
@@ -77,10 +79,93 @@ std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
   return shares;
 }
 
+std::vector<NdArrayRef> SpdzWiseIo::toBooleanShares(const NdArrayRef& raw,
+                                                    size_t nbits) const {
+  const auto mask = BooleanMask(nbits);
+  SPU_ENFORCE(
+      raw.eltype().isa<RingTy>() && raw.eltype().as<Ring2k>()->field() == FM64,
+      "Boolean input requires FM64 storage");
+  std::vector<NdArrayRef> shares;
+  for (size_t rank = 0; rank < 3; ++rank) {
+    shares.emplace_back(makeType<BInputTy>(rank, nbits), raw.shape());
+  }
+  const NdArrayView<uint64_t> input(raw);
+  for (int64_t i = 0; i < raw.numel(); ++i) {
+    SPU_ENFORCE((input[i] & ~mask) == 0, "Boolean input exceeds its bit width");
+    const auto a = uint64_t(yacl::crypto::SecureRandSeed()) & mask;
+    const auto b = uint64_t(yacl::crypto::SecureRandSeed()) & mask;
+    const auto c = input[i] ^ a ^ b;
+    shares[0].data<RepShare>()[i] = {a, b};
+    shares[1].data<RepShare>()[i] = {b, c};
+    shares[2].data<RepShare>()[i] = {c, a};
+  }
+  return shares;
+}
+size_t SpdzWiseIo::getBitSecretShareSize(size_t numel) const {
+  SPU_ENFORCE(numel <= std::numeric_limits<size_t>::max() / sizeof(RepShare),
+              "Boolean share size overflow");
+  return numel * sizeof(RepShare);
+}
+std::vector<NdArrayRef> SpdzWiseIo::makeBitSecret(
+    const PtBufferView& raw) const {
+  NdArrayRef words(makeType<RingTy>(FM64), raw.shape);
+  auto* out = words.data<uint64_t>();
+  if (raw.isBitSet()) {
+    for (int64_t i = 0; i < words.numel(); ++i) {
+      out[i] = raw.getBit(i);
+    }
+  } else {
+    DISPATCH_INT_PT_TYPES(raw.pt_type, [&]() {
+      for (int64_t i = 0; i < words.numel(); ++i) {
+        out[i] = static_cast<uint64_t>(raw.get<ScalarT>(i)) & 1;
+      }
+    });
+  }
+  return toBooleanShares(words, 1);
+}
+
 NdArrayRef SpdzWiseIo::fromShares(const std::vector<NdArrayRef>& shares) const {
   SPU_ENFORCE(shares.size() == 3,
               "SPDZWISE reconstruction requires all parties");
   const auto& first = shares[0];
+  if (first.eltype().isa<BInputTy>() || first.eltype().isa<BOutputTy>()) {
+    const bool input = first.eltype().isa<BInputTy>();
+    const auto width = first.eltype().as<BShare>()->nbits();
+    const auto mask = BooleanMask(width);
+    for (size_t rank = 0; rank < 3; ++rank) {
+      const auto& type = shares[rank].eltype();
+      SPU_ENFORCE(shares[rank].shape() == first.shape(),
+                  "Boolean shape mismatch");
+      if (input) {
+        SPU_ENFORCE(type.isa<BInputTy>() && type.as<BInputTy>()->rank() == rank,
+                    "Boolean input rank/type mismatch");
+      } else {
+        SPU_ENFORCE(type.isa<BOutputTy>() &&
+                        type.as<BOutputTy>()->rank() == rank &&
+                        type.as<BOutputTy>()->binding() ==
+                            first.eltype().as<BOutputTy>()->binding(),
+                    "Boolean output binding/rank/type mismatch");
+      }
+      SPU_ENFORCE(type.as<BShare>()->nbits() == width,
+                  "Boolean width mismatch");
+    }
+    NdArrayRef result(makeType<RingTy>(FM64), first.shape());
+    const std::array<NdArrayView<RepShare>, 3> in = {
+        NdArrayView<RepShare>(shares[0]), NdArrayView<RepShare>(shares[1]),
+        NdArrayView<RepShare>(shares[2])};
+    auto* out = result.data<uint64_t>();
+    for (int64_t i = 0; i < first.numel(); ++i) {
+      out[i] = 0;
+      for (size_t rank = 0; rank < 3; ++rank) {
+        SPU_ENFORCE(((in[rank][i][0] | in[rank][i][1]) & ~mask) == 0,
+                    "noncanonical Boolean share");
+        SPU_ENFORCE(in[rank][i][1] == in[(rank + 1) % 3][i][0],
+                    "Boolean copies disagree");
+        out[i] ^= in[rank][i][0];
+      }
+    }
+    return result;
+  }
   const bool is_public = first.eltype().isa<Pub2kTy>();
   const bool is_input = first.eltype().isa<InputTy>();
   SPU_ENFORCE(is_public || is_input || first.eltype().isa<OutputTy>(),

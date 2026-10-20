@@ -77,6 +77,54 @@ class OutputTy final : public TypeImpl<OutputTy, TypeObject, Secret, AShare> {
   bool equals(const TypeObject* other) const override;
 };
 
+// Boolean words use XOR reconstruction; they must never enter F61 helpers.
+uint64_t BooleanMask(size_t nbits);
+
+class BInputTy final : public TypeImpl<BInputTy, TypeObject, Secret, BShare> {
+  size_t rank_ = 0;
+
+ public:
+  BInputTy() = default;
+  BInputTy(size_t rank, size_t nbits);
+  static std::string_view getStaticId() { return "spdzwise.BInputTy"; }
+  size_t size() const override { return sizeof(RepShare); }
+  size_t rank() const { return rank_; }
+  std::string toString() const override;
+  void fromString(std::string_view detail) override;
+  bool equals(const TypeObject* other) const override;
+};
+
+class BShrTy final : public TypeImpl<BShrTy, TypeObject, Secret, BShare> {
+  std::string session_;
+
+ public:
+  BShrTy() = default;
+  BShrTy(std::string session, size_t nbits);
+  static std::string_view getStaticId() { return "spdzwise.BShrTy"; }
+  size_t size() const override { return sizeof(RepShare); }
+  const std::string& session() const { return session_; }
+  bool isSerializable() const override { return false; }
+  std::string toString() const override;
+  void fromString(std::string_view detail) override;
+  bool equals(const TypeObject* other) const override;
+};
+
+class BOutputTy final : public TypeImpl<BOutputTy, TypeObject, Secret, BShare> {
+  size_t rank_ = 0;
+  std::string binding_;
+
+ public:
+  BOutputTy() = default;
+  BOutputTy(size_t rank, size_t nbits, std::string binding);
+  static std::string_view getStaticId() { return "spdzwise.BOutputTy"; }
+  size_t size() const override { return sizeof(RepShare); }
+  size_t rank() const { return rank_; }
+  const std::string& binding() const { return binding_; }
+  std::string toString() const override;
+  void fromString(std::string_view detail) override;
+  bool equals(const TypeObject* other) const override;
+};
+
 // Register external types only. Internal authentication cannot be deserialized.
 void registerTypes();
 

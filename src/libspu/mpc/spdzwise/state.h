@@ -13,6 +13,7 @@
 
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/protocol_session.h"
+#include "libspu/mpc/spdzwise/boolean.h"
 #include "libspu/mpc/spdzwise/type.h"
 
 namespace spu::mpc::spdzwise {
@@ -24,6 +25,8 @@ class SpdzWiseState final : public ProtocolSession {
   // The benchmark separates MAC generation from the final batched check.
   // Normal imports retain their mandatory immediate check.
   friend class SpdzWiseBenchmarkAccess;
+  friend class BooleanTestAccess;
+  std::unique_ptr<BooleanState> boolean_;
   std::shared_ptr<yacl::link::Context> link_;
   RuntimeConfig config_;
   std::string session_;
@@ -73,6 +76,15 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
   void check();
+  void finalize();
+  void validateBoolean(const NdArrayRef& value) const;
+  NdArrayRef publicBoolean(const NdArrayRef& value) const;
+  NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,
+                           bool is_and, bool public_rhs);
+  size_t pendingBooleanBits() const {
+    return boolean_ ? boolean_->pendingBits() : 0;
+  }
+  uint64_t booleanChecks() const { return boolean_ ? boolean_->checks() : 0; }
 };
 
 }  // namespace spu::mpc::spdzwise
