@@ -1,0 +1,33 @@
+{
+  "machine": "Ubuntu Server",
+  "program": "../circuit_bench.cc",
+  "bazel_workspace": "..",
+  "bazel_target": "//:circuit_bench",
+  "mode": "ring64",
+  "protocols": [
+    "aby3-ring64"
+  ],
+  "domain": "Z/(2^64)",
+  "storage": "FM64",
+  "circuit": "z[0,i]=x+i; z[l+1,i]=z[l,i]*(z[l,i]+y)",
+  "shapes": [
+    [
+      65536,
+      16
+    ]
+  ],
+  "multiplication_gates_per_shape": 1048576,
+  "secret_input_elements": 2,
+  "inputs_signed": [
+    1152921504606846968,
+    -13
+  ],
+  "warmups": 1,
+  "repetitions": 7,
+  "transport": "FactoryMem, three parties in one process",
+  "communication": "sent application payload bytes per party; sum across three parties is three times this value",
+  "total_timing": "input MAC + public expansion + circuit + verification; sum party phase maxima per repetition, then median",
+  "verification": null,
+  "original_directory": "benchmark-results/aby3-ring64-2026-10-20",
+  "provenance": "Original logs, data, summaries and metadata were moved without remeasurement. Paths and source hashes in metadata refer to the historical source tree. RESULTS.md and run.original.sh, where present, are historical records."
+}

@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-20",
+  "timezone": "Asia/Shanghai",
+  "git_commit": "919f43e627010be97738959dd19182a19229d24a",
+  "note": "Working tree includes the ring64 benchmark mode; hashes identify measured source and binary.",
+  "cpu": "2 x Intel Xeon Gold 6248R, 48 physical cores / 96 logical CPUs",
+  "os": "Ubuntu 24.04.3 LTS",
+  "compiler": "GCC 13.3.0",
+  "bazel": "7.7.1",
+  "build": "-c opt --jobs=16",
+  "transport": "3 parties, same process, FactoryMem",
+  "workers": 95,
+  "YACL_NUM_THREADS": null,
+  "warmups": 1,
+  "repetitions": 7,
+  "ring": "Z/(2^64)",
+  "inputs_signed": [
+    1152921504606846968,
+    -13
+  ],
+  "checked_outputs_last_iteration": 65536,
+  "sha256": {
+    "src/libspu/mpc/spdzwise/circuit_bench.cc": "b707ec855765b87bf4e34a0c778af9b2eefdbd966dd61e2debf8292483f99325",
+    "src/libspu/mpc/spdzwise/BUILD.bazel": "0bcf9c184b3a61817aa871326dd8381c5fb038058e0a8d6e227a9ea738a791c7",
+    "src/libspu/mpc/aby3/arithmetic.cc": "de24ca874aa92a66e8d00b63088c5411722eef418f72a0970f8ab7bcac82e9e0",
+    "src/libspu/mpc/aby3/io.cc": "7ce6e45c23157835662965aec6d8f355a2bee10d5bc6ea4607dc68de623aa365",
+    "src/bazel-bin/libspu/mpc/spdzwise/circuit_bench": "a50535cc65fdc10b7909f09f90a37ad698f4c922db0db5f2a12ef917fe406203"
+  }
+}

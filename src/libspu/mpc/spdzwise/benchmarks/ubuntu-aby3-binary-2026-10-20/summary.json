@@ -1,0 +1,14 @@
+{
+  "aggregation": "Median of the seven recorded per-iteration three-party maxima; no original per-party samples retained.",
+  "source": "iteration-maxima.csv, transcribed from recorded-readme.md",
+  "circuit_median_ms": 19.274208,
+  "circuit_min_ms": 19.085976,
+  "circuit_max_ms": 22.339784,
+  "verification_ms": 0,
+  "total_ms": 19.274208,
+  "circuit_bytes_per_party": 8388608,
+  "verification_bytes_per_party": 0,
+  "total_bytes_per_party": 8388608,
+  "total_bytes_all_parties": 25165824,
+  "throughput_million_uint64_and_per_second": 54.4030654852329
+}

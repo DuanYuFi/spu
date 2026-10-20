@@ -1,0 +1,92 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 4 targets (4 packages loaded, 0 targets configured)
+Analyzing: 4 targets (4 packages loaded, 0 targets configured)
+
+Analyzing: 4 targets (233 packages loaded, 8207 targets configured)
+
+Analyzing: 4 targets (289 packages loaded, 17971 targets configured)
+
+Analyzing: 4 targets (292 packages loaded, 18504 targets configured)
+[515 / 1,597] [Scann] Compiling googletest/src/gtest.cc
+Analyzing: 4 targets (295 packages loaded, 19008 targets configured)
+[1,578 / 1,597] Compiling googletest/src/gtest-test-part.cc; 0s processwrapper-sandbox ... (16 actions, 15 running)
+Analyzing: 4 targets (296 packages loaded, 19062 targets configured)
+[1,588 / 1,597] Compiling googletest/src/gtest.cc; 2s processwrapper-sandbox ... (6 actions running)
+Analyzing: 4 targets (297 packages loaded, 19724 targets configured)
+[1,590 / 1,597] Compiling googletest/src/gtest.cc; 3s processwrapper-sandbox ... (4 actions running)
+INFO: Analyzed 4 targets (298 packages loaded, 19847 targets configured).
+[1,628 / 1,800] Compiling googletest/src/gtest.cc; 4s processwrapper-sandbox ... (16 actions, 15 running)
+[1,631 / 1,800] Compiling googletest/src/gtest.cc; 5s processwrapper-sandbox ... (16 actions, 15 running)
+[1,638 / 1,800] Compiling googletest/src/gtest.cc; 6s processwrapper-sandbox ... (16 actions, 15 running)
+[1,647 / 1,800] Compiling libspu/mpc/spdzwise/protocol_test.cc; 7s processwrapper-sandbox ... (17 actions, 16 running)
+[1,648 / 1,800] Compiling libspu/mpc/spdzwise/protocol_test.cc; 8s processwrapper-sandbox ... (17 actions, 16 running)
+[1,653 / 1,801] Compiling libspu/mpc/spdzwise/protocol_test.cc; 9s processwrapper-sandbox ... (17 actions, 16 running)
+[1,658 / 1,802] Compiling libspu/mpc/spdzwise/protocol_test.cc; 11s processwrapper-sandbox ... (16 actions, 15 running)
+[1,662 / 1,802] Compiling libspu/mpc/spdzwise/protocol_test.cc; 12s processwrapper-sandbox ... (16 actions, 15 running)
+[1,664 / 1,802] Compiling libspu/mpc/spdzwise/protocol_test.cc; 13s processwrapper-sandbox ... (17 actions, 16 running)
+[1,665 / 1,802] Compiling libspu/mpc/spdzwise/protocol_test.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,670 / 1,803] Compiling libspu/mpc/securenn/boolean.cc; 12s processwrapper-sandbox ... (16 actions, 15 running)
+[1,674 / 1,803] Compiling libspu/mpc/securenn/boolean.cc; 14s processwrapper-sandbox ... (16 actions running)
+[1,679 / 1,803] 3 / 4 tests; Compiling libspu/mpc/experimental/swift/arithmetic.cc; 14s processwrapper-sandbox ... (17 actions, 16 running)
+[1,681 / 1,803] 3 / 4 tests; Compiling libspu/mpc/experimental/swift/arithmetic.cc; 16s processwrapper-sandbox ... (17 actions, 16 running)
+[1,685 / 1,803] 3 / 4 tests; Compiling libspu/mpc/experimental/swift/boolean.cc; 12s processwrapper-sandbox ... (17 actions, 16 running)
+[1,686 / 1,803] 3 / 4 tests; Compiling libspu/mpc/experimental/swift/boolean.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,689 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 11s processwrapper-sandbox ... (16 actions, 15 running)
+INFO: From Compiling simplest_ot_x86_asm/gfe4x.c:
+external/simplest-ot~/simplest_ot_x86_asm/gfe4x.c:167:49: warning: argument 2 of type 'const unsigned char[128]' with mismatched bound [-Warray-parameter=]
+  167 | void gfe4x_unpack(gfe4x *r, const unsigned char x[128]) {
+      |                             ~~~~~~~~~~~~~~~~~~~~^~~~~~
+In file included from external/simplest-ot~/simplest_ot_x86_asm/gfe4x.c:1:
+external/simplest-ot~/simplest_ot_x86_asm/gfe4x.h:14:28: note: previously declared as 'const unsigned char *'
+   14 | void gfe4x_unpack(gfe4x *, const unsigned char *);
+      |                            ^~~~~~~~~~~~~~~~~~~~~
+[1,693 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 12s processwrapper-sandbox ... (16 actions, 15 running)
+[1,699 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 13s processwrapper-sandbox ... (16 actions, 15 running)
+[1,745 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 15s processwrapper-sandbox ... (17 actions, 15 running)
+[1,749 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 16s processwrapper-sandbox ... (17 actions, 16 running)
+[1,751 / 1,803] 3 / 4 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 17s processwrapper-sandbox ... (16 actions, 15 running)
+[1,753 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 13s processwrapper-sandbox ... (16 actions, 15 running)
+[1,756 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,758 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 15s processwrapper-sandbox ... (14 actions running)
+[1,761 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 17s processwrapper-sandbox ... (11 actions running)
+[1,763 / 1,803] 3 / 4 tests; Foreign Cc - CMake: Building zstd; 9s processwrapper-sandbox ... (9 actions running)
+[1,764 / 1,803] 3 / 4 tests; Compiling libspu/kernel/hal/public_helper.cc; 11s processwrapper-sandbox ... (9 actions running)
+[1,767 / 1,803] 3 / 4 tests; Compiling libspu/kernel/hal/public_helper.cc; 13s processwrapper-sandbox ... (6 actions running)
+[1,770 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/yacl/ferret.cc; 11s processwrapper-sandbox ... (3 actions running)
+[1,771 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/ot/yacl/ferret.cc; 12s processwrapper-sandbox ... (2 actions running)
+[1,772 / 1,803] 3 / 4 tests; Foreign Cc - CMake: Building seal; 8s processwrapper-sandbox
+[1,773 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/rlwe/utils.cc; 0s processwrapper-sandbox ... (17 actions, 16 running)
+[1,774 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/rlwe/utils.cc; 3s processwrapper-sandbox ... (16 actions, 15 running)
+[1,777 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/rlwe/utils.cc; 5s processwrapper-sandbox ... (17 actions, 16 running)
+[1,778 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/rlwe/utils.cc; 6s processwrapper-sandbox ... (17 actions, 16 running)
+[1,779 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/rlwe/utils.cc; 7s processwrapper-sandbox ... (16 actions, 15 running)
+[1,781 / 1,803] 3 / 4 tests; Compiling libspu/mpc/semi2k/permute.cc; 8s processwrapper-sandbox ... (16 actions, 15 running)
+[1,784 / 1,803] 3 / 4 tests; Compiling libspu/mpc/semi2k/permute.cc; 10s processwrapper-sandbox ... (17 actions, 16 running)
+[1,786 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/arith/cheetah_dot.cc; 11s processwrapper-sandbox ... (16 actions running)
+[1,787 / 1,803] 3 / 4 tests; Compiling libspu/mpc/semi2k/arithmetic.cc; 14s processwrapper-sandbox ... (15 actions running)
+[1,789 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/arithmetic_semi2k.cc; 12s processwrapper-sandbox ... (13 actions running)
+[1,792 / 1,803] 3 / 4 tests; Compiling libspu/mpc/semi2k/conversion.cc; 13s processwrapper-sandbox ... (10 actions running)
+[1,793 / 1,803] 3 / 4 tests; Compiling libspu/mpc/semi2k/conversion.cc; 15s processwrapper-sandbox ... (9 actions running)
+[1,798 / 1,803] 3 / 4 tests; Compiling libspu/mpc/cheetah/boolean_semi2k.cc; 13s processwrapper-sandbox ... (4 actions running)
+[1,801 / 1,803] 3 / 4 tests; Compiling libspu/kernel/hal/ring_test.cc; 12s processwrapper-sandbox
+[1,802 / 1,803] 3 / 4 tests; [Prepa] Linking libspu/kernel/hal/ring_test
+INFO: Found 4 test targets...
+INFO: Elapsed time: 79.356s, Critical Path: 36.26s
+INFO: 232 processes: 35 internal, 197 processwrapper-sandbox.
+INFO: Build completed successfully, 232 total actions
+//libspu/kernel/hal:ring_test                                            PASSED in 0.0s
+//libspu/mpc:protocol_session_test                                       PASSED in 0.1s
+//libspu/mpc/spdzwise:io_test                                            PASSED in 0.1s
+//libspu/mpc/spdzwise:protocol_test                                      PASSED in 0.3s
+
+Executed 4 out of 4 tests: 4 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

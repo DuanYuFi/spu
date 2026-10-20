@@ -180,9 +180,9 @@ Remaining acceptance gates, in order:
 
 ## Benchmark
 
-The sole retained benchmark is `circuit_bench`: two secret F61 inputs and
-1,048,576 dependent arithmetic multiplication gates. The circuit definition,
-current measurements, timing boundaries and raw data are in
-[`benchmarks/2026-10-19-circuit/RESULTS.md`](benchmarks/2026-10-19-circuit/RESULTS.md).
+Benchmark sources, build targets, parameters and measurement archives are in
+[`benchmarks`](benchmarks/).
+The retained workloads cover the two-input F61 circuit, native ABY3 ring64
+arithmetic and a recorded native ABY3 Boolean AND measurement.
 For the project progress and complete test/build commands, see
 [`readme-malicious-ppml.md`](../../../../readme-malicious-ppml.md).

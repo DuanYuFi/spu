@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="4" failures="0" disabled="0" errors="0" time="0.005" timestamp="2026-10-19T14:10:57.195" name="AllTests">
+  <testsuite name="RingTest" tests="4" failures="0" disabled="0" skipped="0" errors="0" time="0.005" timestamp="2026-10-19T14:10:57.195">
+    <testcase name="ProtocolLessDispatchPreservesOperandOrder" file="libspu/kernel/hal/ring_test.cc" line="35" status="run" result="completed" time="0.002" timestamp="2026-10-19T14:10:57.195" classname="RingTest" />
+    <testcase name="LessWithoutProtocolHooksRetainsFallback" file="libspu/kernel/hal/ring_test.cc" line="50" status="run" result="completed" time="0." timestamp="2026-10-19T14:10:57.197" classname="RingTest" />
+    <testcase name="_bit_parity" file="libspu/kernel/hal/ring_test.cc" line="63" status="run" result="completed" time="0." timestamp="2026-10-19T14:10:57.197" classname="RingTest" />
+    <testcase name="_popcount" file="libspu/kernel/hal/ring_test.cc" line="83" status="run" result="completed" time="0.002" timestamp="2026-10-19T14:10:57.198" classname="RingTest" />
+  </testsuite>
+</testsuites>

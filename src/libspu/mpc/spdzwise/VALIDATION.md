@@ -1,7 +1,9 @@
 # Development validation record
 
-Date: 2026-10-19. The retained performance workload is exclusively the two-input
-F61 circuit in `benchmarks/2026-10-19-circuit/`. Commands for all checks below
+Date: 2026-10-19. This validation record covers the two-input F61 circuit, now
+archived in
+[`benchmarks/macbook-air-f61-2026-10-19/`](benchmarks/macbook-air-f61-2026-10-19/).
+Commands for all checks below
 are in the root [`readme-malicious-ppml.md`](../../../../readme-malicious-ppml.md).
 
 ## Current correctness checks
@@ -42,7 +44,9 @@ ran one warmup and seven measured repetitions for both protocols. All runs
 passed final-vector reconstruction; every party/sample passed input count,
 gate count, queue length, final-only check count and phase payload assertions.
 The summarizer validated all three data sets. Results and source fingerprints
-are retained only in `benchmarks/2026-10-19-circuit/`.
+are retained in [`benchmarks/macbook-air-f61-2026-10-19/`](benchmarks/macbook-air-f61-2026-10-19/).
+The target above is its historical name; its current build entry is
+`//:circuit_bench` in the independent `benchmarks` workspace.
 
 ## Outstanding acceptance
 

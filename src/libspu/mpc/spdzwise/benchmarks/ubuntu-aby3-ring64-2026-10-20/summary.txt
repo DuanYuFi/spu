@@ -1,0 +1,1 @@
+65536 16 aby3-ring64 {'input_mac_ms': 0.0, 'expand_ms': 0.775, 'circuit_ms': 39.344, 'mul_ms': 27.577, 'local_ms': 11.977, 'verify_ms': 0.0} core 39.344 total 40.096

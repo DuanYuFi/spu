@@ -1,0 +1,75 @@
+{
+  "date": "2026-10-19",
+  "timezone": "Asia/Shanghai",
+  "commit": "6cee77354011312a2d3c0e6629528f9587712642",
+  "platform": "Linux-6.18.52-x86_64-with-glibc2.39",
+  "cpu": "2 x Intel Xeon Gold 6248R, 48 physical cores / 96 logical CPUs",
+  "compiler": "GCC 13.3.0",
+  "bazel": "7.7.1",
+  "build": "-c opt --jobs=16 --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain",
+  "transport": "FactoryMem, three parties in one process",
+  "yacl_worker_threads": 95,
+  "warmups": 1,
+  "repetitions": 7,
+  "cpu_affinity": "not pinned",
+  "binary_sha256": "f187d24f5d1b026651fe852478d42e0e8601731509687c65944fc356cee4c002",
+  "native_tests": {
+    "mpc/spdzwise/protocol_test": {
+      "tests": "9",
+      "failures": "0",
+      "disabled": "0",
+      "errors": "0",
+      "time": "0.306",
+      "timestamp": "2026-10-19T14:10:02.108",
+      "name": "AllTests"
+    },
+    "mpc/spdzwise/io_test": {
+      "tests": "7",
+      "failures": "0",
+      "disabled": "0",
+      "errors": "0",
+      "time": "0.033",
+      "timestamp": "2026-10-19T14:10:01.626",
+      "name": "AllTests"
+    },
+    "mpc/protocol_session_test": {
+      "tests": "7",
+      "failures": "0",
+      "disabled": "0",
+      "errors": "0",
+      "time": "0.028",
+      "timestamp": "2026-10-19T14:10:01.531",
+      "name": "AllTests"
+    },
+    "kernel/hal/ring_test": {
+      "tests": "4",
+      "failures": "0",
+      "disabled": "0",
+      "errors": "0",
+      "time": "0.005",
+      "timestamp": "2026-10-19T14:10:57.195",
+      "name": "AllTests"
+    }
+  },
+  "files_sha256": {
+    "src/libspu/mpc/spdzwise/circuit_bench.cc": "3af903b4dc775ae31fd59d905f121e3272548c1a9eb38aadf11f86ce093d6bf5",
+    "src/libspu/mpc/spdzwise/io.cc": "c91d47db4ebcd67c941f64b6a8a0e417550074c31b0de8480c12fe713b4b9e12",
+    "src/libspu/mpc/spdzwise/io_test.cc": "3efded74c95a7ea3a5b8314367e7e9cc620b5515fec0d788917f781c5357b963",
+    "src/libspu/mpc/spdzwise/protocol.cc": "9d5d124df71e49b29a781014195e4777b59d5f70bde9473ee733f7b8856e7f54",
+    "src/libspu/mpc/spdzwise/protocol_test.cc": "390d4d44259e2a0d0fdf4ad858714a0941922903926598ed5896403fccad7ca6",
+    "src/libspu/mpc/spdzwise/replicated.cc": "b0b3f1e2482324840f8dbc53abd8349fd32649de7c508ce887177a74c0697ff0",
+    "src/libspu/mpc/spdzwise/state.cc": "c8d47db38a7fdb99ce43fd920c7d0d7c9d2bcdc61326db59489b18f8a92696f8",
+    "src/libspu/mpc/spdzwise/type.cc": "3473307973cb39a3612292170d9c27edbb16097f6cf1a9bb8281303cb7e887b2"
+  },
+  "results_sha256": {
+    "w1048576-d1.csv": "dfa5cec9a6bea8ad6eaf7bf38a5bbb44330067843bbdc51d664b44aecd2ffda6",
+    "w1048576-d1.log": "bc518b982957ea7ae9a575bfd8643c8a0eddb2b3693c92cddf837f50f5406fd4",
+    "w1048576-d1.stdout": "7a0dba00dd7a6f67cf2a8f5677927e27ec1b71d0d7239d4a2d440c9e8a72a2bf",
+    "w16384-d64.csv": "e983c35b453a8c77fc381f81b0923d95668d7b1ace970338574d9fc01ba97d34",
+    "w16384-d64.log": "b6a4854d64883b42de0586cc233cbda2d309bf19eb16e08374f2ab0315bc6aef",
+    "w16384-d64.stdout": "b66ea94389e6690b0d38542c478be25afef09cb99171e249a96527dc42929ca0",
+    "w65536-d16.csv": "9a0b71f48e88844035bb766c54afe3bcccb80e9e216103ee6c8785867b7868f0",
+    "w65536-d16.log": "e76facdff8c6a347c0a0ed2a7f2365cbabfb3e406d3cef0e8b8bcfe9a9b0f27a",
+    "w65536-d16.stdout": "0df886a9bcfea65daad9318adae570bf9c6c0a376d47595c0338f2c7099f29bd"
+  }
+}

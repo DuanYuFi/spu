@@ -1,0 +1,4 @@
+exports_files([
+    "grpc.patch",
+    "rules_foreign_cc.patch",
+])

@@ -1,0 +1,56 @@
+{
+  "aggregation": "For each repetition, take the maximum over three parties for each phase; summarize the seven maxima. Core and total sum phase maxima within each repetition before summarizing.",
+  "runs": [
+    {
+      "source": "w65536-d16.csv",
+      "protocol": "aby3-ring64",
+      "width": 65536,
+      "depth": 16,
+      "multiplication_gates": 1048576,
+      "secret_inputs": 2,
+      "checked_elements": 0,
+      "phases": {
+        "input_mac_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        },
+        "expand_ms": {
+          "median_ms": 0.77543,
+          "min_ms": 0.752582,
+          "max_ms": 1.198296
+        },
+        "circuit_ms": {
+          "median_ms": 39.343532,
+          "min_ms": 38.184214,
+          "max_ms": 43.641204
+        },
+        "mul_ms": {
+          "median_ms": 27.577314,
+          "min_ms": 26.54549,
+          "max_ms": 31.877592
+        },
+        "local_ms": {
+          "median_ms": 11.977376,
+          "min_ms": 11.614434,
+          "max_ms": 13.697069
+        },
+        "verify_ms": {
+          "median_ms": 0.0,
+          "min_ms": 0.0,
+          "max_ms": 0.0
+        }
+      },
+      "core": {
+        "median_ms": 39.343532,
+        "min_ms": 38.184214,
+        "max_ms": 43.641204
+      },
+      "all_timed_phases": {
+        "median_ms": 40.096114,
+        "min_ms": 38.946760999999995,
+        "max_ms": 44.8395
+      }
+    }
+  ]
+}

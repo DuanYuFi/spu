@@ -1,0 +1,6 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 0.024896 ms, circuit 0.091342 ms (mul 0.08252), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 0.008605 ms, circuit 0.033056 ms (mul 0.031224), verify 0 ms
+aby3-f61-adapter: checked all 8 outputs; 16 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.032863 ms, expand 0.0195 ms, circuit 0.044455 ms (mul 0.039168), verify 0.065344 ms
+spdzwise-f61 iteration 1: input MAC 0.019804 ms, expand 0.013703 ms, circuit 0.038464 ms (mul 0.034099), verify 0.067986 ms
+spdzwise-f61: checked all 8 outputs; 16 multiplication gates, two secret input elements

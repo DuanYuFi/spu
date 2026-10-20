@@ -1,0 +1,126 @@
+diff --git a/src/libspu/mpc/spdzwise/BUILD.bazel b/src/libspu/mpc/spdzwise/BUILD.bazel
+index 21300cfd..1f2e5c91 100644
+--- a/src/libspu/mpc/spdzwise/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/BUILD.bazel
+@@ -11,6 +11,7 @@ spu_cc_binary(
+         ":replicated",
+         ":state",
+         "//libspu/mpc:api",
++        "//libspu/mpc/aby3:io",
+         "//libspu/mpc/aby3:protocol",
+         "//libspu/mpc/common:prg_state",
+         "//libspu/mpc/common:pv2k",
+diff --git a/src/libspu/mpc/spdzwise/circuit_bench.cc b/src/libspu/mpc/spdzwise/circuit_bench.cc
+index 7f1c74d6..c0485ec0 100644
+--- a/src/libspu/mpc/spdzwise/circuit_bench.cc
++++ b/src/libspu/mpc/spdzwise/circuit_bench.cc
+@@ -11,6 +11,7 @@
+ #include <limits>
+ #include <mutex>
+ 
++#include "libspu/mpc/aby3/io.h"
+ #include "libspu/mpc/aby3/protocol.h"
+ #include "libspu/mpc/api.h"
+ #include "libspu/mpc/common/pv2k.h"
+@@ -123,13 +124,16 @@ struct Result {
+ 
+ void Run(bool wise, const std::vector<NdArrayRef>& inputs,
+          const NdArrayRef& plain, int64_t width, int64_t depth,
+-         int repetitions) {
++         int repetitions, bool native_ring = false) {
++  SPU_ENFORCE(!native_ring || !wise);
+   const auto gates = width * depth;
+   RuntimeConfig config;
+   config.protocol = wise ? SPDZWISE : ABY3;
+   config.field = FM64;
+   config.fxp_fraction_bits = 16;
+-  const std::string protocol = wise ? "spdzwise-f61" : "aby3-f61-adapter";
++  const std::string protocol = native_ring ? "aby3-ring64"
++                              : wise     ? "spdzwise-f61"
++                                         : "aby3-f61-adapter";
+   NdArrayRef offsets(makeType<Pub2kTy>(FM64), {width});
+   auto* offset_data = offsets.data<uint64_t>();
+   for (int64_t i = 0; i < width; ++i) {
+@@ -186,19 +190,22 @@ void Run(bool wise, const std::vector<NdArrayRef>& inputs,
+                         Index{2}, Strides{1});
+         z = dynDispatch(ctx.get(), "broadcast", z, Shape{width}, Axes{0});
+         y = dynDispatch(ctx.get(), "broadcast", y, Shape{width}, Axes{0});
+-        z = wise ? dynDispatch(ctx.get(), "add_ap", z, Value(offsets, DT_I64))
+-                 : Aby3AddOffsets(z, link->Rank());
++        z = (wise || native_ring)
++                ? dynDispatch(ctx.get(), "add_ap", z, Value(offsets, DT_I64))
++                : Aby3AddOffsets(z, link->Rank());
+       });
+       SPU_ENFORCE(!wise || SpdzWiseBenchmarkAccess::pending(state) == 2);
+       // z[0,i] = x+i; z[l+1,i] = z[l,i] * (z[l,i]+y).
+       // Every layer depends on the previous one, with width gates per layer.
+       phase(2, [&] {
+         for (int64_t layer = 0; layer < depth; ++layer) {
+-          const auto rhs =
+-              wise ? dynDispatch(ctx.get(), "add_aa", z, y) : Aby3Add(z, y);
++          const auto rhs = (wise || native_ring)
++                               ? dynDispatch(ctx.get(), "add_aa", z, y)
++                               : Aby3Add(z, y);
+           const auto start = Clock::now();
+-          z = wise ? dynDispatch(ctx.get(), "mul_aa", z, rhs)
+-                   : Aby3Multiply(ctx.get(), z, rhs);
++          z = (wise || native_ring)
++                  ? dynDispatch(ctx.get(), "mul_aa", z, rhs)
++                  : Aby3Multiply(ctx.get(), z, rhs);
+           sample.mul_ms += Milliseconds(start, Clock::now());
+         }
+       });
+@@ -252,14 +259,19 @@ void Run(bool wise, const std::vector<NdArrayRef>& inputs,
+     outputs.push_back(result.output);
+   }
+   SpdzWiseIo io(FM64, 3);
+-  const auto reconstructed = io.fromShares(outputs);
++  aby3::Aby3Io ring_io(FM64, 3);
++  const auto reconstructed = native_ring ? ring_io.fromShares(outputs)
++                                         : io.fromShares(outputs);
+   const NdArrayView<uint64_t> actual(reconstructed), p(plain);
+   for (int64_t i = 0; i < width; ++i) {
+-    auto expected = Add(FromRing(p[0]), i);
++    auto expected = native_ring ? p[0] + static_cast<uint64_t>(i)
++                                : Add(FromRing(p[0]), i);
+     for (int64_t layer = 0; layer < depth; ++layer) {
+-      expected = Mul(expected, Add(expected, FromRing(p[1])));
++      expected = native_ring ? expected * (expected + p[1])
++                             : Mul(expected, Add(expected, FromRing(p[1])));
+     }
+-    SPU_ENFORCE(actual[i] == ToRing(expected), "wrong circuit output at {}", i);
++    SPU_ENFORCE(actual[i] == (native_ring ? expected : ToRing(expected)),
++                "wrong circuit output at {}", i);
+   }
+   std::cerr << protocol << ": checked all " << width << " outputs; " << gates
+             << " multiplication gates, two secret input elements\n";
+@@ -290,6 +302,9 @@ int main(int argc, char** argv) {
+   const int64_t width = argc > 1 ? std::stoll(argv[1]) : 65536;
+   const int64_t depth = argc > 2 ? std::stoll(argv[2]) : 16;
+   const int repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
++  SPU_ENFORCE(argc <= 5 && (argc < 5 || std::string(argv[4]) == "ring64"),
++              "usage: circuit_bench [width depth repetitions [ring64]]");
++  const bool native_ring = argc == 5;
+   SPU_ENFORCE(width > 0 && depth > 0 && repetitions > 0 &&
+                   width <= static_cast<int64_t>(mpc::spdzwise::kHalfPrime) &&
+                   depth <= (std::numeric_limits<int64_t>::max() - 2) / width,
+@@ -299,12 +314,16 @@ int main(int argc, char** argv) {
+   p[0] = mpc::spdzwise::kHalfPrime - 7;
+   p[1] = static_cast<uint64_t>(int64_t{-13});
+   mpc::spdzwise::SpdzWiseIo io(FM64, 3);
+-  const auto inputs = io.toShares(plain, VIS_SECRET);
++  mpc::aby3::Aby3Io ring_io(FM64, 3);
++  const auto inputs = native_ring ? ring_io.toShares(plain, VIS_SECRET, -1)
++                                  : io.toShares(plain, VIS_SECRET);
+   std::cout << std::fixed << std::setprecision(6)
+             << "protocol,width,depth,gates,secret_inputs,iteration,rank,"
+                "input_mac_ms,expand_ms,circuit_ms,verify_ms,mul_ms,local_ms,"
+                "core_ms,total_ms,input_mac_bytes,expand_bytes,circuit_bytes,"
+                "verify_bytes,checks,pending\n";
+-  mpc::spdzwise::Run(false, inputs, plain, width, depth, repetitions);
+-  mpc::spdzwise::Run(true, inputs, plain, width, depth, repetitions);
++  mpc::spdzwise::Run(false, inputs, plain, width, depth, repetitions, native_ring);
++  if (!native_ring) {
++    mpc::spdzwise::Run(true, inputs, plain, width, depth, repetitions);
++  }
+ }

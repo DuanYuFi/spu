@@ -1,0 +1,2 @@
+# Reuse framework compiler/platform settings without editing framework files.
+import %workspace%/../../../../.bazelrc

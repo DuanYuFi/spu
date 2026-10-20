@@ -1,0 +1,6 @@
+1048576 1 aby3-f61-adapter {'input_mac_ms': 0.0, 'expand_ms': 11.533, 'circuit_ms': 44.084, 'mul_ms': 27.492, 'local_ms': 19.789, 'verify_ms': 0.0} core 44.084 total 55.579
+1048576 1 spdzwise-f61 {'input_mac_ms': 0.038, 'expand_ms': 46.506, 'circuit_ms': 118.092, 'mul_ms': 98.564, 'local_ms': 19.651, 'verify_ms': 17.22} core 134.626 total 181.233
+16384 64 aby3-f61-adapter {'input_mac_ms': 0.0, 'expand_ms': 0.194, 'circuit_ms': 59.536, 'mul_ms': 34.281, 'local_ms': 31.907, 'verify_ms': 0.0} core 59.536 total 59.762
+16384 64 spdzwise-f61 {'input_mac_ms': 0.034, 'expand_ms': 1.055, 'circuit_ms': 80.255, 'mul_ms': 64.243, 'local_ms': 19.592, 'verify_ms': 27.426} core 108.541 total 109.635
+65536 16 aby3-f61-adapter {'input_mac_ms': 0.0, 'expand_ms': 0.973, 'circuit_ms': 68.427, 'mul_ms': 45.439, 'local_ms': 24.909, 'verify_ms': 0.0} core 68.427 total 69.401
+65536 16 spdzwise-f61 {'input_mac_ms': 0.086, 'expand_ms': 3.041, 'circuit_ms': 97.42, 'mul_ms': 78.577, 'local_ms': 23.652, 'verify_ms': 25.447} core 122.867 total 125.854

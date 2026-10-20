@@ -32,48 +32,92 @@
 | `src/libspu/kernel/hal/ring.cc`、`src/libspu/kernel/hal/ring_test.cc` | `_less` 优先分派 `less_ss`、`less_sp`、`less_ps`，保留操作数顺序；增加分派和原有回退路径的正确性测试。 | 为域协议提供有符号比较入口，避免中心化域边界下直接用 `msb(x-y)` 判断大小；SPDZWISE 的实际比较内核仍待实现。 |
 | `src/libspu/mpc/BUILD.bazel` | 增加新文件 `protocol_session.h/.cc` 的库目标及 `protocol_session_test.cc` 测试目标。 | 为上述生命周期和输出门控提供可复用的协议会话接口及正确性验证。 |
 
-## 唯一 benchmark：两输入 F61 circuit
+## Benchmark
 
-保留 [`2026-10-19-circuit`](src/libspu/mpc/spdzwise/benchmarks/2026-10-19-circuit/) 所定义的电路和 `circuit_bench` target，移除其余本次开发产生的性能实验及独立乘法 benchmark。
+### Experimental Setup
 
-只分享两个秘密元素 x、y，然后执行：
+实验使用两台机器，均以三方线程在同一进程中运行：
+
+| 机器 | 硬件 | 系统与工具链 | 并行配置 |
+|---|---|---|---|
+| MacBook Air Laptop | Apple M2，8 核，24 GiB 内存 | macOS（未记录版本），Apple Clang 16，Bazel 7.7.1，`-c opt`（SPU `-O2`） | YACL 默认 7 个 worker，另有三方调用线程 |
+| Ubuntu Server | 双路 Xeon Gold 6248R，48 物理核 / 96 逻辑 CPU（内存容量未记录） | Ubuntu 24.04（10 月 20 日记录为 24.04.3 LTS），GCC 13.3.0，Bazel 7.7.1，`-c opt` | YACL 默认 95 个 worker；未绑定 CPU 或隔离其他负载 |
+
+通信均通过 `FactoryMem` 完成，属于本机内存通信，没有跨机链路、带宽限制或人工 RTT 设置；结果不代表 LAN/WAN 性能。通信量统一统计**每方发送的应用 payload**，不含传输协议开销；三方发送合计为表中数值的 3 倍。
+
+对比三种协议配置：
+
+| 协议 | Domain | 说明 |
+|---|---|---|
+| ABY3-ring64 | Ring：`Z/(2^64)`，FM64 存储 | SPU 原生半诚实 ABY3，调用原生算术内核；无 MAC 或恶意安全 verification。 |
+| ABY3-F61 | Field：`F_p`，`p=2^61-1`，FM64 存储 | F61 适配版，与 SPDZwise 共用域乘法和 PRSS 底层；作为相同域上的半诚实对照。 |
+| SPDZwise-F61 | Field：`F_p`，`p=2^61-1`，FM64 存储 | 带 MAC 的算术原型，在电路末尾执行一次批量 verification；完整恶意安全 PPML 后端尚未验收。 |
+
+Ring64 用于测量原生 ABY3；F61 采用可用 64 位字存储的 Mersenne 素数域，用于比较同一 Field 上的 ABY3 与 SPDZwise。**FM64 是存储宽度，不代表 F61 按模 `2^64` 运算**。算术实验均为整数电路，不包含定点截断。Binary 使用原生 ABY3 Boolean `and_bb`，在 `GF(2)` 上逐位计算，每个 FM64 字打包 64 个比特。
+
+每组预热 1 次、测量 7 次：每轮各阶段取三方最大耗时，再取七轮中位数。总耗时先逐轮相加再取中位数，各列中位数不要求严格相加。计时排除初始分享、协议/key/PRSS 初始化、输入副本检查、输出重构和明文核对；内核执行期间的 PRSS 采样计入电路耗时。
+
+### Circuit
+
+固定 `W×D=1,048,576`，使用三种宽度与深度配置；每层的输出依赖上一层：
+
+| 电路 | 宽度 W | 深度 D | 算术秘密乘法门数 |
+|---|---:|---:|---:|
+| C1：单层宽电路 | 1,048,576 | 1 | 1,048,576 |
+| C2：默认电路 | 65,536 | 16 | 1,048,576 |
+| C3：深电路 | 16,384 | 64 | 1,048,576 |
+
+算术电路只分享两个秘密标量 `x=2^60-8`、`y=-13`，随后公开展开，每个乘法门前有一次秘密加法：
 
 ```text
 z[0,i]   = x + i                 (i = 0,...,W-1)
 z[l+1,i] = z[l,i] * (z[l,i] + y) (l = 0,...,D-1)
 ```
 
-默认 W=65,536、D=16，共 1,048,576 个秘密乘法门和同等数量的加法。每层依赖上一层；只对两个标量做输入 MAC，广播/公开偏移为局部线性操作。每轮断言电路结束前不发生 verification，队列包含 1,048,578 条记录，末尾只做一次非空检查，导出不增加非空检查。正常协议导入路径仍保留其立即检查，不采用 benchmark 的延迟输入检查入口。
+Ring64 与 F61 分别按各自模数计算。SPDZwise 仅对两个输入生成 MAC，公开展开为局部线性操作；所有乘法结果延迟至末尾统一检查，共 `W×D+2=1,048,578` 条记录。普通协议的输入导入仍保留立即检查；此处延迟检查是 benchmark 的专用计时入口。
 
-ABY3 对照是 **F61 适配版**，与 SPDZwise 共用 F61 replicated 乘法和 PRSS 底层；它不代表原生环 ABY3 或完整 PPML 应用的性能。SPDZwise 承担 MAC 和最终验证开销，ABY3 对照不提供这些检查。
+Binary 已测量 C2 的 AND 电路：预先分享 `D+1=17` 个 uint64 输入向量，每层一次完整向量 `and_bb` 调用，无 tiling：
 
-## 与 ABY3 的效率对比
+```text
+z[0,i]   = x[0,i]
+z[l+1,i] = z[l,i] & x[l+1,i]     (l = 0,...,D-1)
+```
 
-环境：Apple M2，24 GiB 内存、8 核，三方线程同进程 `FactoryMem`；Apple Clang 16、Bazel 7.7.1、`-c opt`，YACL 默认 7 个 worker。每组预热一次、记录七次；每阶段先取三方最大耗时，再取七轮中位数。总时间先逐轮相加后取中位数，各列中位数不要求严格相加，单位 ms。
+共 1,048,576 个 uint64 AND，等价于 67,108,864 个单比特 AND。算术实验核对最后一轮全部输出；binary 原记录为每次预热和测量均核对全部 65,536 个输出，均通过。
 
-| 协议 | 输入 MAC | 公开展开 | 电路计算 | 其中乘法 | 最终 verification | 电路+验证 | 全部计时阶段 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| ABY3-F61 适配版 | 0.000 | 0.319 | 24.572 | 15.933 | 0.000 | 24.572 | 24.903 |
-| SPDZwise-F61 | 0.018 | 2.183 | 58.387 | 33.259 | 11.495 | 69.395 | 71.595 |
+### Arithmetic Benchmark
 
-默认电路中，SPDZwise 的乘法内核约为 ABY3 的 **2.09 倍**；电路计算加验证约为 **2.82 倍**，全部计时阶段约为 **2.87 倍**。初始分享、PRSS/key 建立、输入副本检查、导出及重构排除；输入 MAC、公开展开、计算、最终验证分别计时。三组形状均检查最后一轮全部输出。本机内存通信结果不用于推断跨机网络或完整 PPML 性能。
+下表汇总全部算术测量。每个结果单元格为 **耗时 ms / 每方发送 B**。电路计算包含逐层加法和乘法；Verification 单独列出。总计沿用原始“全部计时阶段”，包含两个输入的 MAC、公开展开、电路计算与 Verification；其中 SPDZwise 输入 MAC 另发送 16 B，公开展开不通信。初始化等排除项见上文。ABY3 的 Verification 为 0，表示没有该检查阶段。
 
-每方电路发送 payload：ABY3 为 8,388,608 B，SPDZwise 为 16,777,216 B；SPDZwise 另有输入 MAC 16 B、verification 64 B，公开展开不通信。详细三组结果、原始数据及源码指纹见 [RESULTS.md](src/libspu/mpc/spdzwise/benchmarks/2026-10-19-circuit/RESULTS.md)。
+| 机器 | 协议 | 电路 | Domain | 电路计算（ms / B） | Verification（ms / B） | 总计（ms / B） |
+|---|---|---|---|---:|---:|---:|
+| Laptop | ABY3-F61 | C1 | F61 | 27.642 / 8,388,608 | 0.000 / 0 | 34.360 / 8,388,608 |
+| Laptop | SPDZwise-F61 | C1 | F61 | 64.085 / 16,777,216 | 11.099 / 64 | 109.972 / 16,777,296 |
+| Laptop | ABY3-F61 | C2 | F61 | 24.572 / 8,388,608 | 0.000 / 0 | 24.903 / 8,388,608 |
+| Laptop | SPDZwise-F61 | C2 | F61 | 58.387 / 16,777,216 | 11.495 / 64 | 71.595 / 16,777,296 |
+| Laptop | ABY3-F61 | C3 | F61 | 20.224 / 8,388,608 | 0.000 / 0 | 20.310 / 8,388,608 |
+| Laptop | SPDZwise-F61 | C3 | F61 | 52.476 / 16,777,216 | 10.794 / 64 | 63.739 / 16,777,296 |
+| Server | ABY3-F61 | C1 | F61 | 44.084 / 8,388,608 | 0.000 / 0 | 55.579 / 8,388,608 |
+| Server | SPDZwise-F61 | C1 | F61 | 118.092 / 16,777,216 | 17.220 / 64 | 181.233 / 16,777,296 |
+| Server | ABY3-F61 | C2 | F61 | 68.427 / 8,388,608 | 0.000 / 0 | 69.401 / 8,388,608 |
+| Server | SPDZwise-F61 | C2 | F61 | 97.420 / 16,777,216 | 25.447 / 64 | 125.854 / 16,777,296 |
+| Server | ABY3-F61 | C3 | F61 | 59.536 / 8,388,608 | 0.000 / 0 | 59.762 / 8,388,608 |
+| Server | SPDZwise-F61 | C3 | F61 | 80.255 / 16,777,216 | 27.426 / 64 | 109.635 / 16,777,296 |
+| Server | ABY3-ring64 | C2 | Ring64 | 39.344 / 8,388,608 | 0.000 / 0 | 40.096 / 8,388,608 |
 
-### Linux / Xeon 复测（2026-10-19）
+原始数据与基本参数分别保存在 [Laptop F61](src/libspu/mpc/spdzwise/benchmarks/macbook-air-f61-2026-10-19/)、[Server F61](src/libspu/mpc/spdzwise/benchmarks/ubuntu-f61-2026-10-19/) 和 [Server Ring64](src/libspu/mpc/spdzwise/benchmarks/ubuntu-aby3-ring64-2026-10-20/)。各目录保留逐方逐轮数据、乘法内核及输入 MAC / 展开耗时、统计结果和原始环境/源码指纹。两台机器的架构、线程数及调度环境不同，不能仅按表中耗时作单一硬件因素归因。
 
-Ubuntu 24.04，双路 Xeon Gold 6248R（48 物理核 / 96 逻辑 CPU），GCC 13.3.0、Bazel 7.7.1、`-c opt`；三方同进程 `FactoryMem`，YACL 默认 95 个 worker，未绑定 CPU 或隔离其他负载。沿用上述计时边界和统计口径，每组预热一次、测量七次，均为 1,048,576 个乘法门。以下为中位数，单位 ms。
+### Binary Benchmark
 
-| 宽度 × 深度 | 协议 | 电路计算 | 其中乘法 | 最终验证 | 电路+验证 | 全部计时阶段 |
-|---|---|---:|---:|---:|---:|---:|
-| 65,536 × 16 | ABY3-F61 | 68.427 | 45.439 | 0.000 | 68.427 | 69.401 |
-| 65,536 × 16 | SPDZwise-F61 | 97.420 | 78.577 | 25.447 | 122.867 | 125.854 |
-| 1,048,576 × 1 | ABY3-F61 | 44.084 | 27.492 | 0.000 | 44.084 | 55.579 |
-| 1,048,576 × 1 | SPDZwise-F61 | 118.092 | 98.564 | 17.220 | 134.626 | 181.233 |
-| 16,384 × 64 | ABY3-F61 | 59.536 | 34.281 | 0.000 | 59.536 | 59.762 |
-| 16,384 × 64 | SPDZwise-F61 | 80.255 | 64.243 | 27.426 | 108.541 | 109.635 |
+使用同一统计和通信口径；输入分享不计时，无公开展开或 MAC 阶段，总计即电路计算。
 
-默认电路的输入 MAC / 公开展开分别为 ABY3 的 0 / 0.973 ms、SPDZwise 的 0.086 / 3.041 ms；SPDZwise 电路计算为 ABY3 的 **1.42 倍**，计算加验证为 **1.80 倍**。value/MAC 乘法合并为同一批次，通信量翻倍但轮数不翻倍；耗时比例还受批次形状及调度影响，不能视为固定低于两倍，也不与 M2 结果直接作硬件归因比较。
+| 机器 | 协议 | 电路 | Domain | 电路计算（ms / B） | Verification（ms / B） | 总计（ms / B） |
+|---|---|---|---|---:|---:|---:|
+| Server | ABY3 Boolean | C2（AND） | GF(2)，64-bit 打包 | 19.274 / 8,388,608 | 0.000 / 0 | 19.274 / 8,388,608 |
+
+七轮耗时范围为 19.086–22.340 ms，吞吐量为 54.403 M uint64 AND/s，三方发送合计 25,165,824 B（24 MiB）。目前没有 Laptop 或 SPDZwise binary 测量。
+
+[Binary 实验目录](src/libspu/mpc/spdzwise/benchmarks/ubuntu-aby3-binary-2026-10-20/) 保存原文记录、七轮三方最大耗时和基本参数。原三方逐轮日志、临时源码及构建产物此前已被清理，因此这些最大值是从已记录文档转存的，并非恢复的三方原始日志。以上汇总沿用已有实验数据，未重跑完整规模的实验。
 
 ## 构建准备
 
@@ -114,30 +158,4 @@ python3 src/libspu/mpc/spdzwise/reference_test.py
 
 ## 运行 benchmark
 
-在前述 `src` 目录和 shell 中运行：
-
-```sh
-bazel_spu build -c opt //libspu/mpc/spdzwise:circuit_bench
-
-# 参数：宽度 W、深度 D、记录轮数；每个进程另做一轮预热。
-./bazel-bin/libspu/mpc/spdzwise/circuit_bench 65536 16 7
-./bazel-bin/libspu/mpc/spdzwise/circuit_bench 1048576 1 7
-./bazel-bin/libspu/mpc/spdzwise/circuit_bench 16384 64 7
-```
-
-如需覆盖目录中的原始数据并重新统计七轮结果：
-
-```sh
-(
-  out=libspu/mpc/spdzwise/benchmarks/2026-10-19-circuit
-  for shape in 65536:16 1048576:1 16384:64; do
-    width=${shape%:*}
-    depth=${shape#*:}
-    ./bazel-bin/libspu/mpc/spdzwise/circuit_bench "$width" "$depth" 7 \
-      > "$out/w$width-d$depth.stdout" 2> "$out/w$width-d$depth.log" || exit 1
-  done
-  python3 "$out/summarize.py"
-)
-```
-
-统计脚本验证三方样本、门数、输入数、队列长度、检查次数和各阶段 payload，生成 `.csv` 和 `summary.json`。重新测量后还需更新结果文档和 `metadata.json` 中的指纹。
+实验源码、Bazel 构建目标、数据和基本参数统一位于 [`src/libspu/mpc/spdzwise/benchmarks`](src/libspu/mpc/spdzwise/benchmarks/)。简要构建与运行入口见该目录的 [README](src/libspu/mpc/spdzwise/benchmarks/README.md)；重新测量使用新输出目录，保留已归档数据。
