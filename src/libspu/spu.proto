@@ -343,6 +343,9 @@ message RuntimeConfig {
   // low probability, which lead to huge calculation error.
   bool trunc_allow_msb_error = 73;
 
+  // SPDZ-wise arithmetic domain; both domains currently require FM64.
+  SpdzWiseConfig spdzwise_config = 74;
+
   /// System related configurations start.
 
   // Experimental: DO NOT USE
@@ -376,6 +379,18 @@ message RuntimeConfig {
   // whether to apply the clamping upper bound
   // default to disable it
   bool experimental_exp_prime_enable_upper_bound = 109;
+}
+
+message SpdzWiseConfig {
+  enum Domain {
+    // Mersenne prime field p = 2^61 - 1, stored in FM64. Default for compatibility.
+    FIELD = 0;
+    // Ring modulo 2^64. Reserved; arithmetic and IO are not implemented yet.
+    RING = 1;
+  }
+
+  // Selects arithmetic, conversion and PPML kernels. Boolean kernels use ABFL.
+  Domain domain = 1;
 }
 
 message ClientSSLConfig {

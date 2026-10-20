@@ -59,6 +59,15 @@ spu_cc_library(
     ],
 )
 
+spu_cc_test(
+    name = "config_test",
+    srcs = ["config_test.cc"],
+    deps = [
+        ":config",
+        "//libspu:spu_cc_proto",
+    ],
+)
+
 spu_cc_library(
     name = "encoding",
     srcs = ["encoding.cc"],

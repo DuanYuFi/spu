@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "libspu/mpc/api.h"
+#include "libspu/mpc/spdzwise/arithmetic.h"
 #include "libspu/mpc/spdzwise/io.h"
 #include "libspu/mpc/spdzwise/replicated.h"
 #include "libspu/mpc/spdzwise/state.h"
@@ -60,6 +61,57 @@ TEST(SpdzWiseProtocol, PrssCopiesStayAlignedAcrossOddAndEmptyBatches) {
       }
     }
   }
+}
+
+TEST(SpdzWiseProtocol, FieldRouteUsesF61MultiplicationAndSharedBooleanKernels) {
+  auto config = Config();
+  config.spdzwise_config.domain = SpdzWiseConfig::FIELD;
+  SpdzWiseIo io(FM64, 3);
+  const auto lhs = io.toShares(Matrix({1}, {kHalfPrime}), VIS_SECRET);
+  const auto rhs = io.toShares(Matrix({1}, {2}), VIS_SECRET);
+  const auto outputs = utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(config, link);
+    registerArithmeticPrototype(&ctx, link);
+    EXPECT_NE(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
+              nullptr);
+    EXPECT_NE(dynamic_cast<field::MulAP*>(ctx.prot()->getKernel("mul_ap")),
+              nullptr);
+    EXPECT_NE(dynamic_cast<field::MatmulAA*>(ctx.prot()->getKernel("mmul_aa")),
+              nullptr);
+    EXPECT_NE(dynamic_cast<field::MatmulAP*>(ctx.prot()->getKernel("mmul_ap")),
+              nullptr);
+    EXPECT_TRUE(ctx.hasKernel("and_bb"));
+    EXPECT_TRUE(ctx.hasKernel("xor_bb"));
+    EXPECT_FALSE(ctx.hasKernel("a2b"));
+    EXPECT_FALSE(ctx.hasKernel("b2a"));
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    Value a(lhs[link->Rank()], DT_I64), b(rhs[link->Rank()], DT_I64);
+    ProtocolRunGuard guard(&ctx);
+    state->begin(ExecutableProto("field-route", {"a", "b"}, {"c"}, "test"),
+                 {a, b});
+    a = import_s(&ctx, a);
+    b = import_s(&ctx, b);
+    auto result = dynDispatch(&ctx, "mul_aa", a, b);
+    state->prepareOutputs(&ctx, {"c"}, {result});
+    guard.commit();
+    return state->exportedValue("c").data();
+  });
+  // 2 * ((p - 1) / 2) = p - 1 represents -1 in F61, unlike ring64.
+  EXPECT_EQ(NdArrayView<uint64_t>(io.fromShares(outputs))[0], uint64_t{0} - 1);
+}
+
+TEST(SpdzWiseProtocol, RingRouteRemainsEmptyAndCannotUseFieldState) {
+  auto config = Config();
+  config.spdzwise_config.domain = SpdzWiseConfig::RING;
+  SPUContext ctx(config, nullptr);
+  EXPECT_ANY_THROW(registerArithmeticPrototype(&ctx, nullptr));
+  EXPECT_FALSE(ctx.hasKernel("mul_aa"));
+  EXPECT_FALSE(ctx.hasKernel("and_bb"));
+  EXPECT_FALSE(ctx.prot()->hasState(ProtocolSession::kBindName()));
+  EXPECT_ANY_THROW(registerFieldArithmeticPrototype(&ctx, nullptr));
+  utils::simulate(3, [&](const auto& link) {
+    EXPECT_ANY_THROW(SpdzWiseState(config, link));
+  });
 }
 
 TEST(SpdzWiseProtocol, MultiplicationPayloadAndConstantSizeVerification) {

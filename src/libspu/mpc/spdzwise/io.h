@@ -15,6 +15,7 @@
 
 namespace spu::mpc::spdzwise {
 
+// F61 arithmetic IO and shared ABFL Boolean IO. Ring IO is reserved separately.
 class SpdzWiseIo final : public BaseIo {
  public:
   SpdzWiseIo(FieldType field, size_t parties);
@@ -29,6 +30,7 @@ class SpdzWiseIo final : public BaseIo {
   NdArrayRef fromShares(const std::vector<NdArrayRef>& shares) const override;
 };
 
-std::unique_ptr<SpdzWiseIo> makeSpdzWiseIo(FieldType field, size_t parties);
+std::unique_ptr<IoInterface> makeSpdzWiseIo(const RuntimeConfig& config,
+                                            size_t parties);
 
 }  // namespace spu::mpc::spdzwise

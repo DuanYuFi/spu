@@ -205,6 +205,17 @@ class CheetahConfig:
         self.enable_mul_lsb_error = enable_mul_lsb_error
         self.ot_kind = ot_kind
 
+class SpdzWiseConfig:
+    class Domain(enum.IntEnum):
+        FIELD = 0
+        RING = 1
+
+    FIELD: Domain
+    RING: Domain
+    domain: Domain
+
+    def __init__(self): ...
+
 class RuntimeConfig:
     class SortMethod(enum.IntEnum):
         SORT_DEFAULT = 0
@@ -262,6 +273,7 @@ class RuntimeConfig:
     beaver_type: BeaverType
     ttp_beaver_config: TTPBeaverConfig
     cheetah_2pc_config: CheetahConfig
+    spdzwise_config: SpdzWiseConfig
     trunc_allow_msb_error: bool
     experimental_disable_mmul_split: bool
     experimental_enable_inter_op_par: bool

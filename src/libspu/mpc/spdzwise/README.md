@@ -1,10 +1,49 @@
-# SPDZ-wise F61 development status
+# SPDZ-wise development status
 
 This directory is **not a completed malicious PPML backend**. The runtime
 factory deliberately rejects `SPDZWISE` execution until the acceptance gates
 below pass. There is no fallback to ABY3, a trusted dealer, or plaintext
 execution. `registerArithmeticPrototype()` is an explicit C++ development
 entrypoint, not a production configuration.
+
+## Arithmetic domain configuration and source layout
+
+The protocol name remains `SPDZWISE` in both domains. Configure the arithmetic
+domain independently from the SPU word size:
+
+```json
+{
+  "protocol": "SPDZWISE",
+  "field": "FM64",
+  "spdzwise_config": {"domain": "FIELD"}
+}
+```
+
+`FIELD` (the default, including legacy configurations) selects the Mersenne
+prime `p = 2^61 - 1` with FM64 storage. `RING` reserves arithmetic modulo `2^64`;
+its registration and IO entrypoints currently throw `not implemented` before
+installing kernels or constructing field IO. Both domains reject FM32 and
+FM128. Neither setting enables the production runtime factory.
+
+In Python, use `config.spdzwise_config.domain = spu.SpdzWiseConfig.FIELD`
+or `spu.SpdzWiseConfig.RING`. JSON/protobuf serialization and config copies
+preserve the domain, which is also included in execution agreement.
+
+- `protocol.h/.cc`: configuration-based domain dispatch, lifecycle and common
+  registration; explicit field and reserved ring prototype entrypoints.
+- `arithmetic.h/.cc`: F61 arithmetic operations and `spdzwise::field` kernels,
+  including `field::MulAA`, `field::MulAP` and field matrix multiplication.
+- `boolean.h/.cc`: shared ABFL implementation and Boolean kernel adapters.
+- `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
+  registers no conversions. Ring conversions and domain-specific PPML kernels
+  (truncation/comparison) remain future work.
+- `state.h/.cc`: checked session lifecycle, field authentication and checks.
+  The current state rejects ring configurations.
+
+The source files share one implementation library because the kernels and
+checked session depend on each other. The `:boolean` build label remains
+available as an alias. Existing F61/ABFL development calls continue to use
+`registerArithmeticPrototype()`, which now selects the configured domain.
 
 ## Baseline and scope
 

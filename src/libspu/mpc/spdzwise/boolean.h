@@ -17,6 +17,7 @@
 #include "yacl/base/buffer.h"
 
 #include "libspu/mpc/common/prg_state.h"
+#include "libspu/mpc/kernel.h"
 #include "libspu/mpc/spdzwise/type.h"
 
 namespace spu::mpc::spdzwise {
@@ -81,5 +82,8 @@ class BooleanState {
                    const std::string& session);
   void check();
 };
+
+// Shared ABFL kernel registration, independent of the arithmetic domain.
+void registerBooleanKernels(Object* object);
 
 }  // namespace spu::mpc::spdzwise

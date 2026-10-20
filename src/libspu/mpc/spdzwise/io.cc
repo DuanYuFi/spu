@@ -15,6 +15,7 @@
 
 #include "yacl/crypto/rand/rand.h"
 
+#include "libspu/core/config.h"
 #include "libspu/mpc/common/pv2k.h"
 #include "libspu/mpc/spdzwise/type.h"
 
@@ -211,8 +212,19 @@ NdArrayRef SpdzWiseIo::fromShares(const std::vector<NdArrayRef>& shares) const {
   return result;
 }
 
-std::unique_ptr<SpdzWiseIo> makeSpdzWiseIo(FieldType field, size_t parties) {
-  return std::make_unique<SpdzWiseIo>(field, parties);
+std::unique_ptr<IoInterface> makeSpdzWiseIo(const RuntimeConfig& config,
+                                            size_t parties) {
+  const auto conf = makeFullRuntimeConfig(config);
+  switch (conf.spdzwise_config.domain) {
+    case SpdzWiseConfig::FIELD:
+      return std::make_unique<SpdzWiseIo>(conf.field, parties);
+    case SpdzWiseConfig::RING:
+      // TODO: construct ring IO without interpreting ring shares as F61.
+      SPU_THROW("SPDZWISE RING IO is not implemented");
+    default:
+      SPU_THROW("Invalid SPDZWISE arithmetic domain {}",
+                static_cast<int>(conf.spdzwise_config.domain));
+  }
 }
 
 }  // namespace spu::mpc::spdzwise

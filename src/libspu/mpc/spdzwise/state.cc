@@ -43,7 +43,6 @@ void Append(std::string& out, std::string_view value) {
 }
 
 RepShare Values(const AuthShare& x) { return {x[0], x[1]}; }
-RepShare Macs(const AuthShare& x) { return {x[2], x[3]}; }
 
 void RequirePublic(const NdArrayRef& x) {
   SPU_ENFORCE(x.eltype() == makeType<Pub2kTy>(FM64),
@@ -58,6 +57,8 @@ SpdzWiseState::SpdzWiseState(const RuntimeConfig& config,
   SPU_ENFORCE(link_ && link_->WorldSize() == 3,
               "SPDZWISE requires three parties");
   SPU_ENFORCE(config.field == FM64, "SPDZWISE requires FM64");
+  SPU_ENFORCE(config.spdzwise_config.domain == SpdzWiseConfig::FIELD,
+              "SPDZWISE F61 state requires domain FIELD");
   SPU_ENFORCE(!config.experimental_enable_inter_op_par &&
                   !config.experimental_enable_intra_op_par,
               "SPDZWISE context parallelism is not supported");
@@ -387,220 +388,11 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
   }
 }
 
-NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
-  requireRunning();
-  RequirePublic(value);
-  NdArrayRef result(makeType<AShrTy>(session_), value.shape());
-  const NdArrayView<uint64_t> in(value);
-  NdArrayView<AuthShare> out(result);
-  for (int64_t i = 0; i < value.numel(); ++i) {
-    const auto x = FromRing(in[i]);
-    out[i] = {rank() == 0 ? x : 0, rank() == 2 ? x : 0, Mul(key_[0], x),
-              Mul(key_[1], x)};
-  }
-  return result;
-}
-
-NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
-  validateInternal(x);
-  validateInternal(y);
-  SPU_ENFORCE(x.shape() == y.shape(), "add shape mismatch");
-  NdArrayRef result(x.eltype(), x.shape());
-  const NdArrayView<AuthShare> a(x), b(y);
-  NdArrayView<AuthShare> out(result);
-  for (int64_t i = 0; i < x.numel(); ++i) {
-    for (size_t c = 0; c < 4; ++c) {
-      out[i][c] = Add(a[i][c], b[i][c]);
-    }
-  }
-  return result;
-}
-
-NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
-  validateInternal(x);
-  NdArrayRef result(x.eltype(), x.shape());
-  const NdArrayView<AuthShare> in(x);
-  NdArrayView<AuthShare> out(result);
-  for (int64_t i = 0; i < x.numel(); ++i) {
-    for (size_t c = 0; c < 4; ++c) {
-      out[i][c] = Neg(in[i][c]);
-    }
-  }
-  return result;
-}
-
-NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
-                                         const NdArrayRef& y) const {
-  validateInternal(x);
-  RequirePublic(y);
-  SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
-  NdArrayRef result(x.eltype(), x.shape());
-  const NdArrayView<AuthShare> a(x);
-  const NdArrayView<uint64_t> b(y);
-  NdArrayView<AuthShare> out(result);
-  for (int64_t i = 0; i < x.numel(); ++i) {
-    for (size_t c = 0; c < 4; ++c) {
-      out[i][c] = Mul(a[i][c], FromRing(b[i]));
-    }
-  }
-  return result;
-}
-
-NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
-  validateInternal(x);
-  validateInternal(y);
-  SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
-  const NdArrayView<AuthShare> a(x), b(y);
-  NdArrayRef result(x.eltype(), x.shape());
-  auto* out = result.data<AuthShare>();
-  MultiplyF61(
-      mask_prg_.get(), link_, 2 * x.numel(),
-      [&](int64_t i) { return i % 2 == 0 ? Values(a[i / 2]) : Macs(a[i / 2]); },
-      [&](int64_t i) { return Values(b[i / 2]); },
-      [&](int64_t i, const RepShare& product) {
-        out[i / 2][2 * (i % 2)] = product[0];
-        out[i / 2][2 * (i % 2) + 1] = product[1];
-      },
-      tag("multiply"));
-  if (x.numel() != 0) {
-    pending_.insert(pending_.end(), out, out + x.numel());
-  }
-  return result;
-}
-
-NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
-                                 bool public_rhs) {
-  validateInternal(x);
-  if (public_rhs) {
-    RequirePublic(y);
-  } else {
-    validateInternal(y);
-  }
-  SPU_ENFORCE(x.ndim() == 2 && y.ndim() == 2 && x.shape()[1] == y.shape()[0],
-              "matmul requires compatible matrices");
-  const int64_t m = x.shape()[0], k = x.shape()[1], n = y.shape()[1];
-  NdArrayRef result(x.eltype(), {m, n});
-  NdArrayView<AuthShare> out(result);
-  const NdArrayView<AuthShare> a(x);
-  if (public_rhs) {
-    const NdArrayView<uint64_t> b(y);
-    for (int64_t i = 0; i < m; ++i) {
-      for (int64_t j = 0; j < n; ++j) {
-        out[i * n + j] = {};
-        for (int64_t t = 0; t < k; ++t) {
-          const auto scalar = FromRing(b[t * n + j]);
-          for (size_t c = 0; c < 4; ++c) {
-            out[i * n + j][c] =
-                Add(out[i * n + j][c], Mul(a[i * k + t][c], scalar));
-          }
-        }
-      }
-    }
-    return result;
-  }
-  const NdArrayView<AuthShare> b(y);
-  const auto masks = RandomF61Rep(mask_prg_.get(), 2 * result.numel());
-  std::vector<uint64_t> first(masks.size());
-  for (int64_t i = 0; i < m; ++i) {
-    for (int64_t j = 0; j < n; ++j) {
-      const size_t pos = 2 * (i * n + j);
-      for (int64_t t = 0; t < k; ++t) {
-        first[pos] = Add(first[pos], LocalF61Product(Values(a[i * k + t]),
-                                                     Values(b[t * n + j])));
-        first[pos + 1] =
-            Add(first[pos + 1],
-                LocalF61Product(Macs(a[i * k + t]), Values(b[t * n + j])));
-      }
-      for (size_t c = 0; c < 2; ++c) {
-        first[pos + c] =
-            Add(first[pos + c], Sub(masks[pos + c][0], masks[pos + c][1]));
-      }
-    }
-  }
-  const auto second = exchange(first, "matmul");
-  for (int64_t i = 0; i < result.numel(); ++i) {
-    out[i] = {first[2 * i], second[2 * i], first[2 * i + 1], second[2 * i + 1]};
-    pending_.push_back(out[i]);
-  }
-  return result;
-}
-
 void SpdzWiseState::finalize() {
   try {
     requireRunning();
     check();
     boolean_->check();
-  } catch (...) {
-    abort();
-    throw;
-  }
-}
-
-void SpdzWiseState::validateBoolean(const NdArrayRef& value) const {
-  requireRunning();
-  SPU_ENFORCE(value.eltype().isa<BShrTy>() &&
-                  value.eltype().as<BShrTy>()->session() == session_,
-              "Boolean value belongs to a different session/type");
-  const auto width = value.eltype().as<BShrTy>()->nbits();
-  // Every uint64_t is canonical at full width. Keep session/type validation,
-  // but avoid a vacuous whole-array scan on the packed AND hot path.
-  if (width == 64) {
-    return;
-  }
-  const auto mask = BooleanMask(width);
-  const NdArrayView<RepShare> view(value);
-  for (int64_t i = 0; i < value.numel(); ++i) {
-    SPU_ENFORCE(((view[i][0] | view[i][1]) & ~mask) == 0,
-                "noncanonical Boolean share");
-  }
-}
-NdArrayRef SpdzWiseState::publicBoolean(const NdArrayRef& value) const {
-  requireRunning();
-  RequirePublic(value);
-  NdArrayRef out(makeType<BShrTy>(session_, 64), value.shape());
-  const NdArrayView<uint64_t> in(value);
-  for (int64_t i = 0; i < value.numel(); ++i) {
-    out.data<RepShare>()[i] = {rank() == 0 ? in[i] : 0,
-                               rank() == 2 ? in[i] : 0};
-  }
-  return out;
-}
-NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
-                                        const NdArrayRef& y, bool is_and,
-                                        bool public_rhs) {
-  try {
-    validateBoolean(x);
-    SPU_ENFORCE(x.shape() == y.shape(), "Boolean shape mismatch");
-    if (public_rhs) {
-      RequirePublic(y);
-    } else {
-      validateBoolean(y);
-    }
-    if (is_and && !public_rhs) {
-      return boolean_->andBB(x, y, session_);
-    }
-    const size_t xbits = x.eltype().as<BShrTy>()->nbits();
-    const size_t ybits = public_rhs ? 64 : y.eltype().as<BShrTy>()->nbits();
-    const size_t width =
-        is_and ? std::min(xbits, ybits) : std::max(xbits, ybits);
-    const auto mask = BooleanMask(width);
-    NdArrayRef out(makeType<BShrTy>(session_, width), x.shape());
-    const NdArrayView<RepShare> xv(x);
-    for (int64_t i = 0; i < x.numel(); ++i) {
-      RepShare rhs;
-      if (public_rhs) {
-        const auto word = NdArrayView<uint64_t>(y)[i];
-        rhs = is_and ? RepShare{word, word}
-                     : RepShare{rank() == 0 ? word : 0, rank() == 2 ? word : 0};
-      } else {
-        rhs = NdArrayView<RepShare>(y)[i];
-      }
-      for (size_t j = 0; j < 2; ++j) {
-        out.data<RepShare>()[i][j] =
-            (is_and ? xv[i][j] & rhs[j] : xv[i][j] ^ rhs[j]) & mask;
-      }
-    }
-    return out;
   } catch (...) {
     abort();
     throw;

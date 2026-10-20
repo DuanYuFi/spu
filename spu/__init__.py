@@ -41,6 +41,7 @@ from .libspu import (  # type: ignore
     RuntimeConfig,
     Shape,
     SourceIRType,
+    SpdzWiseConfig,
     ValueChunk,
     ValueMeta,
     Visibility,
@@ -63,6 +64,7 @@ __all__ = [
     "ValueChunk",
     "ValueMeta",
     "RuntimeConfig",
+    "SpdzWiseConfig",
     "Executable",
     "link",
     # spu_api

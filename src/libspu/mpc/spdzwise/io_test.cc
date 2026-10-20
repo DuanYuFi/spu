@@ -41,6 +41,29 @@ TEST(SpdzWiseIo, CenteredRoundTrip) {
   }
 }
 
+TEST(SpdzWiseIo, RoutesByDomainAndRejectsUnsupportedStorage) {
+  RuntimeConfig config(SPDZWISE, FM64);
+  auto io = makeSpdzWiseIo(config, 3);
+  const auto input = Input();
+  const auto result = io->fromShares(io->toShares(input, VIS_SECRET));
+  const NdArrayView<uint64_t> expected(input), actual(result);
+  for (int64_t i = 0; i < input.numel(); ++i) {
+    EXPECT_EQ(actual[i], expected[i]);
+  }
+  for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
+    config.spdzwise_config.domain = domain;
+    for (auto storage : {FM32, FM128}) {
+      config.field = storage;
+      EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
+    }
+  }
+  config.field = FM64;
+  config.spdzwise_config.domain = SpdzWiseConfig::RING;
+  EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
+  config.spdzwise_config.domain = static_cast<SpdzWiseConfig::Domain>(99);
+  EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
+}
+
 TEST(SpdzWiseIo, EveryReplicatedCopyIsChecked) {
   SpdzWiseIo io(FM64, 3);
   for (size_t rank = 0; rank < 3; ++rank) {

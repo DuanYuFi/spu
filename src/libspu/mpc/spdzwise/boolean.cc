@@ -22,9 +22,15 @@
 #include "yacl/link/algorithm/allgather.h"
 
 #include "libspu/core/parallel_utils.h"
+#include "libspu/mpc/common/pv2k.h"
+#include "libspu/mpc/spdzwise/state.h"
 
 namespace spu::mpc::spdzwise {
 namespace {
+void RequirePublic(const NdArrayRef& x) {
+  SPU_ENFORCE(x.eltype() == makeType<Pub2kTy>(FM64),
+              "expected an FM64 public value");
+}
 constexpr int64_t kVerifyGrain = 131072;
 constexpr size_t kSacrificeTile = 65536;
 constexpr int64_t kTileGrain = 16384;
@@ -737,6 +743,107 @@ void BooleanState::check() {
   agree(fmt::format("word64-v8-parallel-views:{}:{}:{}:{}:{}:{}", bits_, words,
                     bucket, overflow_bits_, kSacrificeTile, layout_));
   checkPrepared(generate(PoolWords(words, bucket)));
+}
+
+void SpdzWiseState::validateBoolean(const NdArrayRef& value) const {
+  requireRunning();
+  SPU_ENFORCE(value.eltype().isa<BShrTy>() &&
+                  value.eltype().as<BShrTy>()->session() == session_,
+              "Boolean value belongs to a different session/type");
+  const auto width = value.eltype().as<BShrTy>()->nbits();
+  // Every uint64_t is canonical at full width. Keep session/type validation,
+  // but avoid a vacuous whole-array scan on the packed AND hot path.
+  if (width == 64) {
+    return;
+  }
+  const auto mask = BooleanMask(width);
+  const NdArrayView<RepShare> view(value);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    SPU_ENFORCE(((view[i][0] | view[i][1]) & ~mask) == 0,
+                "noncanonical Boolean share");
+  }
+}
+NdArrayRef SpdzWiseState::publicBoolean(const NdArrayRef& value) const {
+  requireRunning();
+  RequirePublic(value);
+  NdArrayRef out(makeType<BShrTy>(session_, 64), value.shape());
+  const NdArrayView<uint64_t> in(value);
+  for (int64_t i = 0; i < value.numel(); ++i) {
+    out.data<RepShare>()[i] = {rank() == 0 ? in[i] : 0,
+                               rank() == 2 ? in[i] : 0};
+  }
+  return out;
+}
+NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
+                                        const NdArrayRef& y, bool is_and,
+                                        bool public_rhs) {
+  try {
+    validateBoolean(x);
+    SPU_ENFORCE(x.shape() == y.shape(), "Boolean shape mismatch");
+    if (public_rhs) {
+      RequirePublic(y);
+    } else {
+      validateBoolean(y);
+    }
+    if (is_and && !public_rhs) {
+      return boolean_->andBB(x, y, session_);
+    }
+    const size_t xbits = x.eltype().as<BShrTy>()->nbits();
+    const size_t ybits = public_rhs ? 64 : y.eltype().as<BShrTy>()->nbits();
+    const size_t width =
+        is_and ? std::min(xbits, ybits) : std::max(xbits, ybits);
+    const auto mask = BooleanMask(width);
+    NdArrayRef out(makeType<BShrTy>(session_, width), x.shape());
+    const NdArrayView<RepShare> xv(x);
+    for (int64_t i = 0; i < x.numel(); ++i) {
+      RepShare rhs;
+      if (public_rhs) {
+        const auto word = NdArrayView<uint64_t>(y)[i];
+        rhs = is_and ? RepShare{word, word}
+                     : RepShare{rank() == 0 ? word : 0, rank() == 2 ? word : 0};
+      } else {
+        rhs = NdArrayView<RepShare>(y)[i];
+      }
+      for (size_t j = 0; j < 2; ++j) {
+        out.data<RepShare>()[i][j] =
+            (is_and ? xv[i][j] & rhs[j] : xv[i][j] ^ rhs[j]) & mask;
+      }
+    }
+    return out;
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
+namespace {
+
+class P2B final : public UnaryKernel {
+ public:
+  static constexpr const char* kBindName() { return "p2b"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
+    return ctx->getState<SpdzWiseState>()->publicBoolean(in);
+  }
+};
+template <bool IsAnd, bool PublicRhs>
+class BooleanBinary final : public BinaryKernel {
+ public:
+  static constexpr const char* kBindName() {
+    return IsAnd ? (PublicRhs ? "and_bp" : "and_bb")
+                 : (PublicRhs ? "xor_bp" : "xor_bb");
+  }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
+                  const NdArrayRef& y) const override {
+    return ctx->getState<SpdzWiseState>()->booleanBinary(x, y, IsAnd,
+                                                         PublicRhs);
+  }
+};
+
+}  // namespace
+
+void registerBooleanKernels(Object* object) {
+  object->regKernel<P2B, BooleanBinary<true, false>, BooleanBinary<true, true>,
+                    BooleanBinary<false, false>, BooleanBinary<false, true>>();
 }
 
 }  // namespace spu::mpc::spdzwise

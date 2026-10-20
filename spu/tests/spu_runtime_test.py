@@ -54,6 +54,32 @@ class UnitTests(unittest.TestCase):
         assert config.protocol == libspu.ProtocolKind.REF2K
         assert config.beaver_type == libspu.RuntimeConfig.BeaverType.TrustedFirstParty
 
+    def test_spdzwise_domain_config(self):
+        config = libspu.RuntimeConfig(
+            protocol=libspu.ProtocolKind.SPDZWISE,
+            field=libspu.FieldType.FM64,
+        )
+        self.assertEqual(config.spdzwise_config.domain, libspu.SpdzWiseConfig.FIELD)
+        for domain in (libspu.SpdzWiseConfig.FIELD, libspu.SpdzWiseConfig.RING):
+            config.spdzwise_config.domain = domain
+            restored = libspu.RuntimeConfig()
+            self.assertTrue(restored.ParseFromString(config.SerializeToString()))
+            self.assertEqual(restored.spdzwise_config.domain, domain)
+            copied = libspu.RuntimeConfig(config)
+            self.assertEqual(copied.spdzwise_config.domain, domain)
+        self.assertTrue(
+            config.ParseFromJsonString(
+                json.dumps(
+                    {
+                        "protocol": "SPDZWISE",
+                        "field": "FM64",
+                        "spdzwise_config": {"domain": "FIELD"},
+                    }
+                )
+            )
+        )
+        self.assertEqual(config.spdzwise_config.domain, libspu.SpdzWiseConfig.FIELD)
+
     def test_no_io(self):
         wsize = 3
         config = libspu.RuntimeConfig(

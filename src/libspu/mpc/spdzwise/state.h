@@ -18,9 +18,11 @@
 
 namespace spu::mpc::spdzwise {
 
-// Arithmetic implementation under development. The production factory is kept
-// closed until mixed protocols, source review and integration tests are
-// complete.
+// Checked session for the current F61 arithmetic and shared ABFL prototype.
+// F61 arithmetic kernels live in arithmetic.h/.cc, Boolean kernels in
+// boolean.h/.cc. This state rejects RING configurations; ring arithmetic must
+// provide its own state/checking implementation. The production factory stays
+// closed until mixed protocols, source review and integration tests complete.
 class SpdzWiseState final : public ProtocolSession {
   // The benchmark separates MAC generation from the final batched check.
   // Normal imports retain their mandatory immediate check.

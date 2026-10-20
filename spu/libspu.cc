@@ -751,6 +751,14 @@ void BindSPU(py::module& m) {
                      &CheetahConfig::enable_mul_lsb_error)
       .def_readwrite("ot_kind", &CheetahConfig::ot_kind);
 
+  py::class_<SpdzWiseConfig> spdzwise_cls(m, "SpdzWiseConfig");
+  py::enum_<SpdzWiseConfig::Domain>(spdzwise_cls, "Domain")
+      .value("FIELD", SpdzWiseConfig::FIELD)
+      .value("RING", SpdzWiseConfig::RING)
+      .export_values();
+  spdzwise_cls.def(py::init<>())
+      .def_readwrite("domain", &SpdzWiseConfig::domain);
+
   py::class_<RuntimeConfig> rt_cls(m, "RuntimeConfig");
 
   py::enum_<RuntimeConfig::SortMethod>(rt_cls, "SortMethod")
@@ -804,6 +812,7 @@ void BindSPU(py::module& m) {
       .def("__str__", &RuntimeConfig::DumpToString)
       .def_readwrite("protocol", &RuntimeConfig::protocol)
       .def_readwrite("field", &RuntimeConfig::field)
+      .def_readwrite("spdzwise_config", &RuntimeConfig::spdzwise_config)
       .def_readwrite("fxp_fraction_bits", &RuntimeConfig::fxp_fraction_bits)
       .def_readwrite("max_concurrency", &RuntimeConfig::max_concurrency)
       .def_readwrite("enable_action_trace", &RuntimeConfig::enable_action_trace)

@@ -2,19 +2,9 @@ load("//bazel:spu.bzl", "spu_cc_library", "spu_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
-spu_cc_library(
+alias(
     name = "boolean",
-    srcs = ["boolean.cc"],
-    hdrs = ["boolean.h"],
-    deps = [
-        ":type",
-        "//libspu/core:parallel_utils",
-        "//libspu/mpc/common:prg_state",
-        "@yacl//yacl/crypto/hash:blake3",
-        "@yacl//yacl/crypto/rand",
-        "@yacl//yacl/crypto/tools:prg",
-        "@yacl//yacl/link/algorithm:allgather",
-    ],
+    actual = ":state",
 )
 
 spu_cc_library(
@@ -30,16 +20,31 @@ spu_cc_library(
 
 spu_cc_library(
     name = "state",
-    srcs = ["state.cc"],
-    hdrs = ["state.h"],
+    # Kernels and their checked session refer to each other. Keep the separate
+    # source files in one library to avoid cyclic implementation dependencies.
+    srcs = [
+        "arithmetic.cc",
+        "boolean.cc",
+        "conversion.cc",
+        "state.cc",
+    ],
+    hdrs = [
+        "arithmetic.h",
+        "boolean.h",
+        "conversion.h",
+        "state.h",
+    ],
     deps = [
-        ":boolean",
         ":replicated",
         ":type",
+        "//libspu/core:parallel_utils",
+        "//libspu/mpc:kernel",
         "//libspu/mpc:protocol_session",
+        "//libspu/mpc/common:prg_state",
         "//libspu/mpc/common:pv2k",
         "@yacl//yacl/crypto/hash:blake3",
         "@yacl//yacl/crypto/rand",
+        "@yacl//yacl/crypto/tools:prg",
         "@yacl//yacl/link/algorithm:allgather",
     ],
 )
@@ -89,6 +94,7 @@ spu_cc_library(
     hdrs = ["io.h"],
     deps = [
         ":type",
+        "//libspu/core:config",
         "//libspu/mpc:io_interface",
         "//libspu/mpc/common:pv2k",
         "@yacl//yacl/crypto/rand",

@@ -15,10 +15,17 @@
 
 namespace spu::mpc::spdzwise {
 
-// Arithmetic and ABFL Boolean integration harness, not a complete PPML
-// protocol. Deliberately not reachable through Factory::RegisterProtocol until
-// the acceptance gate.
+// Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING is a
+// reserved entrypoint that throws until implemented. Both require FM64.
+// This arithmetic/ABFL integration harness is not a complete PPML protocol and
+// remains unreachable through Factory::RegisterProtocol until acceptance.
 void registerArithmeticPrototype(
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
+
+void registerFieldArithmeticPrototype(
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
+
+void registerRingArithmeticPrototype(
     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
 
 }  // namespace spu::mpc::spdzwise

@@ -5,6 +5,7 @@
 ## 目前代码进展
 
 - **域与分享**：`p=2^61-1`，FM64 存储；秘密数采用中心化有符号解释，默认 16 位小数。实现域运算、输入范围检查、带 MAC 的内部分享及客户端输入/输出类型。
+- **配置与路由**：对外统一使用 `SPDZWISE`，通过 `spdzwise_config.domain` 选择 `FIELD` 或 `RING`，两者都只允许 `FM64`。默认 `FIELD` 对应 Mersenne 素数域 `p=2^61-1`；`RING` 注册和 IO 分支已预留，当前显式报未实现，不回退到 field。现有乘法内核明确位于 `spdzwise::field` 命名空间，算术、ABFL Boolean 和 conversion 预留入口已分文件存放。
 - **算术协议**：输入副本一致性检查、输入认证、加法/取负/公开乘法、秘密乘法和矩阵乘法；输入、结果进入认证队列后检查。内部 MAC 类型禁止序列化，只有检查完成并提交的客户端输出可以导出。
 - **随机性与验证**：key、乘法掩码、秘密检查系数使用独立的双边 AES-CTR PRSS 流，F61 采用拒绝采样。verification 直接从队列读取记录，合并 value/MAC 点积归约及交换；每条记录本地乘法由 6 次降为 4 次，单次非空检查每方发送 5 次、共 64 B 应用 payload。
 - **框架集成**：`ProtocolSession` 提供导入、最终检查、暂存输出、提交和失败后禁用导出；device/Python 路径增加相应 hook，HAL 增加协议比较分派。现有协议未安装 session 时沿用原路径。device/Python 完整集成仍未验收。
@@ -18,21 +19,30 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 
 ### Original SPU Modification
 
-以下记录对原有 SPU 文件的修改及原因，便于区分协议目录内的增量实现与框架接入改动。
+以下以 SPU 基线 `826537d90d60c1a94286852c5ba13c8eb470a785` 为参照，记录通用框架文件的修改位置及目的，包含新增的会话接口和本次 domain 配置接入。路径均相对仓库根目录；`src/libspu/mpc/spdzwise/` 内的协议算法和路由实现另见下文。
 
-| 原有文件（相对仓库根目录） | 修改 | 原因 |
+| 框架文件（相对仓库根目录） | 修改位置与内容 | 目的 |
 |---|---|---|
-| `src/libspu/spu.h`、`src/libspu/spu.proto`、`src/libspu/spu.cc`；`spu/api.py`、`spu/libspu.cc`、`spu/libspu.pyi` | 新增 `SPDZWISE = 7`，补充配置打印、字符串解析和 Python 枚举绑定。 | 使 C++、protobuf 和 Python 对协议标识保持一致，支持配置与 IO 接入。 |
-| `src/libspu/core/config.cc` | SPDZWISE 未指定小数位时默认使用 16 位。 | 为 F61 定点数原型显式设置默认精度，避免直接套用存储域 FM64 的默认值。 |
-| `src/libspu/mpc/factory.cc`、`src/libspu/mpc/BUILD.bazel` | 增加 SPDZWISE IO 构造及依赖，协议执行分支显式抛错。 | 支持开发阶段的分享与重构，同时在混合协议及安全验收完成前关闭生产执行入口。 |
-| `src/libspu/core/object.h` | 新增 `hasState()`。 | 允许框架先判断协议是否安装 `ProtocolSession`，使会话 hook 按需启用。 |
-| `src/libspu/core/context.h` | 新增零参数 `bindParams(KernelEvalContext*)` 重载。 | 支持通过 `dynDispatch` 调用无参数的协议最终检查内核。 |
-| `src/libspu/device/api.cc`、`src/libspu/device/BUILD.bazel` | 执行前开启会话并导入秘密输入；发布输出前完成最终检查和输出准备；成功后提交，异常由 guard 中止会话；补充构建依赖。 | 将认证、延迟检查和输出提交纳入统一执行生命周期，防止未验证结果或失败执行的结果被导出；空输出执行也必须完成检查。 |
-| `spu/libspu.cc`、`spu/BUILD.bazel` | 写入变量时检查会话及外部输入，读取值、元数据和分块数时统一访问已提交的导出视图；覆盖、删除或清空变量时使相关导出失效；补充会话依赖。 | 避免 Python API 直接读取含 MAC 的内部值，或在变量更新后返回旧导出。 |
-| `src/libspu/core/type.h`、`src/libspu/core/value.cc` | 增加默认允许的 `isSerializable()` 类型接口，序列化前检查实部和虚部的导出权限，并在复制数据前完成元数据检查。 | 允许内部认证类型禁止序列化，防止私有 MAC 数据通过通用 `ValueProto` 路径离开运行时。 |
-| `src/libspu/device/io.cc` | SPDZWISE 重构要求三方输出的 dtype、shape 一致，且不含复数。 | 补充检查分享数据缓冲区之外的元数据，避免将不一致的输出解释为同一结果。 |
-| `src/libspu/kernel/hal/ring.cc`、`src/libspu/kernel/hal/ring_test.cc` | `_less` 优先分派 `less_ss`、`less_sp`、`less_ps`，保留操作数顺序；增加分派和原有回退路径的正确性测试。 | 为域协议提供有符号比较入口，避免中心化域边界下直接用 `msb(x-y)` 判断大小；SPDZWISE 的实际比较内核仍待实现。 |
-| `src/libspu/mpc/BUILD.bazel` | 增加新文件 `protocol_session.h/.cc` 的库目标及 `protocol_session_test.cc` 测试目标。 | 为上述生命周期和输出门控提供可复用的协议会话接口及正确性验证。 |
+| [`src/libspu/spu.h`](src/libspu/spu.h)、[`src/libspu/spu.proto`](src/libspu/spu.proto) | `ProtocolKind` 增加 `SPDZWISE = 7`；新增 `SpdzWiseConfig` 及 `RuntimeConfig.spdzwise_config`（protobuf 字段号 74）。`Domain` 为 `FIELD = 0`、`RING = 1`，默认 `FIELD`。 | 在统一协议名下区分算术域，兼容未设置 domain 的旧 F61 配置；`RuntimeConfig.field` 继续表示字宽，不承担 field/ring 选择。 |
+| [`src/libspu/spu.cc`](src/libspu/spu.cc) | `convertFromPB()`、`convertToPB()` 读写 domain；`DumpToString()` 打印协议和 domain。现有 `ParseFromJsonString()`、`ParseFromString()`、`SerializeAsString()` 通过这些转换支持新配置。 | 使 JSON、protobuf、C++ 配置及诊断输出保持一致；执行会话比较序列化配置时也会包含 domain。 |
+| [`src/libspu/core/config.cc`](src/libspu/core/config.cc) | `populateRuntimeConfig()` 对 SPDZWISE 校验 domain 只能为 `FIELD` 或 `RING`，且字宽只能为 `FM64`；未指定小数位时仍默认 16 位。 | 在创建上下文时拒绝不支持的配置，固定当前两条路径的字宽，并保留 F61 原型的默认定点精度。允许配置 `RING` 不代表 ring 算法已实现。 |
+| [`spu/api.py`](spu/api.py) | `parse_protocol_kind()` 识别字符串 `SPDZWISE`。 | 让使用字符串配置的 Python 调用方能够选择统一的协议标识。 |
+| [`spu/libspu.cc`](spu/libspu.cc)、[`spu/libspu.pyi`](spu/libspu.pyi)、[`spu/__init__.py`](spu/__init__.py) | 增加 `SPDZWISE` 枚举绑定；绑定并声明 `SpdzWiseConfig`、嵌套 `Domain` 和 `RuntimeConfig.spdzwise_config` 属性；包级导出 `SpdzWiseConfig`。 | 支持 Python 设置 `config.spdzwise_config.domain = spu.SpdzWiseConfig.FIELD` 或 `RING`，并提供对应的类型提示与配置序列化能力。 |
+| [`src/libspu/mpc/factory.cc`](src/libspu/mpc/factory.cc)、[`src/libspu/mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel) | `CreateIO()` 的 SPDZWISE 分支将完整 `RuntimeConfig` 传给 `makeSpdzWiseIo()`，构建目标增加协议 IO 依赖；`RegisterProtocol()` 的 SPDZWISE 执行分支仍显式抛错。 | IO 工厂必须读取 domain，避免仅按 `FM64` 将 ring 配置误接入 F61 分享与重构；同时在混合协议及安全验收完成前保留生产执行门禁。 |
+| [`src/libspu/core/object.h`](src/libspu/core/object.h) | `Object` 新增 `hasState()`。 | 允许框架先判断协议是否安装 `ProtocolSession`，使会话 hook 按需启用；未安装会话的现有协议沿用原路径。 |
+| [`src/libspu/core/context.h`](src/libspu/core/context.h) | 新增零参数 `bindParams(KernelEvalContext*)` 重载。 | 支持通过 `dynDispatch` 调用无参数的 `finalize_protocol` 最终检查内核。 |
+| 新增 [`src/libspu/mpc/protocol_session.h`](src/libspu/mpc/protocol_session.h)、[`protocol_session.cc`](src/libspu/mpc/protocol_session.cc)；修改 [`src/libspu/mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel) | 提供 `ProtocolSession`、`getProtocolSession()` 和 `ProtocolRunGuard`；实现 `begin()`、`prepareOutputs()`、`commit()`、`abort()`、已提交导出视图及导出失效操作，并增加库目标。 | 将检查、暂存导出、提交和失败处理纳入可复用的框架接口；`prepareOutputs()` 必须调用最终检查，即使输出列表为空；异常中止会话并清除导出。 |
+| [`src/libspu/device/api.cc`](src/libspu/device/api.cc)、[`src/libspu/device/BUILD.bazel`](src/libspu/device/BUILD.bazel) | `executeImpl()` 执行前开启会话，通过已有 `mpc::import_s()` 接口导入秘密输入；发布输出前调用 `prepareOutputs()`；成功后通过 guard 提交，异常时中止；补充会话依赖。 | 将认证、延迟检查和输出提交接入实际执行生命周期，防止未验证或失败执行的结果被导出。`mpc/api.h/.cc` 中的 import/export 分派接口复用基线已有实现，未为此修改。 |
+| [`spu/libspu.cc`](spu/libspu.cc)、[`spu/BUILD.bazel`](spu/BUILD.bazel) | `SetVar()` 检查会话及外部输入；`GetVar()`、`GetVarMeta()`、`GetVarChunksCount()` 经 `GetExportValue()` 读取已提交视图；覆盖、删除或清空变量时使相关导出失效；补充会话依赖。 | 避免 Python API 读取含 MAC 的内部值，或在变量更新后返回旧导出；值、元数据和分块访问遵循同一输出提交规则。 |
+| [`src/libspu/core/type.h`](src/libspu/core/type.h)、[`src/libspu/core/value.cc`](src/libspu/core/value.cc) | 增加默认允许的 `isSerializable()` 类型接口；`Value::toMetaProto()` 检查实部和虚部是否允许序列化，`toProto()` 在复制数据前完成元数据检查。 | 允许内部认证类型禁止序列化，防止 MAC 数据经通用 `ValueProto` 路径离开运行时。 |
+| [`src/libspu/device/io.cc`](src/libspu/device/io.cc) | `IoClient::combineShares()` 对 SPDZWISE 检查三方输出的 dtype、shape 一致，且不含复数。 | 补充分享缓冲区之外的元数据检查，避免将不一致的输出解释为同一结果。 |
+| [`src/libspu/kernel/hal/ring.cc`](src/libspu/kernel/hal/ring.cc)、[`ring_test.cc`](src/libspu/kernel/hal/ring_test.cc) | `_less()` 优先分派 `less_ss`、`less_sp`、`less_ps`，保留操作数顺序；测试覆盖专用分派和原有回退路径。 | 为域协议预留专用有符号比较入口，避免中心化域边界下直接使用 `msb(x-y)`；SPDZWISE 的实际比较内核仍待实现。 |
+| 新增 [`src/libspu/core/config_test.cc`](src/libspu/core/config_test.cc)，修改 [`src/libspu/core/BUILD.bazel`](src/libspu/core/BUILD.bazel) | 新增 `config_test` 目标，覆盖旧配置默认 FIELD、两种 domain 的 protobuf/binary/JSON 往返、诊断输出、FM64 限制及其他协议字宽兼容性。 | 验证 domain 在框架配置链路中不丢失，非法配置被拒绝，现有协议配置不受 SPDZWISE 专有限制影响。 |
+| 新增 [`src/libspu/mpc/protocol_session_test.cc`](src/libspu/mpc/protocol_session_test.cc)，修改 [`src/libspu/mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel)；修改 [`spu/tests/spu_runtime_test.py`](spu/tests/spu_runtime_test.py) | 增加通用会话生命周期测试目标，以及 Python domain 配置、拷贝和序列化测试。 | 覆盖最终检查、提交和失败后禁止导出等框架约束，并为 Python 配置绑定提供回归用例。C++ 测试已通过；完整 Python 扩展集成测试尚未运行。 |
+
+开发原型的算术路由本体位于 [`src/libspu/mpc/spdzwise/protocol.cc`](src/libspu/mpc/spdzwise/protocol.cc)：`registerArithmeticPrototype()` 按 domain 调用 `registerFieldArithmeticPrototype()` 或预留的 `registerRingArithmeticPrototype()`。field 分支注册 [`arithmetic.h/.cc`](src/libspu/mpc/spdzwise/arithmetic.cc) 中的 `field::MulAA/MulAP` 等 F61 内核、[`boolean.h/.cc`](src/libspu/mpc/spdzwise/boolean.cc) 中的 ABFL，以及 [`conversion.h/.cc`](src/libspu/mpc/spdzwise/conversion.cc) 中尚未注册实际转换的预留入口；ring 分支目前抛错。IO 路由位于同目录 [`io.cc`](src/libspu/mpc/spdzwise/io.cc) 的 `makeSpdzWiseIo()`。这些文件属于协议实现，未将 F61/ABFL 算法放入通用框架。
+
+本次配置与文件拆分的验证结果为 7 个 C++ 目标、共 **283 个用例通过**，另通过工厂文件的编译检查；完整记录见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md#domain-routing-and-source-separation--2026-10-20)。生产工厂门禁未因新增配置和路由而开启。
 
 ## Benchmark
 

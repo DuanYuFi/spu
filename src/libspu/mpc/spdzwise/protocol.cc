@@ -13,6 +13,9 @@
 
 #include "libspu/mpc/common/pv2k.h"
 #include "libspu/mpc/kernel.h"
+#include "libspu/mpc/spdzwise/arithmetic.h"
+#include "libspu/mpc/spdzwise/boolean.h"
+#include "libspu/mpc/spdzwise/conversion.h"
 #include "libspu/mpc/spdzwise/state.h"
 #include "libspu/mpc/standard_shape/protocol.h"
 
@@ -49,98 +52,6 @@ class Finalize final : public Kernel {
   }
 };
 
-class P2A final : public UnaryKernel {
- public:
-  static constexpr const char* kBindName() { return "p2a"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
-    return ctx->getState<SpdzWiseState>()->publicValue(in);
-  }
-};
-
-class Negate final : public UnaryKernel {
- public:
-  static constexpr const char* kBindName() { return "negate_a"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
-    return ctx->getState<SpdzWiseState>()->negate(in);
-  }
-};
-
-class AddAA final : public BinaryKernel {
- public:
-  static constexpr const char* kBindName() { return "add_aa"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->add(x, y);
-  }
-};
-
-class AddAP final : public BinaryKernel {
- public:
-  static constexpr const char* kBindName() { return "add_ap"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    auto* state = ctx->getState<SpdzWiseState>();
-    return state->add(x, state->publicValue(y));
-  }
-};
-
-class MulAA final : public BinaryKernel {
- public:
-  static constexpr const char* kBindName() { return "mul_aa"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->multiply(x, y);
-  }
-};
-
-class MulAP final : public BinaryKernel {
- public:
-  static constexpr const char* kBindName() { return "mul_ap"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->multiplyPublic(x, y);
-  }
-};
-
-class MatmulAA final : public MatmulKernel {
- public:
-  static constexpr const char* kBindName() { return "mmul_aa"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->matmul(x, y, false);
-  }
-};
-
-class MatmulAP final : public MatmulKernel {
- public:
-  static constexpr const char* kBindName() { return "mmul_ap"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->matmul(x, y, true);
-  }
-};
-
-class P2B final : public UnaryKernel {
- public:
-  static constexpr const char* kBindName() { return "p2b"; }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override {
-    return ctx->getState<SpdzWiseState>()->publicBoolean(in);
-  }
-};
-template <bool IsAnd, bool PublicRhs>
-class BooleanBinary final : public BinaryKernel {
- public:
-  static constexpr const char* kBindName() {
-    return IsAnd ? (PublicRhs ? "and_bp" : "and_bb")
-                 : (PublicRhs ? "xor_bp" : "xor_bb");
-  }
-  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
-                  const NdArrayRef& y) const override {
-    return ctx->getState<SpdzWiseState>()->booleanBinary(x, y, IsAnd,
-                                                         PublicRhs);
-  }
-};
-
 class DenyReveal final : public Kernel {
  public:
   void evaluate(KernelEvalContext*) const override {
@@ -148,22 +59,52 @@ class DenyReveal final : public Kernel {
   }
 };
 
-}  // namespace
-
-void registerArithmeticPrototype(
-    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link) {
-  registerTypes();
-  ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+void registerCommonKernels(SPUContext* ctx) {
   ctx->prot()->addState<Z2kState>(FM64);
   regPV2kKernels(ctx->prot());
   regStandardShapeOps(ctx);
-  ctx->prot()
-      ->regKernel<Import, Export, Finalize, P2A, Negate, AddAA, AddAP, MulAA,
-                  MulAP, MatmulAA, MatmulAP, P2B, BooleanBinary<true, false>,
-                  BooleanBinary<true, true>, BooleanBinary<false, false>,
-                  BooleanBinary<false, true>>();
+  ctx->prot()->regKernel<Import, Export, Finalize>();
   for (const auto* name : {"a2p", "b2p", "a2v", "b2v", "s2p", "s2v"}) {
     ctx->prot()->regKernel<DenyReveal>(name);
+  }
+}
+
+}  // namespace
+
+void registerFieldArithmeticPrototype(
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link) {
+  SPU_ENFORCE(ctx->config().field == FM64,
+              "SPDZWISE FIELD and RING domains require FM64");
+  SPU_ENFORCE(ctx->config().spdzwise_config.domain == SpdzWiseConfig::FIELD,
+              "SPDZWISE field arithmetic requires domain FIELD");
+  registerTypes();
+  ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+  registerCommonKernels(ctx);
+  field::registerArithmeticKernels(ctx->prot());
+  registerBooleanKernels(ctx->prot());
+  field::registerConversionKernels(ctx->prot());
+  // Domain-specific PPML kernels (truncation, comparison) remain unimplemented.
+}
+
+void registerRingArithmeticPrototype(
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& /*link*/) {
+  SPU_ENFORCE(ctx->config().field == FM64,
+              "SPDZWISE FIELD and RING domains require FM64");
+  // TODO: install ring state/arithmetic/conversions/PPML and shared ABFL
+  // kernels.
+  SPU_THROW("SPDZWISE RING arithmetic is not implemented");
+}
+
+void registerArithmeticPrototype(
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link) {
+  switch (ctx->config().spdzwise_config.domain) {
+    case SpdzWiseConfig::FIELD:
+      return registerFieldArithmeticPrototype(ctx, link);
+    case SpdzWiseConfig::RING:
+      return registerRingArithmeticPrototype(ctx, link);
+    default:
+      SPU_THROW("Invalid SPDZWISE arithmetic domain {}",
+                static_cast<int>(ctx->config().spdzwise_config.domain));
   }
 }
 

@@ -1,5 +1,41 @@
 # Development validation record
 
+## Domain routing and source separation — 2026-10-20
+
+The FM64-only `spdzwise_config.domain` configuration passed default/legacy,
+protobuf, binary, JSON and diagnostic-string checks for FIELD and RING.
+FIELD routes to F61 arithmetic kernels and shared ABFL; RING registration and
+IO remain unimplemented and reject without installing field kernels. A routed
+multiplication crossing the centered F61 boundary confirms prime-field behavior.
+Arithmetic and Boolean session operations were moved without algorithm changes.
+
+Seven optimized native targets passed, totaling **283 cases**:
+
+| Target | Cases | Failures |
+|---|---:|---:|
+| `//libspu/core:config_test` | 4 | 0 |
+| `//libspu/mpc/spdzwise:protocol_test` | 11 | 0 |
+| `//libspu/mpc/spdzwise:io_test` | 8 | 0 |
+| `//libspu/mpc/spdzwise:boolean_test` | 16 | 0 |
+| `//libspu/mpc:protocol_session_test` | 7 | 0 |
+| `//libspu/mpc/aby3:protocol_test` | 225 | 0 |
+| `//libspu/mpc/aby3:io_test` | 12 | 0 |
+
+Run from `src` with Bazel 7.7.1, `test -c opt`, the seven targets above and
+`--lockfile_mode=off --jobs=4 --test_env=YACL_NUM_THREADS=4 --test_timeout=180
+--extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain`.
+Five targets passed in the initial build; after removing a helper made unused
+by the source split, the final run reused those results and executed the two
+remaining SPDZWISE targets. Counts were checked against Bazel XML reports.
+The updated `//libspu/mpc:factory` translation unit also compiled successfully
+with `build -c opt --output_groups=compilation_outputs`.
+
+Python bindings, exports and type stubs include `SpdzWiseConfig`; Python source
+syntax checks passed. The full Python extension integration suite was not run.
+The production factory remains gated. Earlier benchmark fingerprints below
+describe their recorded source snapshots, preceding this configuration/layout
+change; performance benchmarks were not rerun.
+
 ## Current Boolean validation — 2026-10-20
 
 The current C++ sources previously passed 276 native cases: Boolean 16,
@@ -13,8 +49,8 @@ commitment/opening faults, and session/output lifecycle rules. These tests do
 not constitute a full malicious-security proof.
 
 [Retained test evidence](benchmarks/boolean-c2-latest/validation/) includes XML,
-commands/logs and source provenance. C++ and BUILD fingerprints still match;
-this experiment refresh changed only the runner and documentation, and did
+commands/logs and source provenance. C++ and BUILD fingerprints matched at that
+experiment refresh, which changed only the runner and documentation and did
 not rerun unit tests. Intermediate Boolean performance records were removed
 at the user's request; arithmetic validation below is retained.
 

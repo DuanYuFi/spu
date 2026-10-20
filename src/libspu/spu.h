@@ -208,6 +208,18 @@ struct CheetahConfig {
         ot_kind(ot_kind) {}
 };
 
+struct SpdzWiseConfig {
+  enum Domain {
+    // Mersenne prime field p = 2^61 - 1, stored in FM64.
+    FIELD = 0,
+    // Ring modulo 2^64; implementation reserved.
+    RING = 1,
+  };
+
+  // Both domains require FM64. FIELD preserves existing F61 configurations.
+  Domain domain = FIELD;
+};
+
 // The SPU runtime configuration.
 struct RuntimeConfig {
   static const uint64_t kDefaultShareMaxChunkSize = 128 * 1024 * 1024;
@@ -388,6 +400,9 @@ struct RuntimeConfig {
   // For protocol like SecureML, the most significant bit may have error with
   // low probability, which lead to huge calculation error.
   bool trunc_allow_msb_error = false;
+
+  // SPDZ-wise arithmetic domain. Boolean kernels use ABFL in either domain.
+  SpdzWiseConfig spdzwise_config;
 
   /// System related configurations start.
 

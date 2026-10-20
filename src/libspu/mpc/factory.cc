@@ -68,7 +68,7 @@ std::unique_ptr<IoInterface> Factory::CreateIO(const RuntimeConfig& conf,
                                                size_t npc) {
   switch (conf.protocol) {
     case ProtocolKind::SPDZWISE: {
-      return spdzwise::makeSpdzWiseIo(conf.field, npc);
+      return spdzwise::makeSpdzWiseIo(conf, npc);
     }
     case ProtocolKind::REF2K: {
       return makeRef2kIo(conf.field, npc);

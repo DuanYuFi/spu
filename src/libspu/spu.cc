@@ -106,6 +106,8 @@ void convertFromPB(const pb::RuntimeConfig& src, RuntimeConfig& dst) {
   dst.sine_cosine_iters = src.sine_cosine_iters();
   dst.beaver_type = RuntimeConfig::BeaverType(src.beaver_type());
   dst.trunc_allow_msb_error = src.trunc_allow_msb_error();
+  dst.spdzwise_config.domain =
+      SpdzWiseConfig::Domain(src.spdzwise_config().domain());
   dst.experimental_disable_mmul_split = src.experimental_disable_mmul_split();
   dst.experimental_enable_inter_op_par = src.experimental_enable_inter_op_par();
   dst.experimental_enable_intra_op_par = src.experimental_enable_intra_op_par();
@@ -201,6 +203,10 @@ void convertToPB(const RuntimeConfig& src, pb::RuntimeConfig& dst) {
         pb::CheetahOtKind(src.cheetah_2pc_config.ot_kind));
   }
   dst.set_trunc_allow_msb_error(src.trunc_allow_msb_error);
+  if (src.protocol == ProtocolKind::SPDZWISE) {
+    dst.mutable_spdzwise_config()->set_domain(
+        pb::SpdzWiseConfig::Domain(src.spdzwise_config.domain));
+  }
   dst.set_experimental_disable_mmul_split(src.experimental_disable_mmul_split);
   dst.set_experimental_enable_inter_op_par(
       src.experimental_enable_inter_op_par);
@@ -290,6 +296,12 @@ std::string RuntimeConfig::DumpToString() const {
     case FieldType::FM128:
       ss += "FM128";
       break;
+  }
+
+  if (this->protocol == ProtocolKind::SPDZWISE) {
+    ss += "\nspdzwise_config {\n  domain: ";
+    ss += magic_enum::enum_name(this->spdzwise_config.domain);
+    ss += "\n}";
   }
 
   // Numeric fields (only print if not default)
