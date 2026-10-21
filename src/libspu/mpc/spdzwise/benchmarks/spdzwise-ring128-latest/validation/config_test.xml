@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="4" failures="0" disabled="0" errors="0" time="0.001" timestamp="2026-10-21T00:53:25.564" name="AllTests">
+  <testsuite name="RuntimeConfig" tests="4" failures="0" disabled="0" skipped="0" errors="0" time="0.001" timestamp="2026-10-21T00:53:25.564">
+    <testcase name="SpdzWiseDefaultsToFieldForLegacyConfigurations" file="libspu/core/config_test.cc" line="21" status="run" result="completed" time="0." timestamp="2026-10-21T00:53:25.564" classname="RuntimeConfig" />
+    <testcase name="SpdzWiseDomainSurvivesProtoBinaryAndJson" file="libspu/core/config_test.cc" line="32" status="run" result="completed" time="0." timestamp="2026-10-21T00:53:25.565" classname="RuntimeConfig" />
+    <testcase name="SpdzWiseRejectsUnsupportedStorageAndDomains" file="libspu/core/config_test.cc" line="52" status="run" result="completed" time="0." timestamp="2026-10-21T00:53:25.565" classname="RuntimeConfig" />
+    <testcase name="OtherProtocolsRetainTheirStorageChoices" file="libspu/core/config_test.cc" line="65" status="run" result="completed" time="0." timestamp="2026-10-21T00:53:25.565" classname="RuntimeConfig" />
+  </testsuite>
+</testsuites>

@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 21.4842 ms, circuit 86.7929 ms (mul 58.277), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 19.1421 ms, circuit 71.4286 ms (mul 44.9512), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 12.4323 ms, circuit 47.9607 ms (mul 30.3194), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 11.0331 ms, circuit 46.9722 ms (mul 30.7935), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 10.5574 ms, circuit 42.1081 ms (mul 26.3214), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 10.3882 ms, circuit 37.4988 ms (mul 22.0243), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 10.1295 ms, circuit 36.9998 ms (mul 21.655), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 10.3103 ms, circuit 37.9979 ms (mul 22.4237), verify 0 ms
+aby3-f61-adapter: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.025217 ms, expand 32.4031 ms, circuit 141.611 ms (mul 121.924), verify 21.274 ms
+spdzwise-f61 iteration 1: input MAC 0.049415 ms, expand 48.4364 ms, circuit 115.343 ms (mul 95.8159), verify 15.2411 ms
+spdzwise-f61 iteration 2: input MAC 0.039858 ms, expand 41.5401 ms, circuit 111.149 ms (mul 95.2356), verify 15.6415 ms
+spdzwise-f61 iteration 3: input MAC 0.041918 ms, expand 42.636 ms, circuit 101.02 ms (mul 85.1188), verify 15.0749 ms
+spdzwise-f61 iteration 4: input MAC 0.03309 ms, expand 41.6647 ms, circuit 101.545 ms (mul 85.6344), verify 14.8216 ms
+spdzwise-f61 iteration 5: input MAC 0.033493 ms, expand 41.6094 ms, circuit 103.625 ms (mul 87.7036), verify 19.8422 ms
+spdzwise-f61 iteration 6: input MAC 0.041458 ms, expand 57.7121 ms, circuit 110.664 ms (mul 94.7243), verify 15.0509 ms
+spdzwise-f61 iteration 7: input MAC 0.033613 ms, expand 41.9133 ms, circuit 109.633 ms (mul 93.6964), verify 16.4855 ms
+spdzwise-f61: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements

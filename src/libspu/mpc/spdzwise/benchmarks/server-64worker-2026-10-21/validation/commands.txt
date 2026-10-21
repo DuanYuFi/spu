@@ -1,0 +1,7 @@
+From src/:
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:io_test //libspu/mpc/spdzwise:boolean_test //libspu/mpc:protocol_session_test //libspu/kernel/hal:ring_test --test_env=YACL_NUM_THREADS=65 --cache_test_results=no --local_test_jobs=1 --lockfile_mode=update --jobs=16 --distdir=/tmp/spu-distfiles --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+
+From repository root:
+python3 src/libspu/mpc/spdzwise/field_reference_test.py
+python3 src/libspu/mpc/spdzwise/ring_reference_test.py
+python3 src/libspu/mpc/spdzwise/reference_test.py

@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "libspu/mpc/common/pv2k.h"
+#include "libspu/mpc/spdzwise/ring_type.h"
 
 namespace spu::mpc::spdzwise {
 
@@ -165,7 +166,8 @@ void registerTypes() {
   static std::once_flag flag;
   std::call_once(flag, [] {
     TypeContext::getTypeContext()
-        ->addTypes<InputTy, OutputTy, BInputTy, BOutputTy>();
+        ->addTypes<InputTy, OutputTy, ring::InputTy, ring::OutputTy, BInputTy,
+                   BOutputTy>();
   });
 }
 

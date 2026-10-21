@@ -1,5 +1,65 @@
 # Development validation record
 
+## RING / Protocol 9 implementation — 2026-10-21
+
+Configuration stays FM64; internal arithmetic is unsigned Z/(2^128).
+`ring_reference_test.py` compiled the actual C++ scalar primitive with
+`-fsanitize=undefined -fno-sanitize-recover=all` and compared 14,096 edge/random
+vectors against Python arbitrary-precision integers: passed. The existing
+FIELD differential/UBSan test also passed. These checks cover scalar arithmetic,
+not the full linked protocol or its cryptographic security.
+
+Six optimized native targets passed, totaling **57 cases** (counts checked
+against Bazel XML reports):
+
+| Target | Cases | Failures |
+|---|---:|---:|
+| `//libspu/mpc/spdzwise:ring_test` | 11 | 0 |
+| `//libspu/mpc/spdzwise:protocol_test` | 11 | 0 |
+| `//libspu/mpc/spdzwise:io_test` | 8 | 0 |
+| `//libspu/mpc/spdzwise:boolean_test` | 16 | 0 |
+| `//libspu/mpc:protocol_session_test` | 7 | 0 |
+| `//libspu/core:config_test` | 4 | 0 |
+
+The RING cases include all 128 single-bit nonzero residuals, zero/carry/random
+shares, full-range and strided IO, chained 128-bit arithmetic, secret/public
+matrices with empty and nonempty inner dimensions, empty/no-output finalization,
+internal reuse and external reauthentication, serialization and domain/session
+rejection. For each of the three corrupt-party positions, tests cover input
+replica errors, consistent value/MAC errors, wire value/MAC errors, forged and
+truncated Protocol 9 digests, cross-batch replay and incorrect component IDs.
+They assert actual injection, protocol rejection (rather than transport
+timeout), terminal failure and unavailable exports. Repairing a returned buffer
+does not erase the corrupt pending snapshot.
+
+Run from `src`:
+
+```sh
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 \
+  --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt \
+  //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:protocol_test \
+  //libspu/mpc/spdzwise:io_test //libspu/mpc/spdzwise:boolean_test \
+  //libspu/mpc:protocol_session_test //libspu/core:config_test \
+  --lockfile_mode=off --jobs=16 --test_env=YACL_NUM_THREADS=4 \
+  --test_timeout=180 \
+  --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+python3 libspu/mpc/spdzwise/ring_reference_test.py
+python3 libspu/mpc/spdzwise/field_reference_test.py
+```
+
+All six targets executed successfully during this implementation. The final
+invocation executed the corrected RING tests and reused passing caches for the
+five unchanged regression targets. No linked full-protocol UBSan run was
+performed; the UBSan evidence above is for the actual scalar arithmetic header.
+
+The implementation reference and security-premise mapping are in
+[README](README.md#protocol-9-and-security-model) and next to
+`ring::CheckZero`. In particular, Protocol 9 relies on a random oracle, while
+reused secret keys and secret key-times-dot-product checking require a separate
+composition argument before applying the paper's main-protocol bound to the
+whole session. Tests are not a substitute for that argument. The factory
+remains closed; PPML acceptance and performance benchmarks were not run.
+
 ## Domain routing and source separation — 2026-10-20
 
 The FM64-only `spdzwise_config.domain` configuration passed default/legacy,
@@ -112,6 +172,21 @@ The summarizer validated all three data sets. Results and source fingerprints
 are retained in [`benchmarks/macbook-air-f61-2026-10-19/`](benchmarks/macbook-air-f61-2026-10-19/).
 The target above is its historical name; its current build entry is
 `//:circuit_bench` in the independent `benchmarks` workspace.
+
+Final RING C1–C3 measurements used `YACL_NUM_THREADS=12`, three-party
+FactoryMem, one warmup and seven measured repetitions per circuit. All 24
+runs checked every output, immediate input authentication, one final check,
+checked export and exact phase payloads. The six regression targets passed
+59 cases: RING 13, FIELD protocol 11, IO 8, Boolean 16, ProtocolSession 7 and
+config 4. Coverage includes canonical hash transcripts at chunk boundaries,
+66,049-element noncompact arithmetic, corruption, immutable snapshots and
+failure propagation. The 14,096-vector native scalar/Python bigint oracle
+also passed with UBSan (scalar-only coverage).
+
+Final raw measurements, parameters, build log and validation evidence are
+retained in [`benchmarks/spdzwise-ring128-latest/`](benchmarks/spdzwise-ring128-latest/).
+Results are summarized in the project
+[Arithmetic Benchmark](../../../../readme-malicious-ppml.md#arithmetic-benchmark).
 
 ## Outstanding acceptance
 

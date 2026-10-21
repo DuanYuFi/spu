@@ -17,7 +17,7 @@
 
 #include "libspu/core/config.h"
 #include "libspu/mpc/common/pv2k.h"
-#include "libspu/mpc/spdzwise/type.h"
+#include "libspu/mpc/spdzwise/ring_type.h"
 
 namespace spu::mpc::spdzwise {
 namespace {
@@ -32,10 +32,13 @@ uint64_t RandomResidue() {
 
 }  // namespace
 
-SpdzWiseIo::SpdzWiseIo(FieldType field, size_t parties)
-    : BaseIo(field, parties) {
-  SPU_ENFORCE(field == FM64, "SPDZWISE v1 requires FM64 / p=2^61-1");
+SpdzWiseIo::SpdzWiseIo(FieldType field, size_t parties,
+                       SpdzWiseConfig::Domain domain)
+    : BaseIo(field, parties), domain_(domain) {
+  SPU_ENFORCE(field == FM64, "SPDZWISE requires FM64");
   SPU_ENFORCE(parties == 3, "SPDZWISE requires exactly three parties");
+  SPU_ENFORCE(domain == SpdzWiseConfig::FIELD || domain == SpdzWiseConfig::RING,
+              "invalid arithmetic domain");
   registerTypes();
 }
 
@@ -46,7 +49,8 @@ Type SpdzWiseIo::getShareType(Visibility vis, int owner_rank) const {
   }
   SPU_ENFORCE(vis == VIS_SECRET, "unsupported SPDZWISE visibility");
   // Used for sizing; toShares sets the actual destination rank.
-  return makeType<InputTy>(0);
+  return domain_ == SpdzWiseConfig::RING ? makeType<ring::InputTy>(0)
+                                         : makeType<InputTy>(0);
 }
 
 std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
@@ -58,6 +62,22 @@ std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
       "SPDZWISE input must be an FM64 ring-encoded buffer");
   if (vis == VIS_PUBLIC) {
     return std::vector<NdArrayRef>(3, raw.as(type));
+  }
+  if (domain_ == SpdzWiseConfig::RING) {
+    std::vector<NdArrayRef> shares;
+    for (size_t rank = 0; rank < 3; ++rank) {
+      shares.emplace_back(makeType<ring::InputTy>(rank), raw.shape());
+    }
+    const NdArrayView<uint64_t> input(raw);
+    for (int64_t i = 0; i < raw.numel(); ++i) {
+      const ring::Word a = yacl::crypto::SecureRandSeed();
+      const ring::Word b = yacl::crypto::SecureRandSeed();
+      const ring::Word c = ring::Word(input[i]) - a - b;
+      shares[0].data<ring::RepShare>()[i] = {a, b};
+      shares[1].data<ring::RepShare>()[i] = {b, c};
+      shares[2].data<ring::RepShare>()[i] = {c, a};
+    }
+    return shares;
   }
   std::vector<NdArrayRef> shares;
   for (size_t rank = 0; rank < 3; ++rank) {
@@ -168,6 +188,47 @@ NdArrayRef SpdzWiseIo::fromShares(const std::vector<NdArrayRef>& shares) const {
     return result;
   }
   const bool is_public = first.eltype().isa<Pub2kTy>();
+  if (domain_ == SpdzWiseConfig::RING && !is_public) {
+    const bool input = first.eltype().isa<ring::InputTy>();
+    for (size_t rank = 0; rank < 3; ++rank) {
+      const auto& type = shares[rank].eltype();
+      SPU_ENFORCE(shares[rank].shape() == first.shape(),
+                  "share shape mismatch");
+      if (input) {
+        SPU_ENFORCE(type.isa<ring::InputTy>() &&
+                        type.as<ring::InputTy>()->rank() == rank,
+                    "ring input rank/type mismatch");
+      } else {
+        SPU_ENFORCE(type.isa<ring::OutputTy>() &&
+                        type.as<ring::OutputTy>()->rank() == rank &&
+                        type.as<ring::OutputTy>()->binding() ==
+                            first.eltype().as<ring::OutputTy>()->binding(),
+                    "ring output rank/type/binding mismatch");
+      }
+    }
+    NdArrayRef result(makeType<RingTy>(FM64), first.shape());
+    auto reconstruct = [&](auto share) {
+      using Share = decltype(share);
+      const std::array<NdArrayView<Share>, 3> in = {
+          NdArrayView<Share>(shares[0]), NdArrayView<Share>(shares[1]),
+          NdArrayView<Share>(shares[2])};
+      for (int64_t i = 0; i < first.numel(); ++i) {
+        uint64_t sum = 0;
+        for (size_t rank = 0; rank < 3; ++rank) {
+          SPU_ENFORCE(in[rank][i][1] == in[(rank + 1) % 3][i][0],
+                      "ring replicated copies disagree");
+          sum += static_cast<uint64_t>(in[rank][i][0]);
+        }
+        result.data<uint64_t>()[i] = sum;
+      }
+    };
+    if (input) {
+      reconstruct(ring::RepShare{});
+    } else {
+      reconstruct(RepShare{});
+    }
+    return result;
+  }
   const bool is_input = first.eltype().isa<InputTy>();
   SPU_ENFORCE(is_public || is_input || first.eltype().isa<OutputTy>(),
               "SPDZWISE cannot reconstruct internal MAC shares");
@@ -219,8 +280,8 @@ std::unique_ptr<IoInterface> makeSpdzWiseIo(const RuntimeConfig& config,
     case SpdzWiseConfig::FIELD:
       return std::make_unique<SpdzWiseIo>(conf.field, parties);
     case SpdzWiseConfig::RING:
-      // TODO: construct ring IO without interpreting ring shares as F61.
-      SPU_THROW("SPDZWISE RING IO is not implemented");
+      return std::make_unique<SpdzWiseIo>(conf.field, parties,
+                                          SpdzWiseConfig::RING);
     default:
       SPU_THROW("Invalid SPDZWISE arithmetic domain {}",
                 static_cast<int>(conf.spdzwise_config.domain));

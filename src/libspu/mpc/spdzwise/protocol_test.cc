@@ -100,17 +100,20 @@ TEST(SpdzWiseProtocol, FieldRouteUsesF61MultiplicationAndSharedBooleanKernels) {
   EXPECT_EQ(NdArrayView<uint64_t>(io.fromShares(outputs))[0], uint64_t{0} - 1);
 }
 
-TEST(SpdzWiseProtocol, RingRouteRemainsEmptyAndCannotUseFieldState) {
+TEST(SpdzWiseProtocol, RingRouteHasIndependentArithmeticAndSharedBoolean) {
   auto config = Config();
   config.spdzwise_config.domain = SpdzWiseConfig::RING;
-  SPUContext ctx(config, nullptr);
-  EXPECT_ANY_THROW(registerArithmeticPrototype(&ctx, nullptr));
-  EXPECT_FALSE(ctx.hasKernel("mul_aa"));
-  EXPECT_FALSE(ctx.hasKernel("and_bb"));
-  EXPECT_FALSE(ctx.prot()->hasState(ProtocolSession::kBindName()));
-  EXPECT_ANY_THROW(registerFieldArithmeticPrototype(&ctx, nullptr));
   utils::simulate(3, [&](const auto& link) {
-    EXPECT_ANY_THROW(SpdzWiseState(config, link));
+    SPUContext ctx(config, link);
+    EXPECT_ANY_THROW(registerFieldArithmeticPrototype(&ctx, link));
+    registerArithmeticPrototype(&ctx, link);
+    EXPECT_TRUE(ctx.hasKernel("mul_aa"));
+    EXPECT_TRUE(ctx.hasKernel("and_bb"));
+    EXPECT_TRUE(ctx.prot()->hasState(ProtocolSession::kBindName()));
+    EXPECT_EQ(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
+              nullptr);
+    EXPECT_FALSE(ctx.hasKernel("a2b"));
+    EXPECT_FALSE(ctx.hasKernel("b2a"));
   });
 }
 

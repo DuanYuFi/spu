@@ -11,14 +11,18 @@
 
 #pragma once
 
+#include "libspu/core/config.h"
 #include "libspu/mpc/io_interface.h"
 
 namespace spu::mpc::spdzwise {
 
-// F61 arithmetic IO and shared ABFL Boolean IO. Ring IO is reserved separately.
+// Domain-specific arithmetic IO and shared ABFL Boolean IO.
 class SpdzWiseIo final : public BaseIo {
+  SpdzWiseConfig::Domain domain_;
+
  public:
-  SpdzWiseIo(FieldType field, size_t parties);
+  SpdzWiseIo(FieldType field, size_t parties,
+             SpdzWiseConfig::Domain domain = SpdzWiseConfig::FIELD);
   Type getShareType(Visibility vis, int owner_rank = -1) const override;
   std::vector<NdArrayRef> toShares(const NdArrayRef& raw, Visibility vis,
                                    int owner_rank = -1) const override;

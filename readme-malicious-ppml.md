@@ -1,11 +1,11 @@
 # Malicious PPML 开发进展
 
-更新日期：2026-10-20。当前实现是三方 **SPDZwise-F61 算术原型**，尚未完成恶意安全 PPML 后端验收。`SPDZWISE` 已接入 C++/protobuf/Python 配置和 IO，生产协议工厂仍显式拒绝执行；单元测试和 benchmark 通过 C++ `registerArithmeticPrototype()` 入口运行。
+更新日期：2026-10-21。当前实现是三方 **SPDZwise FIELD/RING 算术原型**，尚未完成恶意安全 PPML 后端验收。`SPDZWISE` 已接入 C++/protobuf/Python 配置和 IO，生产协议工厂仍显式拒绝执行；单元测试和 benchmark 通过 C++ `registerArithmeticPrototype()` 入口运行。
 
 ## 目前代码进展
 
 - **域与分享**：`p=2^61-1`，FM64 存储；秘密数采用中心化有符号解释，默认 16 位小数。实现域运算、输入范围检查、带 MAC 的内部分享及客户端输入/输出类型。
-- **配置与路由**：对外统一使用 `SPDZWISE`，通过 `spdzwise_config.domain` 选择 `FIELD` 或 `RING`，两者都只允许 `FM64`。默认 `FIELD` 对应 Mersenne 素数域 `p=2^61-1`；`RING` 注册和 IO 分支已预留，当前显式报未实现，不回退到 field。现有乘法内核明确位于 `spdzwise::field` 命名空间，算术、ABFL Boolean 和 conversion 预留入口已分文件存放。
+- **配置与路由**：对外统一使用 `SPDZWISE`，通过 `spdzwise_config.domain` 选择 `FIELD` 或 `RING`，两者都只允许 `FM64`。默认 `FIELD` 对应 Mersenne 素数域 `p=2^61-1`；`RING` 已有独立注册和 IO 路径，内部为 `Z/(2^128)`，应用/输出位宽为 64，不回退到 field。FIELD 与 RING 乘法内核分别位于 `spdzwise::field`、`spdzwise::ring` 命名空间，算术、ABFL Boolean 和 conversion 预留入口已分文件存放。
 - **算术协议**：输入副本一致性检查、输入认证、加法/取负/公开乘法、秘密乘法和矩阵乘法；输入、结果进入认证队列后检查。内部 MAC 类型禁止序列化，只有检查完成并提交的客户端输出可以导出。
 - **随机性与验证**：key、乘法掩码、秘密检查系数使用独立的双边 AES-CTR PRSS 流，F61 采用拒绝采样。verification 直接从队列读取记录，合并 value/MAC 点积归约及交换；每条记录本地乘法由 6 次降为 4 次，单次非空检查每方发送 5 次、共 64 B 应用 payload。
 - **框架集成**：`ProtocolSession` 提供导入、最终检查、暂存输出、提交和失败后禁用导出；device/Python 路径增加相应 hook，HAL 增加协议比较分派。现有协议未安装 session 时沿用原路径。device/Python 完整集成仍未验收。
@@ -25,7 +25,7 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 |---|---|---|
 | [`src/libspu/spu.h`](src/libspu/spu.h)、[`src/libspu/spu.proto`](src/libspu/spu.proto) | `ProtocolKind` 增加 `SPDZWISE = 7`；新增 `SpdzWiseConfig` 及 `RuntimeConfig.spdzwise_config`（protobuf 字段号 74）。`Domain` 为 `FIELD = 0`、`RING = 1`，默认 `FIELD`。 | 在统一协议名下区分算术域，兼容未设置 domain 的旧 F61 配置；`RuntimeConfig.field` 继续表示字宽，不承担 field/ring 选择。 |
 | [`src/libspu/spu.cc`](src/libspu/spu.cc) | `convertFromPB()`、`convertToPB()` 读写 domain；`DumpToString()` 打印协议和 domain。现有 `ParseFromJsonString()`、`ParseFromString()`、`SerializeAsString()` 通过这些转换支持新配置。 | 使 JSON、protobuf、C++ 配置及诊断输出保持一致；执行会话比较序列化配置时也会包含 domain。 |
-| [`src/libspu/core/config.cc`](src/libspu/core/config.cc) | `populateRuntimeConfig()` 对 SPDZWISE 校验 domain 只能为 `FIELD` 或 `RING`，且字宽只能为 `FM64`；未指定小数位时仍默认 16 位。 | 在创建上下文时拒绝不支持的配置，固定当前两条路径的字宽，并保留 F61 原型的默认定点精度。允许配置 `RING` 不代表 ring 算法已实现。 |
+| [`src/libspu/core/config.cc`](src/libspu/core/config.cc) | `populateRuntimeConfig()` 对 SPDZWISE 校验 domain 只能为 `FIELD` 或 `RING`，且字宽只能为 `FM64`；未指定小数位时仍默认 16 位。 | 在创建上下文时拒绝不支持的配置，固定当前两条路径的字宽，并保留 F61 原型的默认定点精度。生产执行仍由协议工厂门禁控制。 |
 | [`spu/api.py`](spu/api.py) | `parse_protocol_kind()` 识别字符串 `SPDZWISE`。 | 让使用字符串配置的 Python 调用方能够选择统一的协议标识。 |
 | [`spu/libspu.cc`](spu/libspu.cc)、[`spu/libspu.pyi`](spu/libspu.pyi)、[`spu/__init__.py`](spu/__init__.py) | 增加 `SPDZWISE` 枚举绑定；绑定并声明 `SpdzWiseConfig`、嵌套 `Domain` 和 `RuntimeConfig.spdzwise_config` 属性；包级导出 `SpdzWiseConfig`。 | 支持 Python 设置 `config.spdzwise_config.domain = spu.SpdzWiseConfig.FIELD` 或 `RING`，并提供对应的类型提示与配置序列化能力。 |
 | [`src/libspu/mpc/factory.cc`](src/libspu/mpc/factory.cc)、[`src/libspu/mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel) | `CreateIO()` 的 SPDZWISE 分支将完整 `RuntimeConfig` 传给 `makeSpdzWiseIo()`，构建目标增加协议 IO 依赖；`RegisterProtocol()` 的 SPDZWISE 执行分支仍显式抛错。 | IO 工厂必须读取 domain，避免仅按 `FM64` 将 ring 配置误接入 F61 分享与重构；同时在混合协议及安全验收完成前保留生产执行门禁。 |
@@ -40,7 +40,7 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 | 新增 [`src/libspu/core/config_test.cc`](src/libspu/core/config_test.cc)，修改 [`src/libspu/core/BUILD.bazel`](src/libspu/core/BUILD.bazel) | 新增 `config_test` 目标，覆盖旧配置默认 FIELD、两种 domain 的 protobuf/binary/JSON 往返、诊断输出、FM64 限制及其他协议字宽兼容性。 | 验证 domain 在框架配置链路中不丢失，非法配置被拒绝，现有协议配置不受 SPDZWISE 专有限制影响。 |
 | 新增 [`src/libspu/mpc/protocol_session_test.cc`](src/libspu/mpc/protocol_session_test.cc)，修改 [`src/libspu/mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel)；修改 [`spu/tests/spu_runtime_test.py`](spu/tests/spu_runtime_test.py) | 增加通用会话生命周期测试目标，以及 Python domain 配置、拷贝和序列化测试。 | 覆盖最终检查、提交和失败后禁止导出等框架约束，并为 Python 配置绑定提供回归用例。C++ 测试已通过；完整 Python 扩展集成测试尚未运行。 |
 
-开发原型的算术路由本体位于 [`src/libspu/mpc/spdzwise/protocol.cc`](src/libspu/mpc/spdzwise/protocol.cc)：`registerArithmeticPrototype()` 按 domain 调用 `registerFieldArithmeticPrototype()` 或预留的 `registerRingArithmeticPrototype()`。field 分支注册 [`arithmetic.h/.cc`](src/libspu/mpc/spdzwise/arithmetic.cc) 中的 `field::MulAA/MulAP` 等 F61 内核、[`boolean.h/.cc`](src/libspu/mpc/spdzwise/boolean.cc) 中的 ABFL，以及 [`conversion.h/.cc`](src/libspu/mpc/spdzwise/conversion.cc) 中尚未注册实际转换的预留入口；ring 分支目前抛错。IO 路由位于同目录 [`io.cc`](src/libspu/mpc/spdzwise/io.cc) 的 `makeSpdzWiseIo()`。这些文件属于协议实现，未将 F61/ABFL 算法放入通用框架。
+开发原型的算术路由本体位于 [`src/libspu/mpc/spdzwise/protocol.cc`](src/libspu/mpc/spdzwise/protocol.cc)：`registerArithmeticPrototype()` 按 domain 调用 `registerFieldArithmeticPrototype()` 或 `registerRingArithmeticPrototype()`。field 分支注册 [`arithmetic.h/.cc`](src/libspu/mpc/spdzwise/arithmetic.cc) 中的 `field::MulAA/MulAP` 等 F61 内核、[`boolean.h/.cc`](src/libspu/mpc/spdzwise/boolean.cc) 中的 ABFL，以及 [`conversion.h/.cc`](src/libspu/mpc/spdzwise/conversion.cc) 中尚未注册实际转换的预留入口；ring 分支注册 `ring.cc` 中的独立环内核。IO 路由位于同目录 [`io.cc`](src/libspu/mpc/spdzwise/io.cc) 的 `makeSpdzWiseIo()`。这些文件属于协议实现，未将 F61/ABFL 算法放入通用框架。
 
 本次配置与文件拆分的验证结果为 7 个 C++ 目标、共 **283 个用例通过**，另通过工厂文件的编译检查；完整记录见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md#domain-routing-and-source-separation--2026-10-20)。生产工厂门禁未因新增配置和路由而开启。
 
@@ -48,30 +48,33 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 
 ### Experimental Setup
 
-实验使用两台机器，均以三方线程在同一进程中运行：
+服务器结果于 **2026-10-21** 全部重测，以下主表使用最终优化版本；Laptop 保留 2026-10-19 历史数据。各协议均以三方线程在同一进程中运行。
 
 | 机器 | 硬件 | 系统与工具链 | 并行配置 |
 |---|---|---|---|
-| MacBook Air Laptop | Apple M2，8 核，24 GiB 内存 | macOS（未记录版本），Apple Clang 16，Bazel 7.7.1，`-c opt`（SPU `-O2`） | YACL 默认 7 个 worker，另有三方调用线程 |
-| Ubuntu Server | 双路 Xeon Gold 6248R，48 物理核 / 96 逻辑 CPU（内存容量未记录） | Ubuntu 24.04（10 月 20 日记录为 24.04.3 LTS），GCC 13.3.0，Bazel 7.7.1，`-c opt` | YACL 默认 95 个 worker；未绑定 CPU 或隔离其他负载 |
+| MacBook Air Laptop | Apple M2，8 核，24 GiB 内存 | macOS（未记录版本），Apple Clang 16，Bazel 7.7.1，`-c opt`（SPU `-O2`） | 历史配置：YACL 默认 7 个 worker，另有三方调用线程 |
+| Ubuntu Server | 双路 Xeon Gold 6248R，48 物理核 / 96 逻辑 CPU，约 754 GiB 内存 | Ubuntu 24.04，GCC 13.3.0，Bazel 7.7.1，`-c opt`（SPU `-O2`） | **固定 64 个后台 worker**，`YACL_NUM_THREADS=65`；三方共享线程池，未绑定 CPU |
 
-通信均通过 `FactoryMem` 完成，属于本机内存通信，没有跨机链路、带宽限制或人工 RTT 设置；结果不代表 LAN/WAN 性能。通信量统一统计**每方发送的应用 payload**，不含传输协议开销；三方发送合计为表中数值的 3 倍。
+YACL 将调用线程计入 `YACL_NUM_THREADS`，线程池大小为该值减一，因此实际 64 worker 对应参数 65。统一脚本固定该参数，并核对启动日志中的线程池大小；小批次可能仅在调用线程执行。所有 benchmark 串行运行，测量时本任务的构建和测试已结束；共享服务器的其他负载未隔离，负载、CPU affinity 和资源记录随原始数据保存。
 
-对比三种协议配置：
+通信通过 `FactoryMem` 完成，属于本机内存通信，没有跨机链路或人工 RTT；结果不代表 LAN/WAN 性能。通信量统计**每方发送的应用 payload**，不含传输协议开销；三方发送合计为表中数值的 3 倍。
 
 | 协议 | Domain | 说明 |
 |---|---|---|
-| ABY3-ring64 | Ring：`Z/(2^64)`，FM64 存储 | SPU 原生半诚实 ABY3，调用原生算术内核；无 MAC 或恶意安全 verification。 |
-| ABY3-F61 | Field：`F_p`，`p=2^61-1`，FM64 存储 | F61 适配版，与 SPDZwise 共用域乘法和 PRSS 底层；作为相同域上的半诚实对照。 |
-| SPDZwise-F61 | Field：`F_p`，`p=2^61-1`，FM64 存储 | 带 MAC 的算术原型，在电路末尾执行一次批量 verification；完整恶意安全 PPML 后端尚未验收。 |
+| ABY3-ring64 | `Z/(2^64)`，FM64 存储 | SPU 原生半诚实算术内核，无 MAC 或最终 verification。 |
+| ABY3-F61 | `F_p`，`p=2^61-1`，FM64 存储 | F61 适配版，与 SPDZwise 共用域乘法和 PRSS 底层。 |
+| SPDZwise-F61 | `F_p`，`p=2^61-1`，FM64 存储 | 正常输入认证并立即检查，乘法结果在电路结束后批量验证。 |
+| SPDZwise-ring128 | 内部 `Z/(2^128)`，输出 `Z/(2^64)` | 应用位宽 64、扩展位宽 64；正常输入认证、最终副本检查、秘密系数聚合及 Protocol 9。 |
 
-Ring64 用于测量原生 ABY3；F61 采用可用 64 位字存储的 Mersenne 素数域，用于比较同一 Field 上的 ABY3 与 SPDZwise。**FM64 是存储宽度，不代表 F61 按模 `2^64` 运算**。算术实验均为整数电路，不包含定点截断。Binary 使用原生 ABY3 Boolean `and_bb`，在 `GF(2)` 上逐位计算，每个 FM64 字打包 64 个比特。
+**FM64 不表示 F61 按模 `2^64` 运算。**算术实验均为整数电路，不包含定点截断。Binary 每个 uint64 字打包 64 个 GF(2) 比特。
 
-每组预热 1 次、测量 7 次：每轮各阶段取三方最大耗时，再取七轮中位数。总耗时先逐轮相加再取中位数，各列中位数不要求严格相加。计时排除初始分享、协议/key/PRSS 初始化、输入副本检查、输出重构和明文核对；内核执行期间的 PRSS 采样计入电路耗时。
+每组预热 1 次、测量 7 次；每轮各阶段取三方最大耗时，再统计七轮中位数。总计先逐轮相加再取中位数，不要求等于各列中位数之和。计时排除初始分享、协议/key/PRSS 初始化、屏障、输出导出/重构及明文核对；内核运行中的 PRSS 计入电路时间。
+
+服务器 SPDZwise FIELD/RING 共用 `ring_circuit_bench`，每轮新 session，输入副本检查和立即认证检查均计入输入阶段。ABY3 沿用 `circuit_bench` 的会话复用方式；其 F61 runner 同时输出旧 SPDZwise 对照行，主表仅取其中 ABY3 行，SPDZwise-F61 统一取正常认证入口的数据。Laptop 仍采用原先的输入延迟检查口径。
 
 ### Circuit
 
-固定 `W×D=1,048,576`，使用三种宽度与深度配置；每层的输出依赖上一层：
+固定 `W×D=1,048,576`，每层输出依赖上一层；四种服务器算术协议均运行 C1–C3。
 
 | 电路 | 宽度 W | 深度 D | 算术秘密乘法门数 |
 |---|---:|---:|---:|
@@ -86,20 +89,20 @@ z[0,i]   = x + i                 (i = 0,...,W-1)
 z[l+1,i] = z[l,i] * (z[l,i] + y) (l = 0,...,D-1)
 ```
 
-Ring64 与 F61 分别按各自模数计算。SPDZwise 仅对两个输入生成 MAC，公开展开为局部线性操作；所有乘法结果延迟至末尾统一检查，共 `W×D+2=1,048,578` 条记录。普通协议的输入导入仍保留立即检查；此处延迟检查是 benchmark 的专用计时入口。
+各协议按各自 domain 计算。服务器两个 SPDZwise 版本均先检查两个输入，最终批次包含 `W×D=1,048,576` 条乘法记录；公开展开为局部线性操作。服务器 SPDZwise 共 48 次预热/测量均核对全部输出；ABY3 的六组算术实验各核对最后一轮全部输出。
 
-Binary 已测量 C2 的 AND 电路：预先分享 `D+1=17` 个 uint64 输入向量，每层一次完整向量 `and_bb` 调用，无 tiling：
+Binary 测量 C2：预先分享 `D+1=17` 个 uint64 输入向量，每层一次完整向量 `and_bb`，电路无 tiling：
 
 ```text
 z[0,i]   = x[0,i]
 z[l+1,i] = z[l,i] & x[l+1,i]     (l = 0,...,D-1)
 ```
 
-共 1,048,576 个 uint64 AND，等价于 67,108,864 个单比特 AND。算术实验核对最后一轮全部输出；binary 原记录为每次预热和测量均核对全部 65,536 个输出，均通过。
+共 1,048,576 个 uint64 AND，即 67,108,864 个单比特 AND。ABY3 / ABFL 各 8 轮均核对全部 65,536 个输出。
 
 ### Arithmetic Benchmark
 
-下表汇总全部算术测量。每个结果单元格为 **耗时 ms / 每方发送 B**。电路计算包含逐层加法和乘法；Verification 单独列出。总计沿用原始“全部计时阶段”，包含两个输入的 MAC、公开展开、电路计算与 Verification；其中 SPDZwise 输入 MAC 另发送 16 B，公开展开不通信。初始化等排除项见上文。ABY3 的 Verification 为 0，表示没有该检查阶段。
+每个结果为 **耗时 ms / 每方发送 B**。电路计算包含逐层加法、乘法、PRSS、通信及认证记录保存。总计包含输入、公开展开、电路和 Verification。服务器 SPDZwise-F61 输入阶段另发送 96 B，SPDZwise-ring128 另发送 242 B；Laptop F61 历史输入 MAC 为 16 B。公开展开不通信，ABY3 无认证或最终验证。
 
 | 机器 | 协议 | 电路 | Domain | 电路计算（ms / B） | Verification（ms / B） | 总计（ms / B） |
 |---|---|---|---|---:|---:|---:|
@@ -109,28 +112,33 @@ z[l+1,i] = z[l,i] & x[l+1,i]     (l = 0,...,D-1)
 | Laptop | SPDZwise-F61 | C2 | F61 | 58.387 / 16,777,216 | 11.495 / 64 | 71.595 / 16,777,296 |
 | Laptop | ABY3-F61 | C3 | F61 | 20.224 / 8,388,608 | 0.000 / 0 | 20.310 / 8,388,608 |
 | Laptop | SPDZwise-F61 | C3 | F61 | 52.476 / 16,777,216 | 10.794 / 64 | 63.739 / 16,777,296 |
-| Server | ABY3-F61 | C1 | F61 | 44.084 / 8,388,608 | 0.000 / 0 | 55.579 / 8,388,608 |
-| Server | SPDZwise-F61 | C1 | F61 | 118.092 / 16,777,216 | 17.220 / 64 | 181.233 / 16,777,296 |
-| Server | ABY3-F61 | C2 | F61 | 68.427 / 8,388,608 | 0.000 / 0 | 69.401 / 8,388,608 |
-| Server | SPDZwise-F61 | C2 | F61 | 97.420 / 16,777,216 | 25.447 / 64 | 125.854 / 16,777,296 |
-| Server | ABY3-F61 | C3 | F61 | 59.536 / 8,388,608 | 0.000 / 0 | 59.762 / 8,388,608 |
-| Server | SPDZwise-F61 | C3 | F61 | 80.255 / 16,777,216 | 27.426 / 64 | 109.635 / 16,777,296 |
-| Server | ABY3-ring64 | C2 | Ring64 | 39.344 / 8,388,608 | 0.000 / 0 | 40.096 / 8,388,608 |
+| Server | ABY3-F61 | C1 | F61 | 42.209 / 8,388,608 | 0.000 / 0 | 55.165 / 8,388,608 |
+| Server | ABY3-ring64 | C1 | Ring64 | 48.172 / 8,388,608 | 0.000 / 0 | 53.745 / 8,388,608 |
+| Server | SPDZwise-F61 | C1 | F61 | 140.952 / 16,777,216 | 20.257 / 64 | 217.920 / 16,777,376 |
+| Server | SPDZwise-ring128 | C1 | Ring128 → Ring64 | 262.719 / 33,554,436 | 53.859 / 182 | 369.412 / 33,554,860 |
+| Server | ABY3-F61 | C2 | F61 | 67.826 / 8,388,608 | 0.000 / 0 | 68.859 / 8,388,608 |
+| Server | ABY3-ring64 | C2 | Ring64 | 42.530 / 8,388,608 | 0.000 / 0 | 43.446 / 8,388,608 |
+| Server | SPDZwise-F61 | C2 | F61 | 125.499 / 16,777,216 | 26.801 / 64 | 155.211 / 16,777,376 |
+| Server | SPDZwise-ring128 | C2 | Ring128 → Ring64 | 185.650 / 33,554,496 | 56.775 / 182 | 239.663 / 33,554,920 |
+| Server | ABY3-F61 | C3 | F61 | 59.369 / 8,388,608 | 0.000 / 0 | 59.565 / 8,388,608 |
+| Server | ABY3-ring64 | C3 | Ring64 | 62.459 / 8,388,608 | 0.000 / 0 | 62.767 / 8,388,608 |
+| Server | SPDZwise-F61 | C3 | F61 | 122.224 / 16,777,216 | 26.032 / 64 | 147.488 / 16,777,376 |
+| Server | SPDZwise-ring128 | C3 | Ring128 → Ring64 | 183.477 / 33,554,688 | 48.112 / 182 | 234.307 / 33,555,112 |
 
-原始数据与基本参数分别保存在 [Laptop F61](src/libspu/mpc/spdzwise/benchmarks/macbook-air-f61-2026-10-19/)、[Server F61](src/libspu/mpc/spdzwise/benchmarks/ubuntu-f61-2026-10-19/) 和 [Server Ring64](src/libspu/mpc/spdzwise/benchmarks/ubuntu-aby3-ring64-2026-10-20/)。各目录保留逐方逐轮数据、乘法内核及输入 MAC / 展开耗时、统计结果和原始环境/源码指纹。两台机器的架构、线程数及调度环境不同，不能仅按表中耗时作单一硬件因素归因。
+原始数据：[最终完整重测](src/libspu/mpc/spdzwise/benchmarks/server-64worker-2026-10-21/after/)、[相同 64-worker 配置的优化前完整重测](src/libspu/mpc/spdzwise/benchmarks/server-64worker-2026-10-21/before/)、[Laptop 历史数据](src/libspu/mpc/spdzwise/benchmarks/macbook-air-f61-2026-10-19/)。每组保存逐方逐轮 CSV、日志、统计、参数、源码/二进制 SHA256、源码补丁和资源记录。
 
 ### Binary Benchmark
 
-最新测量：2026-10-20。同一构建产物、相同 C2 输入、三方 FactoryMem，均为 `YACL_NUM_THREADS=12`；W=65,536、D=16，共 1,048,576 个 64-bit packed AND。ABY3 与 ABFL 依次运行，各预热 1 次、测量 7 次，每轮各阶段取三方最大值，再取七轮中位数。
+最新测量：**2026-10-21**。同一最终构建、相同 C2 输入、三方 FactoryMem，固定 **64 个后台 worker（`YACL_NUM_THREADS=65`）**。ABY3 / ABFL 串行运行，各预热 1 次、测量 7 次。
 
 | 机器 | 协议 | 电路 | Domain | 电路计算（ms / B） | Verification（ms / B） | 总计（ms / B） |
 |---|---|---|---|---:|---:|---:|
-| Server | ABY3 Boolean | C2（AND） | GF(2)，64-bit 打包 | 23.340 / 8,388,608 | 0.000 / 0 | 23.340 / 8,388,608 |
-| Server | SPDZwise-ABFL | C2（AND） | GF(2)，64-bit 打包 | 27.966 / 8,388,608 | 400.363 / 218,110,266 | 425.179 / 226,498,874 |
+| Server | ABY3 Boolean | C2（AND） | GF(2)，64-bit 打包 | 32.463 / 8,388,608 | 0.000 / 0 | 32.463 / 8,388,608 |
+| Server | SPDZwise-ABFL | C2（AND） | GF(2)，64-bit 打包 | 25.596 / 8,388,608 | 418.973 / 218,110,266 | 452.416 / 226,498,874 |
 
-通信量为每方发送的应用 payload。总耗时先逐轮相加后取中位数，不等于阶段中位数之和。ABY3 不保存 triple、没有最终验证；ABFL online 包含快照保存，verification 包含随机池生成及全部检查。输入分享、初始化、导入检查、输出导出及重构核对不计时。两种协议各 8 轮均核对全部 65,536 个输出。
+ABY3 不保存 triple、没有最终验证；ABFL online 包含快照保存，verification 包含随机 triple 生成、副本检查、commit–reveal、cut-and-choose 和 sacrifice。输入分享、初始化、导入检查、输出导出及重构核对不计时。ABFL verification 使用 65,536-word 工作块；两种协议每次均核对所有输出与预期通信量。
 
-[最新 Boolean 实验及复现命令](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/RESULTS.md)包含 [ABY3 原始数据](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/aby3/)、[ABFL 原始数据](src/libspu/mpc/spdzwise/benchmarks/boolean-c2-latest/abfl/)及统一参数、源码/二进制指纹和资源记录。仅保留本次最新 Boolean 性能实验；旧版本与中间 profiling/packing 实验已清理。共享机器负载未隔离，本机结果不代表 LAN/WAN。
+[统一实验参数](src/libspu/mpc/spdzwise/benchmarks/server-64worker-2026-10-21/after/parameters.json)、[全部原始数据](src/libspu/mpc/spdzwise/benchmarks/server-64worker-2026-10-21/after/)及[复现入口](src/libspu/mpc/spdzwise/benchmarks/README.md)。旧的 12-thread Boolean 和 Ring 结果保留在历史目录，不再用于当前服务器主表。
 
 ## 构建准备
 
@@ -167,8 +175,8 @@ python3 src/libspu/mpc/spdzwise/field_reference_test.py
 python3 src/libspu/mpc/spdzwise/reference_test.py
 ```
 
-本次验证：协议 9、IO 7、会话 7、HAL 4，共 **27 个 C++ 用例通过**；Python 域测试 1 个用例（20,162 条运算输入）、明文规格 7 个用例通过。测试范围和未完成验收见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md)。
+早期验证：协议 9、IO 7、会话 7、HAL 4，共 **27 个 C++ 用例通过**；Python 域测试 1 个用例（20,162 条运算输入）、明文规格 7 个用例通过。测试范围和未完成验收见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md)。
 
 ## 运行 benchmark
 
-实验源码、Bazel 构建目标、数据和基本参数统一位于 [`src/libspu/mpc/spdzwise/benchmarks`](src/libspu/mpc/spdzwise/benchmarks/)。简要构建与运行入口见该目录的 [README](src/libspu/mpc/spdzwise/benchmarks/README.md)；重新测量使用新输出目录；Boolean 目录只保留最新实验，算术历史记录保留。
+实验源码、Bazel 构建目标、数据和基本参数统一位于 [`src/libspu/mpc/spdzwise/benchmarks`](src/libspu/mpc/spdzwise/benchmarks/)。简要构建与运行入口见该目录的 [README](src/libspu/mpc/spdzwise/benchmarks/README.md)；重新测量使用新输出目录；服务器当前结果统一使用 64 个后台 worker，优化前、最终版本及历史记录分别保留。

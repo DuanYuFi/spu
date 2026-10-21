@@ -15,8 +15,8 @@
 
 namespace spu::mpc::spdzwise {
 
-// Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING is a
-// reserved entrypoint that throws until implemented. Both require FM64.
+// Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING uses
+// internal Z/(2^128) and external Z/(2^64). Both require FM64.
 // This arithmetic/ABFL integration harness is not a complete PPML protocol and
 // remains unreachable through Factory::RegisterProtocol until acceptance.
 void registerArithmeticPrototype(

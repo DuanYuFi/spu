@@ -1,0 +1,2406 @@
+diff --git a/src/libspu/mpc/spdzwise/BUILD.bazel b/src/libspu/mpc/spdzwise/BUILD.bazel
+index a808ebc7..5c979284 100644
+--- a/src/libspu/mpc/spdzwise/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/BUILD.bazel
+@@ -27,12 +27,15 @@ spu_cc_library(
+         "boolean.cc",
+         "conversion.cc",
+         "state.cc",
++        "ring.cc",
+     ],
+     hdrs = [
+         "arithmetic.h",
+         "boolean.h",
+         "conversion.h",
+         "state.h",
++        "ring.h",
++        "ring_arithmetic.h",
+     ],
+     deps = [
+         ":replicated",
+@@ -80,7 +83,7 @@ spu_cc_library(
+ spu_cc_library(
+     name = "type",
+     srcs = ["type.cc"],
+-    hdrs = ["type.h"],
++    hdrs = ["type.h", "ring_type.h", "ring_math.h"],
+     deps = [
+         ":field",
+         "//libspu/core:type",
+@@ -123,3 +126,17 @@ spu_cc_test(
+         "//libspu/mpc/utils:simulate",
+     ],
+ )
++
++spu_cc_test(
++    name = "ring_test",
++    srcs = ["ring_test.cc"],
++    deps = [
++        ":io",
++        ":protocol",
++        ":state",
++        "@yacl//yacl/crypto/hash:blake3",
++        "//libspu/mpc:api",
++        "//libspu/mpc/common:pv2k",
++        "//libspu/mpc/utils:simulate",
++    ],
++)
+diff --git a/src/libspu/mpc/spdzwise/arithmetic.cc b/src/libspu/mpc/spdzwise/arithmetic.cc
+index d71d513a..cdd345a2 100644
+--- a/src/libspu/mpc/spdzwise/arithmetic.cc
++++ b/src/libspu/mpc/spdzwise/arithmetic.cc
+@@ -28,10 +28,10 @@ void RequirePublic(const NdArrayRef& x) {
+ 
+ }  // namespace
+ 
+-// These state operations implement F61 arithmetic only. The field registration
+-// and state constructor reject RING configurations before installing kernels.
++// Dispatch RING operations to its independent arithmetic state.
+ NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
+   requireRunning();
++  if (isRing()) return ring_->publicValue(value);
+   RequirePublic(value);
+   NdArrayRef result(makeType<AShrTy>(session_), value.shape());
+   const NdArrayView<uint64_t> in(value);
+@@ -45,6 +45,8 @@ NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
+ }
+ 
+ NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
++  requireRunning();
++  if (isRing()) return ring_->add(x, y);
+   validateInternal(x);
+   validateInternal(y);
+   SPU_ENFORCE(x.shape() == y.shape(), "add shape mismatch");
+@@ -60,6 +62,8 @@ NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
+ }
+ 
+ NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
++  requireRunning();
++  if (isRing()) return ring_->negate(x);
+   validateInternal(x);
+   NdArrayRef result(x.eltype(), x.shape());
+   const NdArrayView<AuthShare> in(x);
+@@ -74,6 +78,8 @@ NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
+ 
+ NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
+                                          const NdArrayRef& y) const {
++  requireRunning();
++  if (isRing()) return ring_->multiplyPublic(x, y);
+   validateInternal(x);
+   RequirePublic(y);
+   SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
+@@ -90,6 +96,15 @@ NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
+ }
+ 
+ NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
++  requireRunning();
++  if (isRing()) {
++    try {
++      return ring_->multiply(x, y);
++    } catch (...) {
++      abort();
++      throw;
++    }
++  }
+   validateInternal(x);
+   validateInternal(y);
+   SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
+@@ -113,6 +128,15 @@ NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
+ 
+ NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
+                                  bool public_rhs) {
++  requireRunning();
++  if (isRing()) {
++    try {
++      return ring_->matmul(x, y, public_rhs);
++    } catch (...) {
++      abort();
++      throw;
++    }
++  }
+   validateInternal(x);
+   if (public_rhs) {
+     RequirePublic(y);
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+index 7e8a7309..2b7393ce 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+@@ -1,5 +1,19 @@
+ load("@spulib//bazel:spu.bzl", "spu_cc_binary")
+ 
++spu_cc_binary(
++    name = "ring_circuit_bench",
++    srcs = ["ring_circuit_bench.cc"],
++    deps = [
++        "@spulib//libspu/mpc:api",
++        "@spulib//libspu/mpc/common:pv2k",
++        "@spulib//libspu/mpc/spdzwise:field",
++        "@spulib//libspu/mpc/spdzwise:io",
++        "@spulib//libspu/mpc/spdzwise:protocol",
++        "@spulib//libspu/mpc/spdzwise:state",
++        "@spulib//libspu/mpc/utils:simulate",
++    ],
++)
++
+ spu_cc_binary(
+     name = "circuit_bench",
+     srcs = ["circuit_bench.cc"],
+diff --git a/src/libspu/mpc/spdzwise/io.cc b/src/libspu/mpc/spdzwise/io.cc
+index 5901d533..1b3e110f 100644
+--- a/src/libspu/mpc/spdzwise/io.cc
++++ b/src/libspu/mpc/spdzwise/io.cc
+@@ -17,7 +17,7 @@
+ 
+ #include "libspu/core/config.h"
+ #include "libspu/mpc/common/pv2k.h"
+-#include "libspu/mpc/spdzwise/type.h"
++#include "libspu/mpc/spdzwise/ring_type.h"
+ 
+ namespace spu::mpc::spdzwise {
+ namespace {
+@@ -32,10 +32,13 @@ uint64_t RandomResidue() {
+ 
+ }  // namespace
+ 
+-SpdzWiseIo::SpdzWiseIo(FieldType field, size_t parties)
+-    : BaseIo(field, parties) {
+-  SPU_ENFORCE(field == FM64, "SPDZWISE v1 requires FM64 / p=2^61-1");
++SpdzWiseIo::SpdzWiseIo(FieldType field, size_t parties,
++                       SpdzWiseConfig::Domain domain)
++    : BaseIo(field, parties), domain_(domain) {
++  SPU_ENFORCE(field == FM64, "SPDZWISE requires FM64");
+   SPU_ENFORCE(parties == 3, "SPDZWISE requires exactly three parties");
++  SPU_ENFORCE(domain == SpdzWiseConfig::FIELD || domain == SpdzWiseConfig::RING,
++              "invalid arithmetic domain");
+   registerTypes();
+ }
+ 
+@@ -46,7 +49,8 @@ Type SpdzWiseIo::getShareType(Visibility vis, int owner_rank) const {
+   }
+   SPU_ENFORCE(vis == VIS_SECRET, "unsupported SPDZWISE visibility");
+   // Used for sizing; toShares sets the actual destination rank.
+-  return makeType<InputTy>(0);
++  return domain_ == SpdzWiseConfig::RING ? makeType<ring::InputTy>(0)
++                                         : makeType<InputTy>(0);
+ }
+ 
+ std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
+@@ -59,6 +63,22 @@ std::vector<NdArrayRef> SpdzWiseIo::toShares(const NdArrayRef& raw,
+   if (vis == VIS_PUBLIC) {
+     return std::vector<NdArrayRef>(3, raw.as(type));
+   }
++  if (domain_ == SpdzWiseConfig::RING) {
++    std::vector<NdArrayRef> shares;
++    for (size_t rank = 0; rank < 3; ++rank) {
++      shares.emplace_back(makeType<ring::InputTy>(rank), raw.shape());
++    }
++    const NdArrayView<uint64_t> input(raw);
++    for (int64_t i = 0; i < raw.numel(); ++i) {
++      const ring::Word a = yacl::crypto::SecureRandSeed();
++      const ring::Word b = yacl::crypto::SecureRandSeed();
++      const ring::Word c = ring::Word(input[i]) - a - b;
++      shares[0].data<ring::RepShare>()[i] = {a, b};
++      shares[1].data<ring::RepShare>()[i] = {b, c};
++      shares[2].data<ring::RepShare>()[i] = {c, a};
++    }
++    return shares;
++  }
+   std::vector<NdArrayRef> shares;
+   for (size_t rank = 0; rank < 3; ++rank) {
+     shares.emplace_back(makeType<InputTy>(rank), raw.shape());
+@@ -168,6 +188,47 @@ NdArrayRef SpdzWiseIo::fromShares(const std::vector<NdArrayRef>& shares) const {
+     return result;
+   }
+   const bool is_public = first.eltype().isa<Pub2kTy>();
++  if (domain_ == SpdzWiseConfig::RING && !is_public) {
++    const bool input = first.eltype().isa<ring::InputTy>();
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& type = shares[rank].eltype();
++      SPU_ENFORCE(shares[rank].shape() == first.shape(),
++                  "share shape mismatch");
++      if (input) {
++        SPU_ENFORCE(type.isa<ring::InputTy>() &&
++                        type.as<ring::InputTy>()->rank() == rank,
++                    "ring input rank/type mismatch");
++      } else {
++        SPU_ENFORCE(type.isa<ring::OutputTy>() &&
++                        type.as<ring::OutputTy>()->rank() == rank &&
++                        type.as<ring::OutputTy>()->binding() ==
++                            first.eltype().as<ring::OutputTy>()->binding(),
++                    "ring output rank/type/binding mismatch");
++      }
++    }
++    NdArrayRef result(makeType<RingTy>(FM64), first.shape());
++    auto reconstruct = [&](auto share) {
++      using Share = decltype(share);
++      const std::array<NdArrayView<Share>, 3> in = {
++          NdArrayView<Share>(shares[0]), NdArrayView<Share>(shares[1]),
++          NdArrayView<Share>(shares[2])};
++      for (int64_t i = 0; i < first.numel(); ++i) {
++        uint64_t sum = 0;
++        for (size_t rank = 0; rank < 3; ++rank) {
++          SPU_ENFORCE(in[rank][i][1] == in[(rank + 1) % 3][i][0],
++                      "ring replicated copies disagree");
++          sum += static_cast<uint64_t>(in[rank][i][0]);
++        }
++        result.data<uint64_t>()[i] = sum;
++      }
++    };
++    if (input) {
++      reconstruct(ring::RepShare{});
++    } else {
++      reconstruct(RepShare{});
++    }
++    return result;
++  }
+   const bool is_input = first.eltype().isa<InputTy>();
+   SPU_ENFORCE(is_public || is_input || first.eltype().isa<OutputTy>(),
+               "SPDZWISE cannot reconstruct internal MAC shares");
+@@ -219,8 +280,8 @@ std::unique_ptr<IoInterface> makeSpdzWiseIo(const RuntimeConfig& config,
+     case SpdzWiseConfig::FIELD:
+       return std::make_unique<SpdzWiseIo>(conf.field, parties);
+     case SpdzWiseConfig::RING:
+-      // TODO: construct ring IO without interpreting ring shares as F61.
+-      SPU_THROW("SPDZWISE RING IO is not implemented");
++      return std::make_unique<SpdzWiseIo>(conf.field, parties,
++                                          SpdzWiseConfig::RING);
+     default:
+       SPU_THROW("Invalid SPDZWISE arithmetic domain {}",
+                 static_cast<int>(conf.spdzwise_config.domain));
+diff --git a/src/libspu/mpc/spdzwise/io.h b/src/libspu/mpc/spdzwise/io.h
+index b4251be4..0bda53f8 100644
+--- a/src/libspu/mpc/spdzwise/io.h
++++ b/src/libspu/mpc/spdzwise/io.h
+@@ -11,14 +11,18 @@
+ 
+ #pragma once
+ 
++#include "libspu/core/config.h"
+ #include "libspu/mpc/io_interface.h"
+ 
+ namespace spu::mpc::spdzwise {
+ 
+-// F61 arithmetic IO and shared ABFL Boolean IO. Ring IO is reserved separately.
++// Domain-specific arithmetic IO and shared ABFL Boolean IO.
+ class SpdzWiseIo final : public BaseIo {
++  SpdzWiseConfig::Domain domain_;
++
+  public:
+-  SpdzWiseIo(FieldType field, size_t parties);
++  SpdzWiseIo(FieldType field, size_t parties,
++             SpdzWiseConfig::Domain domain = SpdzWiseConfig::FIELD);
+   Type getShareType(Visibility vis, int owner_rank = -1) const override;
+   std::vector<NdArrayRef> toShares(const NdArrayRef& raw, Visibility vis,
+                                    int owner_rank = -1) const override;
+diff --git a/src/libspu/mpc/spdzwise/io_test.cc b/src/libspu/mpc/spdzwise/io_test.cc
+index a16e6ac2..ca3903cf 100644
+--- a/src/libspu/mpc/spdzwise/io_test.cc
++++ b/src/libspu/mpc/spdzwise/io_test.cc
+@@ -59,7 +59,7 @@ TEST(SpdzWiseIo, RoutesByDomainAndRejectsUnsupportedStorage) {
+   }
+   config.field = FM64;
+   config.spdzwise_config.domain = SpdzWiseConfig::RING;
+-  EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
++  EXPECT_NO_THROW(makeSpdzWiseIo(config, 3));
+   config.spdzwise_config.domain = static_cast<SpdzWiseConfig::Domain>(99);
+   EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
+ }
+diff --git a/src/libspu/mpc/spdzwise/protocol.cc b/src/libspu/mpc/spdzwise/protocol.cc
+index a4781c85..e1b5eded 100644
+--- a/src/libspu/mpc/spdzwise/protocol.cc
++++ b/src/libspu/mpc/spdzwise/protocol.cc
+@@ -16,6 +16,7 @@
+ #include "libspu/mpc/spdzwise/arithmetic.h"
+ #include "libspu/mpc/spdzwise/boolean.h"
+ #include "libspu/mpc/spdzwise/conversion.h"
++#include "libspu/mpc/spdzwise/ring_arithmetic.h"
+ #include "libspu/mpc/spdzwise/state.h"
+ #include "libspu/mpc/standard_shape/protocol.h"
+ 
+@@ -87,12 +88,16 @@ void registerFieldArithmeticPrototype(
+ }
+ 
+ void registerRingArithmeticPrototype(
+-    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& /*link*/) {
++    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link) {
+   SPU_ENFORCE(ctx->config().field == FM64,
+               "SPDZWISE FIELD and RING domains require FM64");
+-  // TODO: install ring state/arithmetic/conversions/PPML and shared ABFL
+-  // kernels.
+-  SPU_THROW("SPDZWISE RING arithmetic is not implemented");
++  SPU_ENFORCE(ctx->config().spdzwise_config.domain == SpdzWiseConfig::RING,
++              "SPDZWISE ring arithmetic requires domain RING");
++  registerTypes();
++  ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
++  registerCommonKernels(ctx);
++  ring::registerArithmeticKernels(ctx->prot());
++  registerBooleanKernels(ctx->prot());
+ }
+ 
+ void registerArithmeticPrototype(
+diff --git a/src/libspu/mpc/spdzwise/protocol.h b/src/libspu/mpc/spdzwise/protocol.h
+index c52ac15c..0440e3d3 100644
+--- a/src/libspu/mpc/spdzwise/protocol.h
++++ b/src/libspu/mpc/spdzwise/protocol.h
+@@ -15,8 +15,8 @@
+ 
+ namespace spu::mpc::spdzwise {
+ 
+-// Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING is a
+-// reserved entrypoint that throws until implemented. Both require FM64.
++// Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING uses
++// internal Z/(2^128) and external Z/(2^64). Both require FM64.
+ // This arithmetic/ABFL integration harness is not a complete PPML protocol and
+ // remains unreachable through Factory::RegisterProtocol until acceptance.
+ void registerArithmeticPrototype(
+diff --git a/src/libspu/mpc/spdzwise/protocol_test.cc b/src/libspu/mpc/spdzwise/protocol_test.cc
+index 98ae4af9..05ca2d5a 100644
+--- a/src/libspu/mpc/spdzwise/protocol_test.cc
++++ b/src/libspu/mpc/spdzwise/protocol_test.cc
+@@ -100,17 +100,20 @@ TEST(SpdzWiseProtocol, FieldRouteUsesF61MultiplicationAndSharedBooleanKernels) {
+   EXPECT_EQ(NdArrayView<uint64_t>(io.fromShares(outputs))[0], uint64_t{0} - 1);
+ }
+ 
+-TEST(SpdzWiseProtocol, RingRouteRemainsEmptyAndCannotUseFieldState) {
++TEST(SpdzWiseProtocol, RingRouteHasIndependentArithmeticAndSharedBoolean) {
+   auto config = Config();
+   config.spdzwise_config.domain = SpdzWiseConfig::RING;
+-  SPUContext ctx(config, nullptr);
+-  EXPECT_ANY_THROW(registerArithmeticPrototype(&ctx, nullptr));
+-  EXPECT_FALSE(ctx.hasKernel("mul_aa"));
+-  EXPECT_FALSE(ctx.hasKernel("and_bb"));
+-  EXPECT_FALSE(ctx.prot()->hasState(ProtocolSession::kBindName()));
+-  EXPECT_ANY_THROW(registerFieldArithmeticPrototype(&ctx, nullptr));
+   utils::simulate(3, [&](const auto& link) {
+-    EXPECT_ANY_THROW(SpdzWiseState(config, link));
++    SPUContext ctx(config, link);
++    EXPECT_ANY_THROW(registerFieldArithmeticPrototype(&ctx, link));
++    registerArithmeticPrototype(&ctx, link);
++    EXPECT_TRUE(ctx.hasKernel("mul_aa"));
++    EXPECT_TRUE(ctx.hasKernel("and_bb"));
++    EXPECT_TRUE(ctx.prot()->hasState(ProtocolSession::kBindName()));
++    EXPECT_EQ(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
++              nullptr);
++    EXPECT_FALSE(ctx.hasKernel("a2b"));
++    EXPECT_FALSE(ctx.hasKernel("b2a"));
+   });
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/state.cc b/src/libspu/mpc/spdzwise/state.cc
+index ba75e1e8..68e2acc3 100644
+--- a/src/libspu/mpc/spdzwise/state.cc
++++ b/src/libspu/mpc/spdzwise/state.cc
+@@ -57,8 +57,9 @@ SpdzWiseState::SpdzWiseState(const RuntimeConfig& config,
+   SPU_ENFORCE(link_ && link_->WorldSize() == 3,
+               "SPDZWISE requires three parties");
+   SPU_ENFORCE(config.field == FM64, "SPDZWISE requires FM64");
+-  SPU_ENFORCE(config.spdzwise_config.domain == SpdzWiseConfig::FIELD,
+-              "SPDZWISE F61 state requires domain FIELD");
++  SPU_ENFORCE(config.spdzwise_config.domain == SpdzWiseConfig::FIELD ||
++                  config.spdzwise_config.domain == SpdzWiseConfig::RING,
++              "invalid SPDZWISE arithmetic domain");
+   SPU_ENFORCE(!config.experimental_enable_inter_op_par &&
+                   !config.experimental_enable_intra_op_par,
+               "SPDZWISE context parallelism is not supported");
+@@ -137,6 +138,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+     } else if (value.storage_type().isa<BShrTy>()) {
+       validateBoolean(value.data());
+       Append(descriptor, value.storage_type().toString());
++    } else if (value.storage_type().isa<ring::AShrTy>()) {
++      validateInternal(value.data());
++      Append(descriptor, "ring-authenticated");
++      Append(descriptor, value.storage_type().as<ring::AShrTy>()->session());
+     } else if (value.storage_type().isa<AShrTy>()) {
+       validateInternal(value.data());
+       Append(descriptor, "authenticated");
+@@ -155,6 +160,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+         Append(descriptor,
+                std::to_string(value.storage_type().as<BOutputTy>()->nbits()));
+         Append(descriptor, value.storage_type().as<BOutputTy>()->binding());
++      } else if (value.storage_type().isa<ring::OutputTy>()) {
++        Append(descriptor, "ring-external-output");
++        Append(descriptor,
++               value.storage_type().as<ring::OutputTy>()->binding());
+       } else if (value.storage_type().isa<OutputTy>()) {
+         Append(descriptor, "external-output");
+         Append(descriptor, value.storage_type().as<OutputTy>()->binding());
+@@ -175,15 +184,24 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
+     }
+     session_ = Digest(combined);
+     agree(session_);
+-    key_prg_ = std::make_unique<PrgState>(link_);
+-    mask_prg_ = std::make_unique<PrgState>(link_);
+-    check_prg_ = std::make_unique<PrgState>(link_);
++    if (isRing()) {
++      ring_ = std::make_unique<ring::ArithmeticState>(
++          link_, session_, [this](std::string_view operation) {
++            return session_ + "/" + tag(operation);
++          });
++    } else {
++      key_prg_ = std::make_unique<PrgState>(link_);
++      mask_prg_ = std::make_unique<PrgState>(link_);
++      check_prg_ = std::make_unique<PrgState>(link_);
++    }
+     boolean_ = std::make_unique<BooleanState>(
+         link_, [this](std::string_view operation) {
+           return session_ + "/" + tag(operation);
+         });
+-    key_ = RandomF61Rep(key_prg_.get(), 1)[0];
+-    checkCopies({key_});
++    if (!isRing()) {
++      key_ = RandomF61Rep(key_prg_.get(), 1)[0];
++      checkCopies({key_});
++    }
+   }
+ }
+ 
+@@ -202,12 +220,17 @@ Type SpdzWiseState::exportType(const std::string& name,
+     Append(descriptor, std::to_string(width));
+     return makeType<BOutputTy>(rank(), width, Digest(descriptor));
+   }
++  if (isRing()) {
++    Append(descriptor, "ring");
++    return makeType<ring::OutputTy>(rank(), Digest(descriptor));
++  }
+   return makeType<OutputTy>(rank(), Digest(descriptor));
+ }
+ 
+ void SpdzWiseState::onAbort() noexcept {
+   pending_.clear();
+   boolean_.reset();
++  ring_.reset();
+   key_ = {};
+   key_prg_.reset();
+   mask_prg_.reset();
+@@ -231,6 +254,12 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
+       SPU_ENFORCE(((words[i][0] | words[i][1]) & ~mask) == 0,
+                   "noncanonical Boolean input");
+     }
++  } else if (isRing()) {
++    SPU_ENFORCE((type.isa<ring::InputTy>() &&
++                 type.as<ring::InputTy>()->rank() == rank()) ||
++                    (type.isa<ring::OutputTy>() &&
++                     type.as<ring::OutputTy>()->rank() == rank()),
++                "ring external input domain/rank mismatch");
+   } else {
+     SPU_ENFORCE(
+         (type.isa<InputTy>() && type.as<InputTy>()->rank() == rank()) ||
+@@ -241,6 +270,10 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
+ 
+ void SpdzWiseState::validateInternal(const NdArrayRef& value) const {
+   requireRunning();
++  if (isRing()) {
++    SPU_ENFORCE(ring_, "ring state is not initialized");
++    return ring_->validateInternal(value);
++  }
+   SPU_ENFORCE(value.eltype().isa<AShrTy>() &&
+                   value.eltype().as<AShrTy>()->session() == session_,
+               "SPDZWISE value belongs to a different session/type");
+@@ -275,6 +308,14 @@ uint64_t SpdzWiseState::openRaw(const RepShare& value) {
+ void SpdzWiseState::check() {
+   try {
+     requireRunning();
++    if (isRing()) {
++      if (ring_->check()) {
++        SPU_ENFORCE(arithmetic_checks_ != std::numeric_limits<uint64_t>::max(),
++                    "check counter overflow");
++        ++arithmetic_checks_;
++      }
++      return;
++    }
+     if (pending_.empty()) {
+       return;
+     }
+@@ -367,6 +408,16 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
+       return value.clone().as(
+           makeType<BShrTy>(session_, value.eltype().as<BShare>()->nbits()));
+     }
++    if (isRing()) {
++      if (value.eltype().isa<ring::AShrTy>()) {
++        validateInternal(value);
++        return value;
++      }
++      validateExternalInput(Value(value, DT_I64));
++      auto result = ring_->importValue(value);
++      check();
++      return result;
++    }
+     if (value.eltype().isa<AShrTy>()) {
+       validateInternal(value);
+       return value;
+@@ -402,7 +453,8 @@ void SpdzWiseState::finalize() {
+ NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
+                                       const Type& type) const {
+   requireRunning();
+-  SPU_ENFORCE(pending_.empty() && pendingBooleanBits() == 0,
++  SPU_ENFORCE(pending_.empty() && (!ring_ || ring_->empty()) &&
++                  pendingBooleanBits() == 0,
+               "unchecked SPDZWISE results cannot be exported");
+   if (value.eltype().isa<BShrTy>()) {
+     validateBoolean(value);
+@@ -413,6 +465,7 @@ NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
+                 "invalid Boolean export type");
+     return value.clone().as(type);
+   }
++  if (isRing()) return ring_->exportValue(value, type);
+   validateInternal(value);
+   SPU_ENFORCE(type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank(),
+               "invalid export type");
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index a085714c..ed308283 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -14,21 +14,23 @@
+ #include "libspu/mpc/common/prg_state.h"
+ #include "libspu/mpc/protocol_session.h"
+ #include "libspu/mpc/spdzwise/boolean.h"
++#include "libspu/mpc/spdzwise/ring.h"
+ #include "libspu/mpc/spdzwise/type.h"
+ 
+ namespace spu::mpc::spdzwise {
+ 
+-// Checked session for the current F61 arithmetic and shared ABFL prototype.
+-// F61 arithmetic kernels live in arithmetic.h/.cc, Boolean kernels in
+-// boolean.h/.cc. This state rejects RING configurations; ring arithmetic must
+-// provide its own state/checking implementation. The production factory stays
+-// closed until mixed protocols, source review and integration tests complete.
++// Checked session for separate FIELD/RING arithmetic and shared Boolean
++// kernels. The production factory remains closed.
+ class SpdzWiseState final : public ProtocolSession {
+   // The benchmark separates MAC generation from the final batched check.
+   // Normal imports retain their mandatory immediate check.
+   friend class SpdzWiseBenchmarkAccess;
+   friend class BooleanTestAccess;
+   std::unique_ptr<BooleanState> boolean_;
++  std::unique_ptr<ring::ArithmeticState> ring_;
++  bool isRing() const {
++    return config_.spdzwise_config.domain == SpdzWiseConfig::RING;
++  }
+   std::shared_ptr<yacl::link::Context> link_;
+   RuntimeConfig config_;
+   std::string session_;
+diff --git a/src/libspu/mpc/spdzwise/type.cc b/src/libspu/mpc/spdzwise/type.cc
+index 485d1296..7f65bc34 100644
+--- a/src/libspu/mpc/spdzwise/type.cc
++++ b/src/libspu/mpc/spdzwise/type.cc
+@@ -17,6 +17,7 @@
+ #include <utility>
+ 
+ #include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/ring_type.h"
+ 
+ namespace spu::mpc::spdzwise {
+ 
+@@ -165,7 +166,8 @@ void registerTypes() {
+   static std::once_flag flag;
+   std::call_once(flag, [] {
+     TypeContext::getTypeContext()
+-        ->addTypes<InputTy, OutputTy, BInputTy, BOutputTy>();
++        ->addTypes<InputTy, OutputTy, ring::InputTy, ring::OutputTy, BInputTy,
++                   BOutputTy>();
+   });
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/ring.cc b/src/libspu/mpc/spdzwise/ring.cc
+new file mode 100644
+index 00000000..01f4d006
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring.cc
+@@ -0,0 +1,542 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "libspu/mpc/spdzwise/ring.h"
++
++#include <cstring>
++#include <limits>
++
++#include "yacl/crypto/hash/blake3.h"
++#include "yacl/link/algorithm/allgather.h"
++
++#include "libspu/core/parallel_utils.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/ring_arithmetic.h"
++#include "libspu/mpc/spdzwise/state.h"
++
++namespace spu::mpc::spdzwise::ring {
++namespace {
++void Append(std::string& bytes, std::string_view value) {
++  bytes += std::to_string(value.size()) + ":";
++  bytes.append(value);
++}
++
++template <typename GetWord>
++std::string HashWords(std::string_view domain, std::string_view context,
++                      size_t owner, size_t count, GetWord&& get) {
++  SPU_ENFORCE(count <= std::numeric_limits<size_t>::max() / sizeof(Word),
++              "ring hash size overflow");
++  std::string bytes;
++  Append(bytes, "SPDZWISE-RING-v1");
++  Append(bytes, domain);
++  Append(bytes, context);
++  Append(bytes, std::to_string(owner));
++  // Preserve exactly the original length-prefixed LE transcript. Stream the
++  // last field in bounded chunks instead of materializing/copying whole
++  // batches.
++  bytes += std::to_string(count * sizeof(Word)) + ":";
++  yacl::crypto::Blake3Hash hash;
++  hash.Update(bytes);
++  constexpr size_t kHashWords = 4096;
++  std::vector<Word> chunk(std::min(count, kHashWords));
++  for (size_t offset = 0; offset < count; offset += kHashWords) {
++    chunk.resize(std::min(count - offset, kHashWords));
++    for (size_t i = 0; i < chunk.size(); ++i) chunk[i] = get(offset + i);
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++    hash.Update(
++        yacl::ByteContainerView(chunk.data(), chunk.size() * sizeof(Word)));
++#else
++    hash.Update(Encode(chunk));
++#endif
++  }
++  const auto digest = hash.CumulativeHash();
++  return {reinterpret_cast<const char*>(digest.data()), digest.size()};
++}
++
++std::string Hash(std::string_view domain, std::string_view context,
++                 size_t owner, const std::vector<Word>& words) {
++  return HashWords(domain, context, owner, words.size(),
++                   [&](size_t i) { return words[i]; });
++}
++
++// Two rounds propagate an honest rejection to every honest party, even if a
++// corrupt party equivocates about its own status in the first round.
++void RequireAll(const std::shared_ptr<yacl::link::Context>& link, bool ok,
++                const std::string& context) {
++  for (size_t round = 0; round < 2; ++round) {
++    const std::string status(1, ok ? '1' : '0');
++    const auto statuses =
++        yacl::link::AllGather(link, yacl::ByteContainerView(status),
++                              context + "/status/" + std::to_string(round));
++    for (const auto& item : statuses) {
++      ok &= std::string_view(item) == "1";
++    }
++  }
++  SPU_ENFORCE(ok, "SPDZWISE ring check failed");
++}
++
++template <typename GetShare>
++void CheckCopiesImpl(const std::shared_ptr<yacl::link::Context>& link,
++                     size_t count, GetShare&& get, std::string_view context) {
++  const auto sent = HashWords("copies", context, link->Rank(), count,
++                              [&](size_t i) { return get(i)[0]; });
++  const std::string tag = std::string(context) + "/copies";
++  // Component i is held by i and i-1. Only hashes reach its duplicate holder.
++  link->SendAsync(link->PrevRank(), yacl::ByteContainerView(sent), tag);
++  const auto received = link->Recv(link->NextRank(), tag);
++  RequireAll(link,
++             std::string_view(received) ==
++                 HashWords("copies", context, link->NextRank(), count,
++                           [&](size_t i) { return get(i)[1]; }),
++             tag);
++}
++
++std::vector<RepShare> Random(PrgState* prg, size_t count) {
++  std::vector<Word> a(count), b(count);
++  if (count != 0) {
++    prg->fillPrssPair(a.data(), b.data(), count, PrgState::GenPrssCtrl::Both);
++  }
++  std::vector<RepShare> out(count);
++  for (size_t i = 0; i < count; ++i) out[i] = {a[i], b[i]};
++  return out;
++}
++
++RepShare Values(const AuthShare& x) { return {x[0], x[1]}; }
++RepShare Macs(const AuthShare& x) { return {x[2], x[3]}; }
++void RequirePublic(const NdArrayRef& value) {
++  SPU_ENFORCE(value.eltype() == makeType<Pub2kTy>(FM64),
++              "expected FM64 public operand");
++}
++}  // namespace
++
++std::string Encode(const std::vector<Word>& words) {
++  SPU_ENFORCE(words.size() <= std::numeric_limits<size_t>::max() / 16,
++              "ring wire size overflow");
++  std::string bytes(words.size() * 16, '\0');
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  if (!words.empty()) std::memcpy(bytes.data(), words.data(), bytes.size());
++#else
++  for (size_t i = 0; i < words.size(); ++i) {
++    for (size_t j = 0; j < 16; ++j) {
++      bytes[16 * i + j] = static_cast<char>(words[i] >> (8 * j));
++    }
++  }
++#endif
++  return bytes;
++}
++
++std::vector<Word> Decode(std::string_view bytes, size_t count) {
++  SPU_ENFORCE(count <= std::numeric_limits<size_t>::max() / 16 &&
++                  bytes.size() == count * 16,
++              "invalid ring wire length");
++  std::vector<Word> words(count);
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  if (count != 0) std::memcpy(words.data(), bytes.data(), bytes.size());
++#else
++  for (size_t i = 0; i < count; ++i) {
++    for (size_t j = 0; j < 16; ++j) {
++      words[i] |= Word(static_cast<uint8_t>(bytes[16 * i + j])) << (8 * j);
++    }
++  }
++#endif
++  return words;
++}
++
++void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
++                 const std::vector<RepShare>& values,
++                 std::string_view context) {
++  CheckCopiesImpl(
++      link, values.size(), [&](size_t i) { return values[i]; }, context);
++}
++
++void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
++               const RepShare& value, std::string_view context) {
++  // Reference: Mark Abspoel, Anders Dalskov, Daniel Escudero, Ariel Nof,
++  // "An Efficient Passive-to-Active Compiler for Honest-Majority MPC over
++  // Rings", Section 6.3, Protocol 9.
++  // https://ir.cwi.nl/pub/31033/31033.pdf#page=23 Pi holds (ti,t{i+1}). Send
++  // H(-(ti+t{i+1})) to P{i+1}, receive from P{i-1}, compare with H(t{i+1}). The
++  // sent target is component i+2; the received target is i+1. This direction is
++  // opposite to resharing. Assumptions: three parties, <=1 static malicious
++  // corruption, security with abort in the random-oracle model. BLAKE3-256
++  // instantiates that oracle. Additional engineering checks: replicated-copy
++  // consistency, unambiguous version/session/execution/batch/component domain
++  // separation, and all-party failure propagation. Never open the residual or
++  // its arithmetic multiple.
++  CheckCopies(link, {value}, std::string(context) + "/residual");
++  const std::string tag = std::string(context) + "/zero";
++  const auto sent = Hash("zero", context, (link->Rank() + 2) % 3,
++                         {Word(0) - value[0] - value[1]});
++  link->SendAsync(link->NextRank(), yacl::ByteContainerView(sent), tag);
++  const auto received = link->Recv(link->PrevRank(), tag);
++  RequireAll(link,
++             std::string_view(received) ==
++                 Hash("zero", context, link->NextRank(), {value[1]}),
++             tag);
++}
++
++ArithmeticState::ArithmeticState(
++    std::shared_ptr<yacl::link::Context> link, std::string session,
++    std::function<std::string(std::string_view)> tag)
++    : link_(std::move(link)),
++      session_(std::move(session)),
++      tag_(std::move(tag)) {
++  key_prg_ = std::make_unique<PrgState>(link_);
++  mask_prg_ = std::make_unique<PrgState>(link_);
++  check_prg_ = std::make_unique<PrgState>(link_);
++  key_ = Random(key_prg_.get(), 1)[0];
++  CheckCopies(link_, {key_}, tag_("ring-key"));
++}
++
++void ArithmeticState::validateInternal(const NdArrayRef& value) const {
++  SPU_ENFORCE(value.eltype().isa<AShrTy>() &&
++                  value.eltype().as<AShrTy>()->session() == session_,
++              "ring value belongs to a different session/domain");
++}
++
++void ArithmeticState::exchange(const std::vector<Word>& local,
++                               std::vector<Word>& next,
++                               std::string_view operation) {
++  const auto context = tag_(operation);
++  if (local.empty()) {
++    next.clear();
++    return;
++  }
++  SPU_ENFORCE(local.size() <= std::numeric_limits<size_t>::max() / sizeof(Word),
++              "ring wire size overflow");
++  const size_t nbytes = local.size() * sizeof(Word);
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  // SendAsync copies this view into transport-owned storage before returning.
++  // The native layout already is the canonical wire format on LE hosts.
++  link_->SendAsync(link_->PrevRank(),
++                   yacl::ByteContainerView(local.data(), nbytes), context);
++#else
++  const auto bytes = Encode(local);
++  link_->SendAsync(link_->PrevRank(), yacl::ByteContainerView(bytes), context);
++#endif
++  const auto received = link_->Recv(link_->NextRank(), context);
++  // Keep the same two-round failure propagation before reading the payload.
++  RequireAll(link_, static_cast<size_t>(received.size()) == nbytes,
++             context + "/wire");
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  // The second PRSS mask has already been consumed. Reuse its allocation,
++  // avoiding a new zero-initialized decoding vector on every multiplication.
++  next.resize(local.size());
++  std::memcpy(next.data(), received.data(), nbytes);
++#else
++  next = Decode(std::string_view(received), local.size());
++#endif
++}
++
++std::vector<RepShare> ArithmeticState::reshare(std::vector<Word> local,
++                                               std::string_view operation) {
++  std::vector<Word> first(local.size()), second(local.size());
++  if (!local.empty()) {
++    mask_prg_->fillPrssPair(first.data(), second.data(), local.size(),
++                            PrgState::GenPrssCtrl::Both);
++  }
++  pforeach(0, local.size(),
++           [&](int64_t i) { local[i] += first[i] - second[i]; });
++  exchange(local, second, operation);
++  std::vector<RepShare> out(local.size());
++  pforeach(0, local.size(), [&](int64_t i) { out[i] = {local[i], second[i]}; });
++  return out;
++}
++
++std::vector<RepShare> ArithmeticState::multiplyRaw(
++    const std::vector<RepShare>& x, const std::vector<RepShare>& y) {
++  SPU_ENFORCE(x.size() == y.size(), "ring multiplication size mismatch");
++  std::vector<Word> local(x.size());
++  for (size_t i = 0; i < x.size(); ++i) local[i] = LocalProduct(x[i], y[i]);
++  return reshare(std::move(local), "ring-multiply");
++}
++
++void ArithmeticState::remember(const NdArrayRef& value) {
++  if (value.numel() == 0) return;
++  if (value.isCompact()) {
++    const auto* data = value.data<AuthShare>();
++    // Own immutable copies; bulk insertion avoids per-element capacity checks.
++    pending_.insert(pending_.end(), data, data + value.numel());
++    return;
++  }
++  const NdArrayView<AuthShare> in(value);
++  for (int64_t i = 0; i < value.numel(); ++i) pending_.push_back(in[i]);
++}
++
++NdArrayRef ArithmeticState::importValue(const NdArrayRef& value) {
++  if (value.eltype().isa<AShrTy>()) {
++    validateInternal(value);
++    return value;
++  }
++  std::vector<RepShare> values(value.numel());
++  if (value.eltype().isa<InputTy>()) {
++    SPU_ENFORCE(value.eltype().as<InputTy>()->rank() == link_->Rank(),
++                "ring input rank mismatch");
++    const NdArrayView<RepShare> in(value);
++    for (int64_t i = 0; i < value.numel(); ++i) values[i] = in[i];
++  } else {
++    SPU_ENFORCE(value.eltype().isa<OutputTy>() &&
++                    value.eltype().as<OutputTy>()->rank() == link_->Rank(),
++                "invalid ring external input");
++    const NdArrayView<spdzwise::RepShare> in(value);
++    for (int64_t i = 0; i < value.numel(); ++i) {
++      // Each external component has independent modulo-2^64 semantics.
++      values[i] = {Word(in[i][0]), Word(in[i][1])};
++    }
++  }
++  CheckCopies(link_, values, tag_("ring-input"));
++  const auto macs =
++      multiplyRaw(values, std::vector<RepShare>(values.size(), key_));
++  NdArrayRef out(makeType<AShrTy>(session_), value.shape());
++  for (int64_t i = 0; i < value.numel(); ++i) {
++    out.data<AuthShare>()[i] = {values[i][0], values[i][1], macs[i][0],
++                                macs[i][1]};
++  }
++  remember(out);
++  return out;
++}
++
++bool ArithmeticState::check() {
++  const auto context = tag_("ring-check");
++  const auto count = std::to_string(pending_.size());
++  const auto counts = yacl::link::AllGather(
++      link_, yacl::ByteContainerView(count), context + "/count");
++  bool agree = true;
++  for (const auto& item : counts) agree &= std::string_view(item) == count;
++  RequireAll(link_, agree, context + "/count");
++  if (pending_.empty()) return false;
++  // Freeze records and check their copies BEFORE sampling fresh secret
++  // coefficients. pending_ owns copies rather than aliases of mutable arrays.
++  CheckCopiesImpl(
++      link_, 2 * pending_.size(),
++      [&](size_t i) {
++        return i % 2 == 0 ? Values(pending_[i / 2]) : Macs(pending_[i / 2]);
++      },
++      context + "/records");
++  std::vector<Word> first(pending_.size()), second(pending_.size());
++  // Consume the same separated PRSS streams, on the calling thread and only
++  // AFTER copy agreement. Parallel workers only access disjoint/read-only data.
++  check_prg_->fillPrssPair(first.data(), second.data(), pending_.size(),
++                           PrgState::GenPrssCtrl::Both);
++  const auto sums = yacl::parallel_reduce<std::array<Word, 2>>(
++      0, pending_.size(), kMinTaskSize,
++      [&](int64_t begin, int64_t end) {
++        std::array<Word, 2> partial{};
++        for (int64_t i = begin; i < end; ++i) {
++          const auto& x = pending_[i];
++          const Word rsum = first[i] + second[i];
++          partial[0] += x[0] * rsum + x[1] * first[i];
++          partial[1] += x[2] * rsum + x[3] * first[i];
++        }
++        return partial;
++      },
++      [](const auto& a, const auto& b) {
++        return std::array<Word, 2>{a[0] + b[0], a[1] + b[1]};
++      });
++  const auto dots = reshare({sums[0], sums[1]}, "ring-check-dots");
++  const auto product = multiplyRaw({key_}, {dots[0]})[0];
++  const RepShare residual = {dots[1][0] - product[0], dots[1][1] - product[1]};
++  CheckZero(link_, residual, context);
++  pending_.clear();
++  return true;
++}
++
++NdArrayRef ArithmeticState::exportValue(const NdArrayRef& value,
++                                        const Type& type) const {
++  validateInternal(value);
++  SPU_ENFORCE(empty() && type.isa<OutputTy>() &&
++                  type.as<OutputTy>()->rank() == link_->Rank(),
++              "invalid or unchecked ring export");
++  NdArrayRef out(type, value.shape());
++  const NdArrayView<AuthShare> in(value);
++  for (int64_t i = 0; i < value.numel(); ++i) {
++    out.data<spdzwise::RepShare>()[i] = {static_cast<uint64_t>(in[i][0]),
++                                         static_cast<uint64_t>(in[i][1])};
++  }
++  return out;
++}
++
++NdArrayRef ArithmeticState::publicValue(const NdArrayRef& value) const {
++  RequirePublic(value);
++  NdArrayRef result(makeType<AShrTy>(session_), value.shape());
++  const NdArrayView<uint64_t> in(value);
++  auto* out = result.data<AuthShare>();
++  pforeach(0, value.numel(), [&](int64_t i) {
++    const Word x = in[i];
++    out[i] = {link_->Rank() == 0 ? x : 0, link_->Rank() == 2 ? x : 0,
++              key_[0] * x, key_[1] * x};
++  });
++  return result;
++}
++
++NdArrayRef ArithmeticState::add(const NdArrayRef& x,
++                                const NdArrayRef& y) const {
++  validateInternal(x);
++  validateInternal(y);
++  SPU_ENFORCE(x.shape() == y.shape(), "ring add shape mismatch");
++  NdArrayRef result(x.eltype(), x.shape());
++  const NdArrayView<AuthShare> a(x), b(y);
++  auto* out = result.data<AuthShare>();
++  pforeach(0, x.numel(), [&](int64_t i) {
++    for (size_t c = 0; c < 4; ++c) out[i][c] = a[i][c] + b[i][c];
++  });
++  return result;
++}
++
++NdArrayRef ArithmeticState::negate(const NdArrayRef& x) const {
++  validateInternal(x);
++  NdArrayRef result(x.eltype(), x.shape());
++  const NdArrayView<AuthShare> a(x);
++  auto* out = result.data<AuthShare>();
++  pforeach(0, x.numel(), [&](int64_t i) {
++    for (size_t c = 0; c < 4; ++c) out[i][c] = Word(0) - a[i][c];
++  });
++  return result;
++}
++
++NdArrayRef ArithmeticState::multiplyPublic(const NdArrayRef& x,
++                                           const NdArrayRef& y) const {
++  validateInternal(x);
++  RequirePublic(y);
++  SPU_ENFORCE(x.shape() == y.shape(), "ring multiply shape mismatch");
++  NdArrayRef result(x.eltype(), x.shape());
++  const NdArrayView<AuthShare> a(x);
++  const NdArrayView<uint64_t> b(y);
++  auto* out = result.data<AuthShare>();
++  pforeach(0, x.numel(), [&](int64_t i) {
++    for (size_t c = 0; c < 4; ++c) out[i][c] = a[i][c] * Word(b[i]);
++  });
++  return result;
++}
++
++NdArrayRef ArithmeticState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
++  validateInternal(x);
++  validateInternal(y);
++  SPU_ENFORCE(x.shape() == y.shape(), "ring multiply shape mismatch");
++  const NdArrayView<AuthShare> a(x), b(y);
++  std::vector<Word> first(2 * x.numel()), second(2 * x.numel());
++  if (x.numel() != 0) {
++    mask_prg_->fillPrssPair(first.data(), second.data(), first.size(),
++                            PrgState::GenPrssCtrl::Both);
++  }
++  // Fuse mask application and local products, reusing the PRSS buffers. Avoid
++  // constructing a replicated mask vector and a replicated product vector.
++  pforeach(0, x.numel(), [&](int64_t i) {
++    const auto& lhs = a[i];
++    const auto& rhs = b[i];
++    const Word ysum = rhs[0] + rhs[1];
++    first[2 * i] += lhs[0] * ysum + lhs[1] * rhs[0] - second[2 * i];
++    first[2 * i + 1] += lhs[2] * ysum + lhs[3] * rhs[0] - second[2 * i + 1];
++  });
++  exchange(first, second, "ring-multiply");
++  NdArrayRef result(x.eltype(), x.shape());
++  auto* out = result.data<AuthShare>();
++  pforeach(0, x.numel(), [&](int64_t i) {
++    out[i] = {first[2 * i], second[2 * i], first[2 * i + 1], second[2 * i + 1]};
++  });
++  remember(result);
++  return result;
++}
++
++NdArrayRef ArithmeticState::matmul(const NdArrayRef& x, const NdArrayRef& y,
++                                   bool public_rhs) {
++  validateInternal(x);
++  if (public_rhs)
++    RequirePublic(y);
++  else
++    validateInternal(y);
++  SPU_ENFORCE(x.ndim() == 2 && y.ndim() == 2 && x.shape()[1] == y.shape()[0],
++              "ring matmul requires compatible matrices");
++  const int64_t m = x.shape()[0], k = x.shape()[1], n = y.shape()[1];
++  NdArrayRef result(x.eltype(), {m, n});
++  const NdArrayView<AuthShare> a(x);
++  auto* out = result.data<AuthShare>();
++  if (public_rhs) {
++    const NdArrayView<uint64_t> b(y);
++    for (int64_t i = 0; i < m; ++i) {
++      for (int64_t j = 0; j < n; ++j) {
++        out[i * n + j] = {};
++        for (int64_t t = 0; t < k; ++t) {
++          for (size_t c = 0; c < 4; ++c) {
++            out[i * n + j][c] += a[i * k + t][c] * Word(b[t * n + j]);
++          }
++        }
++      }
++    }
++    return result;
++  }
++  const NdArrayView<AuthShare> b(y);
++  std::vector<Word> local(2 * result.numel());
++  for (int64_t i = 0; i < m; ++i) {
++    for (int64_t j = 0; j < n; ++j) {
++      const int64_t pos = 2 * (i * n + j);
++      for (int64_t t = 0; t < k; ++t) {
++        local[pos] += LocalProduct(Values(a[i * k + t]), Values(b[t * n + j]));
++        local[pos + 1] +=
++            LocalProduct(Macs(a[i * k + t]), Values(b[t * n + j]));
++      }
++    }
++  }
++  // Exchange exactly two words per output, independent of inner dimension k.
++  const auto products = reshare(std::move(local), "ring-matmul");
++  for (int64_t i = 0; i < result.numel(); ++i) {
++    out[i] = {products[2 * i][0], products[2 * i][1], products[2 * i + 1][0],
++              products[2 * i + 1][1]};
++  }
++  remember(result);
++  return result;
++}
++
++NdArrayRef P2A::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
++  return ctx->getState<SpdzWiseState>()->publicValue(in);
++}
++
++NdArrayRef Negate::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
++  return ctx->getState<SpdzWiseState>()->negate(in);
++}
++
++NdArrayRef AddAA::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                       const NdArrayRef& y) const {
++  return ctx->getState<SpdzWiseState>()->add(x, y);
++}
++
++NdArrayRef AddAP::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                       const NdArrayRef& y) const {
++  auto* state = ctx->getState<SpdzWiseState>();
++  return state->add(x, state->publicValue(y));
++}
++
++NdArrayRef MulAA::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                       const NdArrayRef& y) const {
++  return ctx->getState<SpdzWiseState>()->multiply(x, y);
++}
++
++NdArrayRef MulAP::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                       const NdArrayRef& y) const {
++  return ctx->getState<SpdzWiseState>()->multiplyPublic(x, y);
++}
++
++NdArrayRef MatmulAA::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                          const NdArrayRef& y) const {
++  return ctx->getState<SpdzWiseState>()->matmul(x, y, false);
++}
++
++NdArrayRef MatmulAP::proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                          const NdArrayRef& y) const {
++  return ctx->getState<SpdzWiseState>()->matmul(x, y, true);
++}
++
++void registerArithmeticKernels(Object* object) {
++  object->regKernel<P2A, Negate, AddAA, AddAP, MulAA, MulAP, MatmulAA,
++                    MatmulAP>();
++}
++
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_test.cc b/src/libspu/mpc/spdzwise/ring_test.cc
+new file mode 100644
+index 00000000..0e96ce47
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_test.cc
+@@ -0,0 +1,603 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "libspu/mpc/spdzwise/ring.h"
++
++#include <random>
++
++#include "gtest/gtest.h"
++#include "yacl/crypto/hash/blake3.h"
++
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise::ring {
++namespace {
++RuntimeConfig Config() {
++  RuntimeConfig config(SPDZWISE, FM64);
++  config.spdzwise_config.domain = SpdzWiseConfig::RING;
++  config.fxp_fraction_bits = 16;
++  return config;
++}
++NdArrayRef Plain(const Shape& shape) {
++  NdArrayRef result(makeType<RingTy>(FM64), shape);
++  const std::array<uint64_t, 8> edge = {0,
++                                        1,
++                                        uint64_t(-1),
++                                        uint64_t(-2),
++                                        uint64_t(1) << 63,
++                                        (uint64_t(1) << 63) - 1,
++                                        0xffffffff,
++                                        0x100000001};
++  for (int64_t i = 0; i < result.numel(); ++i) {
++    result.data<uint64_t>()[i] = edge[i % edge.size()];
++  }
++  return result;
++}
++std::array<RepShare, 3> Split(Word value) {
++  const Word a = (Word(0xfeedbeef12345678ULL) << 64) | 0xffffffffffffffffULL;
++  const Word b = (Word(0x123456789abcdef0ULL) << 64) | 0xfedcba9876543210ULL;
++  const Word c = value - a - b;
++  return {RepShare{a, b}, RepShare{b, c}, RepShare{c, a}};
++}
++
++void ExpectCheckFailure(const std::function<void()>& action) {
++  try {
++    action();
++    FAIL() << "expected a protocol rejection";
++  } catch (const std::exception& error) {
++    EXPECT_NE(std::string(error.what()).find("SPDZWISE ring check failed"),
++              std::string::npos)
++        << error.what();
++  }
++}
++
++TEST(SpdzWiseRing, WireEncodingIsFixedLittleEndian) {
++  const std::vector<Word> words = {
++      0, Word(-1), Word(1) << 64,
++      (Word(0x1122334455667788ULL) << 64) | 0x99aabbccddeeff00ULL};
++  const auto bytes = Encode(words);
++  ASSERT_EQ(bytes.size(), 64);
++  EXPECT_EQ(static_cast<uint8_t>(bytes[48]), 0);
++  EXPECT_EQ(static_cast<uint8_t>(bytes[49]), 0xff);
++  EXPECT_EQ(static_cast<uint8_t>(bytes[63]), 0x11);
++  EXPECT_EQ(Decode(bytes, words.size()), words);
++  EXPECT_THROW(Decode(bytes.substr(1), words.size()), std::exception);
++  EXPECT_THROW(Decode(bytes + "x", words.size()), std::exception);
++  EXPECT_TRUE(Decode("", 0).empty());
++}
++
++TEST(SpdzWiseRing, Protocol9EveryNonzeroBitAndCarry) {
++  utils::simulate(3, [&](const auto& link) {
++    for (size_t bit = 0; bit < 128; ++bit) {
++      const auto shares = Split(Word(1) << bit);
++      ExpectCheckFailure([&] {
++        CheckZero(link, shares[link->Rank()],
++                  "test/session/execution/batch/" + std::to_string(bit));
++      });
++    }
++    const auto zero = Split(0);
++    EXPECT_NO_THROW(CheckZero(link, zero[link->Rank()], "test/zero/carry"));
++    std::mt19937_64 rng(20261021);  // Reproducible test shares, not PRSS.
++    for (size_t batch = 0; batch < 16; ++batch) {
++      const Word a = (Word(rng()) << 64) | rng();
++      const Word b = (Word(rng()) << 64) | rng();
++      const Word c = Word(0) - a - b;
++      const std::array<RepShare, 3> shares = {RepShare{a, b}, RepShare{b, c},
++                                              RepShare{c, a}};
++      EXPECT_NO_THROW(CheckZero(link, shares[link->Rank()],
++                                "test/random/" + std::to_string(batch)));
++    }
++    // All-zero and random-looking consistent sharings both accept.
++    EXPECT_NO_THROW(CheckZero(link, {0, 0}, "test/zero/plain"));
++    for (size_t corrupt = 0; corrupt < 3; ++corrupt) {
++      auto copy = zero[link->Rank()];
++      if (link->Rank() == corrupt) copy[1] += Word(1) << 64;
++      ExpectCheckFailure([&] {
++        CheckZero(link, copy, "test/copy/" + std::to_string(corrupt));
++      });
++    }
++  });
++}
++
++TEST(SpdzWiseRing, IoTypesFullRangeAndStrides) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING), field(FM64, 3);
++  for (const Shape& shape : {Shape{0}, Shape{4, 8}}) {
++    const auto raw = Plain(shape);
++    const auto input = raw.ndim() == 2 ? raw.transpose({1, 0}) : raw;
++    const auto shares = io.toShares(input, VIS_SECRET);
++    const auto restored = io.fromShares(shares);
++    const NdArrayView<uint64_t> a(input), b(restored);
++    for (int64_t i = 0; i < input.numel(); ++i) {
++      EXPECT_EQ(a[i], b[i]);
++      Word lifted = 0;
++      for (const auto& share : shares)
++        lifted += NdArrayView<RepShare>(share)[i][0];
++      EXPECT_EQ(lifted, Word(a[i]));
++    }
++    EXPECT_EQ(shares[0].elsize(), 32);
++    EXPECT_EQ(Type::fromString(shares[0].eltype().toString()),
++              shares[0].eltype());
++    EXPECT_ANY_THROW(field.fromShares(shares));
++  }
++  EXPECT_FALSE(makeType<AShrTy>("session").isSerializable());
++  Value private_value(NdArrayRef(makeType<AShrTy>("session"), {1}), DT_I64);
++  EXPECT_ANY_THROW(private_value.toMetaProto());
++  EXPECT_ANY_THROW(private_value.toProto(1024));
++  EXPECT_ANY_THROW(Type::fromString("spdzwise.ring.AShr<forged>"));
++  AShrTy internal;
++  EXPECT_ANY_THROW(internal.fromString("session"));
++  EXPECT_NE(makeType<InputTy>(0), makeType<spdzwise::InputTy>(0));
++  EXPECT_NE(makeType<OutputTy>(0, std::string(64, 'a')),
++            makeType<spdzwise::OutputTy>(0, std::string(64, 'a')));
++  auto shares = io.toShares(Plain({1}), VIS_SECRET);
++  shares[1].data<RepShare>()[0][0]++;
++  EXPECT_ANY_THROW(io.fromShares(shares));
++  EXPECT_ANY_THROW(io.toShares(Plain({1}), VIS_SECRET, 0));
++}
++
++TEST(SpdzWiseRing, ArithmeticChainingInternal128AndChecked64Export) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const auto raw = Plain({4, 8}).transpose({1, 0});
++  const auto shares = io.toShares(raw, VIS_SECRET);
++  const auto results = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Value input(shares[link->Rank()], DT_I64);
++    ProtocolRunGuard guard(&ctx);
++    state->begin(ExecutableProto("ring-ops", {"x"}, {"y"}, "test"), {input});
++    auto x = import_s(&ctx, input);
++    x = Value(x.data().transpose({1, 0}).clone().transpose({1, 0}), DT_I64);
++    auto pub = Value(raw.as(makeType<Pub2kTy>(FM64)), DT_I64);
++    auto y = dynDispatch(&ctx, "mul_aa", x, x);
++    y = dynDispatch(&ctx, "mul_aa", y, y);  // full 128-bit overflow
++    y = dynDispatch(&ctx, "add_ap", y, pub);
++    y = dynDispatch(&ctx, "negate_a", y);
++    y = dynDispatch(&ctx, "mul_ap", y, pub);
++    auto p = dynDispatch(&ctx, "p2a", pub);
++    y = dynDispatch(&ctx, "add_aa", y, p);
++    EXPECT_ANY_THROW(state->exportValue(
++        y.data(), makeType<OutputTy>(link->Rank(), std::string(64, 'a'))));
++    EXPECT_ANY_THROW(state->validateInternal(
++        y.data().as(makeType<AShrTy>("different-session"))));
++    EXPECT_ANY_THROW(state->validateInternal(
++        NdArrayRef(makeType<spdzwise::AShrTy>(state->session()), {1})));
++    // Shape operations preserve each complete 64-byte authenticated element.
++    y = Value(y.data().transpose({1, 0}).clone().transpose({1, 0}), DT_I64);
++    state->prepareOutputs(&ctx, {"y"}, {y});
++    guard.commit();
++    return std::make_pair(y.data(), state->exportedValue("y").data());
++  });
++  std::vector<NdArrayRef> external;
++  for (const auto& result : results) {
++    external.push_back(result.second);
++    EXPECT_EQ(result.first.elsize(), 64);
++    EXPECT_EQ(result.second.elsize(), 16);
++  }
++  const auto restored = io.fromShares(external);
++  const NdArrayView<uint64_t> input(raw);
++  for (int64_t i = 0; i < raw.numel(); ++i) {
++    Word sum = 0;
++    for (const auto& result : results)
++      sum += NdArrayView<AuthShare>(result.first)[i][0];
++    const Word x = input[i];
++    const Word expected = (Word(0) - (x * x * x * x + x)) * x + x;
++    EXPECT_EQ(sum, expected);
++    EXPECT_EQ(restored.data<uint64_t>()[i], static_cast<uint64_t>(expected));
++  }
++}
++
++TEST(SpdzWiseRing, MatrixSecretAndPublicWithStrides) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  for (int64_t k : {0, 1, 7, 16}) {
++    const auto a = Plain({k, 2}).transpose({1, 0});
++    const auto b = Plain({3, k}).transpose({1, 0});
++    const auto shares_a = io.toShares(a, VIS_SECRET);
++    const auto shares_b = io.toShares(b, VIS_SECRET);
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      Value x(shares_a[link->Rank()], DT_I64),
++          y(shares_b[link->Rank()], DT_I64);
++      state->begin(
++          ExecutableProto("ring-matrix", {"a", "b"}, {"s", "p"}, "test"),
++          {x, y});
++      x = import_s(&ctx, x);
++      y = import_s(&ctx, y);
++      auto before = link->GetStats()->sent_bytes.load();
++      auto secret = dynDispatch(&ctx, "mmul_aa", x, y);
++      const auto bytes = link->GetStats()->sent_bytes.load() - before;
++      // Six output cells; the wire includes a fixed malformed-message status.
++      EXPECT_EQ(bytes, 6 * 32 + 4);
++      auto public_result = dynDispatch(
++          &ctx, "mmul_ap", x, Value(b.as(makeType<Pub2kTy>(FM64)), DT_I64));
++      state->prepareOutputs(&ctx, {"s", "p"}, {secret, public_result});
++      state->commit();
++      return std::make_pair(state->exportedValue("s").data(),
++                            state->exportedValue("p").data());
++    });
++    std::vector<NdArrayRef> secret, public_result;
++    for (auto& r : results) {
++      secret.push_back(r.first);
++      public_result.push_back(r.second);
++    }
++    const auto s = io.fromShares(secret), p = io.fromShares(public_result);
++    const NdArrayView<uint64_t> av(a), bv(b);
++    for (int64_t i = 0; i < 2; ++i)
++      for (int64_t j = 0; j < 3; ++j) {
++        uint64_t expected = 0;
++        for (int64_t t = 0; t < k; ++t)
++          expected += av[i * k + t] * bv[t * 3 + j];
++        EXPECT_EQ(s.data<uint64_t>()[i * 3 + j], expected);
++        EXPECT_EQ(p.data<uint64_t>()[i * 3 + j], expected);
++      }
++  }
++}
++
++TEST(SpdzWiseRing, EmptyFinalizationReuseAndReauthentication) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const auto empty = io.toShares(Plain({0}), VIS_SECRET);
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Value input(empty[link->Rank()], DT_I64);
++    state->begin(ExecutableProto("empty", {"x"}, {}, "test"), {input});
++    auto x = import_s(&ctx, input);
++    x = dynDispatch(&ctx, "mul_aa", x, x);
++    state->prepareOutputs(&ctx, {}, {});
++    state->commit();
++    EXPECT_EQ(state->arithmeticChecks(), 0);
++    state->begin(ExecutableProto("reuse", {"x"}, {"y"}, "test"), {x});
++    auto internal = import_s(&ctx, x);
++    EXPECT_EQ(state->arithmeticChecks(), 0);
++    auto p = state->publicValue(Plain({8}).as(makeType<Pub2kTy>(FM64)));
++    auto product = state->multiply(p, p);
++    state->prepareOutputs(&ctx, {"y"}, {Value(product, DT_I64)});
++    state->commit();
++    const auto output = state->exportedValue("y");
++    auto checks = state->arithmeticChecks();
++    state->begin(ExecutableProto("reimport", {"y"}, {}, "test"), {output});
++    const auto authenticated = import_s(&ctx, output);
++    EXPECT_EQ(state->arithmeticChecks(), checks + 1);
++    EXPECT_TRUE(authenticated.storage_type().isa<AShrTy>());
++    state->multiply(authenticated.data(), authenticated.data());
++    state->prepareOutputs(&ctx, {}, {});
++    state->commit();
++    EXPECT_EQ(state->arithmeticChecks(), checks + 2);
++    (void)internal;
++  });
++}
++
++TEST(SpdzWiseRing, InputCopyErrorsAbortAllRanks) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  for (size_t corrupt = 0; corrupt < 3; ++corrupt) {
++    for (size_t component = 0; component < 2; ++component) {
++      auto shares = io.toShares(Plain({3}), VIS_SECRET);
++      shares[corrupt].data<RepShare>()[0][component] += Word(1) << 64;
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        const Value input(shares[link->Rank()], DT_I64);
++        state->begin(ExecutableProto("bad-input", {"x"}, {}, "test"), {input});
++        ExpectCheckFailure([&] { import_s(&ctx, input); });
++        EXPECT_TRUE(state->failed());
++        EXPECT_EQ(state->arithmeticChecks(), 0);
++        EXPECT_ANY_THROW(state->commit());
++      });
++    }
++  }
++}
++
++TEST(SpdzWiseRing, ConsistentValueAndMacErrorsFailWithoutOutputs) {
++  for (size_t owner = 0; owner < 3; ++owner) {
++    for (size_t component : {0U, 2U}) {
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        state->begin(ExecutableProto("consistent-error", {}, {}, "test"), {});
++        auto plain = Plain({1}).as(makeType<Pub2kTy>(FM64));
++        plain.data<uint64_t>()[0] = 3;
++        auto x = state->publicValue(plain);
++        auto y = state->publicValue(plain);
++        // Test harness corrupts BOTH replicas to isolate the MAC relation
++        // check from the preceding replicated-copy check.
++        if (link->Rank() == owner) x.data<AuthShare>()[0][component]++;
++        if (link->NextRank() == owner) x.data<AuthShare>()[0][component + 1]++;
++        state->multiply(x, y);
++        ExpectCheckFailure([&] { state->prepareOutputs(&ctx, {}, {}); });
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(state->commit());
++      });
++    }
++  }
++}
++
++TEST(SpdzWiseRing, RejectsCrossSessionAndDomainInputs) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING), field(FM64, 3);
++  const auto ring_inputs = io.toShares(Plain({2}), VIS_SECRET);
++  const auto field_inputs = field.toShares(Plain({2}), VIS_SECRET);
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    EXPECT_ANY_THROW(state->validateExternalInput(
++        Value(field_inputs[link->Rank()], DT_I64)));
++    state->begin(ExecutableProto("first", {}, {}, "test"), {});
++    auto value = Value(
++        state->publicValue(Plain({2}).as(makeType<Pub2kTy>(FM64))), DT_I64);
++    state->prepareOutputs(&ctx, {}, {});
++    state->commit();
++    SPUContext other(Config(), link);
++    registerArithmeticPrototype(&other, link);
++    auto* next = other.prot()->getState<SpdzWiseState>();
++    EXPECT_ANY_THROW(
++        next->begin(ExecutableProto("other", {"x"}, {}, "test"), {value}));
++    EXPECT_TRUE(next->failed());
++    RuntimeConfig field_config(SPDZWISE, FM64);
++    SpdzWiseState field_state(field_config, link);
++    EXPECT_ANY_THROW(field_state.validateExternalInput(
++        Value(ring_inputs[link->Rank()], DT_I64)));
++  });
++}
++
++// Mutate actual transport messages, without test hooks in the protocol.
++class FaultChannel : public yacl::link::transport::IChannel {
++  std::shared_ptr<yacl::link::transport::IChannel> inner_;
++  std::function<yacl::Buffer(const std::string&, yacl::Buffer)> change_;
++
++ public:
++  FaultChannel(
++      std::shared_ptr<yacl::link::transport::IChannel> inner,
++      std::function<yacl::Buffer(const std::string&, yacl::Buffer)> change)
++      : inner_(std::move(inner)), change_(std::move(change)) {}
++  void SendAsync(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsync(k, change_(k, std::move(v)));
++  }
++  void SendAsyncThrottled(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsyncThrottled(k, change_(k, std::move(v)));
++  }
++  void Send(const std::string& k, yacl::ByteContainerView v) override {
++    auto b = change_(k, yacl::Buffer(v));
++    inner_->Send(k, yacl::ByteContainerView(b));
++  }
++  yacl::Buffer Recv(const std::string& k) override { return inner_->Recv(k); }
++  void SetRecvTimeout(uint64_t t) override { inner_->SetRecvTimeout(t); }
++  uint64_t GetRecvTimeout() const override { return inner_->GetRecvTimeout(); }
++  void WaitLinkTaskFinish() override { inner_->WaitLinkTaskFinish(); }
++  void Abort() override { inner_->Abort(); }
++  void SetThrottleWindowSize(size_t s) override {
++    inner_->SetThrottleWindowSize(s);
++  }
++  void TestSend(uint32_t t) override { inner_->TestSend(t); }
++  void TestRecv() override { inner_->TestRecv(); }
++  void SetChunkParallelSendSize(size_t s) override {
++    inner_->SetChunkParallelSendSize(s);
++  }
++};
++std::shared_ptr<yacl::link::Context> Decorate(
++    const std::shared_ptr<yacl::link::Context>& base,
++    std::function<yacl::Buffer(size_t, yacl::Buffer)> change) {
++  yacl::link::ContextDesc desc;
++  desc.id = base->Id();
++  std::vector<std::shared_ptr<yacl::link::transport::IChannel>> channels(3);
++  for (size_t i = 0; i < 3; ++i) {
++    desc.parties.push_back({std::to_string(i), "memory"});
++    if (i != base->Rank())
++      channels[i] = std::make_shared<FaultChannel>(
++          base->GetChannel(i),
++          [change, i](const std::string&, yacl::Buffer bytes) {
++            return change(i, std::move(bytes));
++          });
++  }
++  auto link = std::make_shared<yacl::link::Context>(desc, base->Rank(),
++                                                    channels, nullptr);
++  link->SetRecvTimeout(5000);
++  return link;
++}
++
++TEST(SpdzWiseRing, StreamedCopyHashesMatchCanonicalTranscript) {
++  utils::simulate(3, [&](const auto& base) {
++    std::string expected;
++    size_t digests = 0;
++    auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
++      if (bytes.size() == 32) {
++        EXPECT_EQ(destination, base->PrevRank());
++        EXPECT_EQ(std::string_view(bytes), expected);
++        ++digests;
++      }
++      return bytes;
++    });
++    for (size_t count : {0U, 1U, 4095U, 4096U, 4097U, 8193U}) {
++      const std::string context = "stream/copies/" + std::to_string(count);
++      std::vector<RepShare> shares(count);
++      std::string words;
++      for (size_t i = 0; i < count; ++i) {
++        shares[i] = {(Word(base->Rank() + 1) << 100) + Word(i) * Word(-1),
++                     (Word(base->NextRank() + 1) << 100) + Word(i) * Word(-1)};
++        // Independent byte-wise oracle for the original complete transcript.
++        for (size_t byte = 0; byte < 16; ++byte)
++          words.push_back(static_cast<char>(shares[i][0] >> (8 * byte)));
++      }
++      std::string transcript;
++      for (const auto& field :
++           {std::string("SPDZWISE-RING-v1"), std::string("copies"), context,
++            std::to_string(base->Rank()), words}) {
++        transcript += std::to_string(field.size()) + ":" + field;
++      }
++      yacl::crypto::Blake3Hash hash;
++      hash.Update(transcript);
++      const auto digest = hash.CumulativeHash();
++      expected.assign(reinterpret_cast<const char*>(digest.data()),
++                      digest.size());
++      const auto before = digests;
++      CheckCopies(link, shares, context);
++      EXPECT_EQ(digests, before + 1);
++    }
++  });
++}
++
++TEST(SpdzWiseRing, ParallelStridedArithmeticAndAggregation) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  // Cross the parallel grain and hash chunk boundaries with noncompact inputs.
++  const auto plain = Plain({257, 257}).transpose({1, 0});
++  const auto shares = io.toShares(plain, VIS_SECRET);
++  const auto outputs = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    Value input(shares[link->Rank()], DT_I64);
++    state->begin(ExecutableProto("parallel-strided", {"x"}, {"z"}, "test"),
++                 {input});
++    auto x = import_s(&ctx, input);
++    x = Value(x.data().transpose({1, 0}).clone().transpose({1, 0}), DT_I64);
++    auto z = dynDispatch(&ctx, "mul_aa", x, x);
++    z = dynDispatch(&ctx, "add_aa", z, x);
++    z = dynDispatch(&ctx, "negate_a", z);
++    z = dynDispatch(&ctx, "mul_ap", z,
++                    Value(plain.as(makeType<Pub2kTy>(FM64)), DT_I64));
++    state->prepareOutputs(&ctx, {"z"}, {z});
++    guard.commit();
++    return state->exportedValue("z").data();
++  });
++  const auto reconstructed = io.fromShares(outputs);
++  const NdArrayView<uint64_t> p(plain), actual(reconstructed);
++  for (int64_t i = 0; i < plain.numel(); ++i) {
++    EXPECT_EQ(actual[i], (uint64_t(0) - (p[i] * p[i] + p[i])) * p[i]);
++  }
++}
++
++TEST(SpdzWiseRing, WireTamperingPoisonsEverySession) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (const std::string fault :
++         {"value", "mac", "digest", "truncate", "product-truncate"}) {
++      utils::simulate(3, [&](const auto& base) {
++        int phase = 0;
++        bool injected = false;
++        // Channel keys are transport counters, not Context debug tags.
++        // During checking, the only 32-byte message to NextRank is Protocol 9.
++        auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
++          if (base->Rank() != party) return bytes;
++          if (phase == 1 && fault == "product-truncate" &&
++              destination == base->PrevRank() && bytes.size() == 32) {
++            injected = true;
++            return yacl::Buffer(bytes.data(), 31);
++          }
++          if (phase == 1 && (fault == "value" || fault == "mac") &&
++              destination == base->PrevRank() && bytes.size() == 32) {
++            injected = true;
++            bytes.data<char>()[fault == "value" ? 0 : 16] ^= 1;
++          }
++          if (phase == 2 && destination == base->NextRank() &&
++              bytes.size() == 32) {
++            if (fault == "digest") {
++              injected = true;
++              bytes.data<char>()[0] ^= 1;
++            }
++            if (fault == "truncate") {
++              injected = true;
++              return yacl::Buffer(bytes.data(), 31);
++            }
++          }
++          return bytes;
++        });
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        state->begin(ExecutableProto("fault", {}, {"y"}, "test"), {});
++        auto p = state->publicValue(Plain({1}).as(makeType<Pub2kTy>(FM64)));
++        phase = 1;
++        if (fault == "product-truncate") {
++          ExpectCheckFailure([&] { state->multiply(p, p); });
++        } else {
++          auto product = state->multiply(p, p);
++          phase = 2;
++          if (fault == "value") {
++            // Repair the exposed buffer. Its queued snapshot must remain bad.
++            product.data<AuthShare>()[0] = p.data<AuthShare>()[0];
++          }
++          ExpectCheckFailure([&] {
++            state->prepareOutputs(&ctx, {"y"}, {Value(product, DT_I64)});
++          });
++        }
++        if (base->Rank() == party) {
++          EXPECT_TRUE(injected);
++        }
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(state->commit());
++        EXPECT_ANY_THROW(state->exportedValue("y"));
++        EXPECT_ANY_THROW(
++            state->publicValue(Plain({1}).as(makeType<Pub2kTy>(FM64))));
++        EXPECT_ANY_THROW(
++            state->begin(ExecutableProto("again", {}, {}, "test"), {}));
++      });
++    }
++  }
++}
++
++TEST(SpdzWiseRing, HashContextBindsBatchAndComponent) {
++  for (size_t party = 0; party < 3; ++party) {
++    utils::simulate(3, [&](const auto& base) {
++      std::string old;
++      int phase = 0;
++      auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
++        if (base->Rank() == party && destination == base->NextRank() &&
++            bytes.size() == 32) {
++          if (phase == 0)
++            old.assign(bytes.data<char>(), bytes.size());
++          else if (phase == 1)
++            return yacl::Buffer(old.data(), old.size());
++          else if (phase == 2) {
++            std::string input;
++            auto append = [&](std::string_view x) {
++              input += std::to_string(x.size()) + ":";
++              input.append(x);
++            };
++            append("SPDZWISE-RING-v1");
++            append("zero");
++            append("session/execution/component");
++            // Deliberately hash owner i+1 instead of the required i+2.
++            append(std::to_string((base->Rank() + 1) % 3));
++            append(Encode({0}));
++            yacl::crypto::Blake3Hash hash;
++            hash.Update(input);
++            const auto digest = hash.CumulativeHash();
++            return yacl::Buffer(digest.data(), digest.size());
++          }
++        }
++        return bytes;
++      });
++      CheckZero(link, Split(0)[base->Rank()], "session/execution/batch0");
++      if (base->Rank() == party) {
++        EXPECT_EQ(old.size(), 32);
++      }
++      phase = 1;
++      ExpectCheckFailure([&] {
++        CheckZero(link, Split(0)[base->Rank()], "session/execution/batch1");
++      });
++      // All-zero components still have distinct domain-separated digests.
++      phase = 2;
++      ExpectCheckFailure(
++          [&] { CheckZero(link, {0, 0}, "session/execution/component"); });
++    });
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring.h b/src/libspu/mpc/spdzwise/ring.h
+new file mode 100644
+index 00000000..55bb60d2
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring.h
+@@ -0,0 +1,63 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#pragma once
++
++#include <functional>
++
++#include "libspu/mpc/common/prg_state.h"
++#include "libspu/mpc/spdzwise/ring_type.h"
++
++namespace spu::mpc::spdzwise::ring {
++
++// Wire words are exactly 16 bytes, little endian, independent of host layout.
++std::string Encode(const std::vector<Word>& words);
++std::vector<Word> Decode(std::string_view bytes, size_t count);
++
++// context must bind session, execution and a fresh batch/message identity.
++void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
++                 const std::vector<RepShare>& values, std::string_view context);
++void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
++               const RepShare& value, std::string_view context);
++
++class ArithmeticState {
++  std::shared_ptr<yacl::link::Context> link_;
++  std::string session_;
++  std::function<std::string(std::string_view)> tag_;
++  std::unique_ptr<PrgState> key_prg_, mask_prg_, check_prg_;
++  RepShare key_{};
++  std::vector<AuthShare> pending_;
++
++  void exchange(const std::vector<Word>& local, std::vector<Word>& next,
++                std::string_view operation);
++  std::vector<RepShare> reshare(std::vector<Word> local,
++                                std::string_view operation);
++  std::vector<RepShare> multiplyRaw(const std::vector<RepShare>& x,
++                                    const std::vector<RepShare>& y);
++  void remember(const NdArrayRef& value);
++
++ public:
++  ArithmeticState(std::shared_ptr<yacl::link::Context> link,
++                  std::string session,
++                  std::function<std::string(std::string_view)> tag);
++  void validateInternal(const NdArrayRef& value) const;
++  NdArrayRef importValue(const NdArrayRef& value);
++  NdArrayRef publicValue(const NdArrayRef& value) const;
++  NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
++  NdArrayRef negate(const NdArrayRef& x) const;
++  NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
++  NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
++  NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
++  NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
++  bool check();
++  bool empty() const { return pending_.empty(); }
++};
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_arithmetic.h b/src/libspu/mpc/spdzwise/ring_arithmetic.h
+new file mode 100644
+index 00000000..f50716f5
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_arithmetic.h
+@@ -0,0 +1,76 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#pragma once
++
++#include "libspu/mpc/kernel.h"
++
++namespace spu::mpc::spdzwise::ring {
++
++// SPDZ-wise arithmetic over Z/(2^128), with FM64 application semantics.
++// Kernel binding names remain the standard SPU arithmetic API names.
++class P2A final : public UnaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "p2a"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
++};
++
++class Negate final : public UnaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "negate_a"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
++};
++
++class AddAA final : public BinaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "add_aa"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++class AddAP final : public BinaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "add_ap"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++class MulAA final : public BinaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "mul_aa"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++class MulAP final : public BinaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "mul_ap"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++class MatmulAA final : public MatmulKernel {
++ public:
++  static constexpr const char* kBindName() { return "mmul_aa"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++class MatmulAP final : public MatmulKernel {
++ public:
++  static constexpr const char* kBindName() { return "mmul_ap"; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
++                  const NdArrayRef& y) const override;
++};
++
++void registerArithmeticKernels(Object* object);
++
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_math.h b/src/libspu/mpc/spdzwise/ring_math.h
+new file mode 100644
+index 00000000..504e1859
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_math.h
+@@ -0,0 +1,31 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#pragma once
++
++#include <array>
++#include <cstdint>
++
++namespace spu::mpc::spdzwise::ring {
++
++inline constexpr unsigned kValueBits = 64;
++inline constexpr unsigned kExtensionBits = 64;
++using Word = __uint128_t;
++static_assert(sizeof(Word) * 8 == kValueBits + kExtensionBits);
++using RepShare = std::array<Word, 2>;
++using AuthShare = std::array<Word, 4>;
++
++// Unsigned wraparound is reduction modulo 2^128, including multiplication.
++inline constexpr Word LocalProduct(const RepShare& x, const RepShare& y) {
++  return x[0] * (y[0] + y[1]) + x[1] * y[0];
++}
++
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_type.h b/src/libspu/mpc/spdzwise/ring_type.h
+new file mode 100644
+index 00000000..44f457ec
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_type.h
+@@ -0,0 +1,86 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#pragma once
++
++#include "libspu/mpc/spdzwise/ring_math.h"
++#include "libspu/mpc/spdzwise/type.h"
++
++namespace spu::mpc::spdzwise::ring {
++
++// Reuse the external metadata grammar, but never the FIELD type identity.
++class InputTy final : public TypeImpl<InputTy, TypeObject, Secret, AShare> {
++  spdzwise::InputTy metadata_;
++
++ public:
++  InputTy() = default;
++  explicit InputTy(size_t rank) : metadata_(rank) {}
++  static std::string_view getStaticId() { return "spdzwise.ring.Input"; }
++  size_t rank() const { return metadata_.rank(); }
++  size_t size() const override { return sizeof(RepShare); }
++  std::string toString() const override { return metadata_.toString(); }
++  void fromString(std::string_view detail) override {
++    metadata_.fromString(detail);
++  }
++  bool equals(const TypeObject* other) const override {
++    const auto* typed = dynamic_cast<const InputTy*>(other);
++    return typed && metadata_.equals(&typed->metadata_);
++  }
++};
++
++// FM64 is the application width; all four internal components are 128 bits.
++class AShrTy final
++    : public TypeImpl<AShrTy, TypeObject, Ring2k, Secret, AShare> {
++  std::string session_;
++
++ public:
++  AShrTy() { field_ = FM64; }
++  explicit AShrTy(std::string session) : session_(std::move(session)) {
++    SPU_ENFORCE(!session_.empty(), "SPDZWISE requires a session identity");
++    field_ = FM64;
++  }
++  static std::string_view getStaticId() { return "spdzwise.ring.AShr"; }
++  const std::string& session() const { return session_; }
++  size_t size() const override { return sizeof(AuthShare); }
++  bool isSerializable() const override { return false; }
++  std::string toString() const override { return session_; }
++  void fromString(std::string_view) override {
++    SPU_THROW("SPDZWISE ring authentication cannot be imported from clients");
++  }
++  bool equals(const TypeObject* other) const override {
++    const auto* typed = dynamic_cast<const AShrTy*>(other);
++    return typed && session_ == typed->session_;
++  }
++};
++
++// Only the low 64 bits of each value component leave the checked session.
++class OutputTy final : public TypeImpl<OutputTy, TypeObject, Secret, AShare> {
++  spdzwise::OutputTy metadata_;
++
++ public:
++  OutputTy() = default;
++  OutputTy(size_t rank, std::string binding)
++      : metadata_(rank, std::move(binding)) {}
++  static std::string_view getStaticId() { return "spdzwise.ring.Output"; }
++  size_t rank() const { return metadata_.rank(); }
++  const std::string& binding() const { return metadata_.binding(); }
++  size_t size() const override { return sizeof(spdzwise::RepShare); }
++  std::string toString() const override { return metadata_.toString(); }
++  void fromString(std::string_view detail) override {
++    metadata_.fromString(detail);
++  }
++  bool equals(const TypeObject* other) const override {
++    const auto* typed = dynamic_cast<const OutputTy*>(other);
++    return typed && metadata_.equals(&typed->metadata_);
++  }
++};
++
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/ring_circuit_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/ring_circuit_bench.cc
+new file mode 100644
+index 00000000..5d05e6b4
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/ring_circuit_bench.cc
+@@ -0,0 +1,181 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// http://www.apache.org/licenses/LICENSE-2.0
++
++#include <chrono>
++#include <condition_variable>
++#include <iomanip>
++#include <iostream>
++#include <limits>
++#include <mutex>
++
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/field.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++class Barrier {
++  std::mutex mutex_;
++  std::condition_variable cv_;
++  size_t arrived_ = 0;
++  size_t generation_ = 0;
++
++ public:
++  void wait() {
++    std::unique_lock<std::mutex> lock(mutex_);
++    const auto generation = generation_;
++    if (++arrived_ == 3) {
++      arrived_ = 0;
++      ++generation_;
++      cv_.notify_all();
++    } else {
++      cv_.wait(lock, [&] { return generation_ != generation; });
++    }
++  }
++};
++using Clock = std::chrono::steady_clock;
++double Milliseconds(Clock::time_point start) {
++  return std::chrono::duration<double, std::milli>(Clock::now() - start)
++      .count();
++}
++struct Result {
++  // Normal input import (including its immediate check), local expansion,
++  // circuit (add + multiply + saved check records), final MAC check.
++  std::array<double, 4> ms{};
++  std::array<size_t, 4> bytes{};
++  double mul_ms = 0;
++  NdArrayRef output;
++};
++
++void Run(int64_t width, int64_t depth, int repetitions, bool ring = true) {
++  const auto gates = width * depth;
++  RuntimeConfig config(SPDZWISE, FM64);
++  config.spdzwise_config.domain =
++      ring ? SpdzWiseConfig::RING : SpdzWiseConfig::FIELD;
++  config.fxp_fraction_bits = 16;
++  SpdzWiseIo io(FM64, 3, config.spdzwise_config.domain);
++  NdArrayRef plain(makeType<RingTy>(FM64), {2});
++  // Same raw input words and recurrence as the existing arithmetic benchmark.
++  plain.data<uint64_t>()[0] = (uint64_t{1} << 60) - 8;
++  plain.data<uint64_t>()[1] = uint64_t(-13);
++  const auto inputs = io.toShares(plain, VIS_SECRET);
++  NdArrayRef offsets(makeType<Pub2kTy>(FM64), {width});
++  std::vector<uint64_t> expected(width);
++  for (int64_t i = 0; i < width; ++i) {
++    offsets.data<uint64_t>()[i] = i;
++    auto x = ring ? plain.data<uint64_t>()[0] + uint64_t(i)
++                  : Add(FromRing(plain.data<uint64_t>()[0]), i);
++    for (int64_t layer = 0; layer < depth; ++layer) {
++      x = ring ? x * (x + plain.data<uint64_t>()[1])
++               : Mul(x, Add(x, FromRing(plain.data<uint64_t>()[1])));
++    }
++    expected[i] = ring ? x : ToRing(x);
++  }
++  std::cout << std::fixed << std::setprecision(6)
++            << "protocol,width,depth,gates,secret_inputs,iteration,rank,"
++               "input_ms,expand_ms,circuit_ms,verify_ms,mul_ms,"
++               "input_bytes,expand_bytes,circuit_bytes,verify_bytes,checks\n";
++  // A new session each iteration; setup and checked export are outside timing.
++  // Iteration zero is the warmup, retained in CSV but excluded from statistics.
++  for (int iteration = 0; iteration <= repetitions; ++iteration) {
++    Barrier barrier;
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(config, link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      ProtocolRunGuard guard(&ctx);
++      Value original(inputs[link->Rank()], DT_I64);
++      state->begin(ExecutableProto("ring_circuit_bench", {"xy"}, {"z"}, "test"),
++                   {original});
++      const auto checks = state->arithmeticChecks();
++      const auto stats = link->GetStats();
++      Result result;
++      auto phase = [&](size_t index, auto&& fn) {
++        barrier.wait();
++        const auto bytes = stats->sent_bytes.load();
++        const auto start = Clock::now();
++        fn();
++        result.ms[index] = Milliseconds(start);
++        result.bytes[index] = stats->sent_bytes.load() - bytes;
++      };
++      Value authenticated, z, y;
++      phase(0, [&] { authenticated = import_s(&ctx, original); });
++      SPU_ENFORCE(state->arithmeticChecks() == checks + 1);
++      phase(1, [&] {
++        z = dynDispatch(&ctx, "extract_slice", authenticated, Index{0},
++                        Index{1}, Strides{1});
++        y = dynDispatch(&ctx, "extract_slice", authenticated, Index{1},
++                        Index{2}, Strides{1});
++        z = dynDispatch(&ctx, "broadcast", z, Shape{width}, Axes{0});
++        y = dynDispatch(&ctx, "broadcast", y, Shape{width}, Axes{0});
++        z = dynDispatch(&ctx, "add_ap", z, Value(offsets, DT_I64));
++      });
++      phase(2, [&] {
++        for (int64_t layer = 0; layer < depth; ++layer) {
++          const auto rhs = dynDispatch(&ctx, "add_aa", z, y);
++          const auto start = Clock::now();
++          z = dynDispatch(&ctx, "mul_aa", z, rhs);
++          result.mul_ms += Milliseconds(start);
++        }
++      });
++      SPU_ENFORCE(state->arithmeticChecks() == checks + 1,
++                  "unexpected check within the circuit");
++      phase(3, [&] { state->check(); });
++      SPU_ENFORCE(state->arithmeticChecks() == checks + 2);
++      // Per-party payloads: each resharing sends two 128-bit words per gate,
++      // plus two all-gather status rounds (4 bytes) per layer. Verification
++      // includes batch size, record copies, secret aggregation and Protocol 9.
++      SPU_ENFORCE(result.bytes[0] == (ring ? 242 : 96) && result.bytes[1] == 0);
++      SPU_ENFORCE(result.bytes[2] == size_t(gates) * (ring ? 32 : 16) +
++                                         (ring ? size_t(depth) * 4 : 0));
++      SPU_ENFORCE(result.bytes[3] ==
++                  (ring ? 168 + 2 * std::to_string(gates).size() : 64));
++      z.setDtype(DT_I64);
++      state->prepareOutputs(&ctx, {"z"}, {z});
++      guard.commit();
++      SPU_ENFORCE(state->arithmeticChecks() == checks + 2,
++                  "unexpected nonempty check at export");
++      result.output = state->exportedValue("z").data();
++      return result;
++    });
++    std::vector<NdArrayRef> outputs;
++    for (const auto& result : results) outputs.push_back(result.output);
++    const auto reconstructed = io.fromShares(outputs);
++    const NdArrayView<uint64_t> actual(reconstructed);
++    for (int64_t i = 0; i < width; ++i) {
++      SPU_ENFORCE(actual[i] == expected[i],
++                  "wrong output at iteration {}, index {}", iteration, i);
++    }
++    std::cerr << "iteration " << iteration << ": checked all " << width
++              << " outputs; " << gates << " multiplication gates\n";
++    for (size_t rank = 0; rank < results.size(); ++rank) {
++      const auto& result = results[rank];
++      std::cout << (ring ? "spdzwise-ring128," : "spdzwise-f61-normal,")
++                << width << ',' << depth << ',' << gates << ",2," << iteration
++                << ',' << rank;
++      for (const auto ms : result.ms) std::cout << ',' << ms;
++      std::cout << ',' << result.mul_ms;
++      for (const auto bytes : result.bytes) std::cout << ',' << bytes;
++      std::cout << ",2\n";
++    }
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
++
++int main(int argc, char** argv) {
++  SPU_ENFORCE(argc == 4 || (argc == 5 && std::string(argv[4]) == "f61"),
++              "usage: ring_circuit_bench width depth repetitions [f61]");
++  const int64_t width = std::stoll(argv[1]), depth = std::stoll(argv[2]);
++  const int repetitions = std::stoi(argv[3]);
++  SPU_ENFORCE(width > 0 && depth > 0 && repetitions > 0 &&
++              width <= std::numeric_limits<int64_t>::max() / depth);
++  spu::mpc::spdzwise::Run(width, depth, repetitions, argc == 4);
++}
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_server.py b/src/libspu/mpc/spdzwise/benchmarks/run_server.py
+new file mode 100644
+index 00000000..e07f68bb
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_server.py
+@@ -0,0 +1,173 @@
++"""Run the server suite with exactly 64 YACL background workers.
++
++Build circuit_bench, ring_circuit_bench and binary_bench first. Then run
++  python3 run_server.py NEW_OUTPUT_DIRECTORY [--ring-only]
++YACL_NUM_THREADS includes the caller, so 65 creates 64 pool workers.
++"""
++
++import argparse
++import csv
++import hashlib
++import json
++import os
++import platform
++import re
++import statistics
++import subprocess
++import time
++from datetime import datetime
++from pathlib import Path
++from zoneinfo import ZoneInfo
++
++BENCH = Path(__file__).resolve().parent
++ROOT = BENCH.parents[4]
++CIRCUITS = {"C1": (1048576, 1), "C2": (65536, 16), "C3": (16384, 64)}
++
++
++def digest(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def summarize(rows, protocol, circuit, normal, binary):
++    rows = [r for r in rows if r["protocol"] == protocol]
++    iterations = range(8) if normal or binary else range(7)
++    assert len(rows) == len(iterations) * 3
++    width, depth = CIRCUITS[circuit]
++    wise = protocol.startswith("spdzwise")
++    ring = protocol == "spdzwise-ring128"
++    if binary:
++        expected_bytes = {"online_bytes": 8388608,
++                          "verify_bytes": 218110266 if wise else 0}
++        phase_map = {"circuit_ms": "online_ms", "verify_ms": "verify_ms"}
++    else:
++        expected_bytes = {
++            "input_bytes" if normal else "input_mac_bytes": (242 if ring else 96) if normal else 0,
++            "expand_bytes": 0,
++            "circuit_bytes": 1048576 * (32 if ring else 16 if wise else 8) + (4 * depth if ring else 0),
++            "verify_bytes": 182 if ring else 64 if wise else 0,
++        }
++        phase_map = {"input_ms": "input_ms" if normal else "input_mac_ms",
++                     "expand_ms": "expand_ms", "circuit_ms": "circuit_ms",
++                     "verify_ms": "verify_ms", "mul_ms": "mul_ms"}
++    measured = []
++    for iteration in iterations:
++        batch = [r for r in rows if int(r["iteration"]) == iteration]
++        assert len(batch) == 3 and {int(r["rank"]) for r in batch} == {0, 1, 2}
++        for row in batch:
++            assert int(row["width"]) == width and int(row["depth"]) == depth
++            assert int(row["word_ands" if binary else "gates"]) == 1048576
++            assert int(row["checks"]) == (int(wise) if binary else 2 if wise else 0)
++            for key, value in expected_bytes.items():
++                assert int(row[key]) == value, (protocol, circuit, key, row)
++            if not binary:
++                assert float(row["mul_ms"]) <= float(row["circuit_ms"])
++        maxima = {key: max(float(r[column]) for r in batch)
++                  for key, column in phase_map.items()}
++        maxima["core_ms"] = maxima["circuit_ms"] + maxima["verify_ms"]
++        maxima["total_ms"] = maxima["core_ms"] + maxima.get("input_ms", 0) + maxima.get("expand_ms", 0)
++        if iteration or not (normal or binary):
++            measured.append({"iteration": iteration, **maxima})
++    assert len(measured) == 7
++    return {
++        "protocol": protocol, "circuit": circuit, "width": width, "depth": depth,
++        "iterations": measured,
++        "phases": {key: {"median_ms": statistics.median(r[key] for r in measured),
++                         "min_ms": min(r[key] for r in measured),
++                         "max_ms": max(r[key] for r in measured)} for key in maxima},
++        "bytes_per_party": expected_bytes,
++        "output_validation": "all outputs in all 8 iterations" if normal or binary else "all outputs in final iteration",
++    }
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--ring-only", action="store_true")
++    args = parser.parse_args()
++    out = args.output.resolve()
++    out.mkdir(parents=True, exist_ok=False)
++    env = {**os.environ, "YACL_NUM_THREADS": "65"}
++    binaries = {n: BENCH / "bazel-bin" / n for n in
++                ("circuit_bench", "ring_circuit_bench", "binary_bench")}
++    sources = sorted(BENCH.parent.glob("*.cc")) + sorted(BENCH.parent.glob("*.h"))
++    sources += [BENCH.parent / "BUILD.bazel"]
++    sources += [BENCH / n for n in ("circuit_bench.cc", "ring_circuit_bench.cc", "binary_bench.cc", "run_server.py", "BUILD.bazel", "MODULE.bazel", "MODULE.bazel.lock", ".bazelrc")]
++    sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "libspu/core/parallel_utils.h", "libspu/mpc/common/prg_state.h", "libspu/mpc/common/prg_state.cc", "libspu/mpc/utils/simulate.h", "libspu/mpc/aby3/arithmetic.cc", "libspu/mpc/aby3/boolean.cc")]
++    parameters = {
++        "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++        "YACL_NUM_THREADS": "65", "background_workers": 64,
++        "thread_semantics": "YACL subtracts one caller from YACL_NUM_THREADS; the pool is shared by three parties",
++        "platform": platform.platform(), "logical_cpus": os.cpu_count(),
++        "cpu_affinity": sorted(os.sched_getaffinity(0)), "loadavg_at_start": os.getloadavg(),
++        "compiler": subprocess.check_output(["c++", "--version"], text=True).splitlines()[0],
++        "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
++        "warmups": 1, "repetitions": 7, "circuits": CIRCUITS,
++        "transport": "FactoryMem, three parties in one process; benchmarks run sequentially",
++        "aggregation": "per iteration phase maxima across parties, then median/min/max over seven measured iterations; total sums phase maxima before taking median",
++        "arithmetic": "two secret inputs, z[0,i]=2^60-8+i; z[l+1,i]=z[l,i]*(z[l,i]-13); integer circuit, no fixed-point truncation",
++        "spdzwise_timing": "both FIELD and RING use normal import with immediate input check, fresh session each iteration; final check covers 1048576 products; setup/export/reconstruction/oracle excluded",
++        "aby3_timing": "existing circuit_bench adapters, session reused after warmup; no authentication or verification; setup/reconstruction/oracle excluded",
++        "binary_timing": "C2 packed uint64 AND; ABFL verification includes random triple generation and all checks; setup/import/export/oracle excluded",
++        "binary_sha256": {n: digest(p) for n, p in binaries.items()},
++        "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
++    }
++    (out / "parameters.json").write_text(json.dumps(parameters, indent=2) + "\n")
++    (out / "lscpu.txt").write_text(subprocess.check_output(["lscpu"], text=True))
++    (out / "meminfo.txt").write_text(Path("/proc/meminfo").read_text())
++    # Include untracked implementation files without touching the Git index.
++    patch = subprocess.check_output(["git", "diff", "--binary", "HEAD", "--"] + [str(p.relative_to(ROOT)) for p in sources], cwd=ROOT)
++    for path in sources:
++        relative = str(path.relative_to(ROOT))
++        if subprocess.run(["git", "ls-files", "--error-unmatch", relative], cwd=ROOT, capture_output=True).returncode:
++            diff = subprocess.run(["git", "diff", "--no-index", "--", "/dev/null", relative], cwd=ROOT, capture_output=True)
++            assert diff.returncode == 1
++            patch += diff.stdout
++    (out / "source.patch").write_bytes(patch)
++    jobs = []
++    for circuit, (width, depth) in CIRCUITS.items():
++        base = [str(width), str(depth), "7"]
++        if not args.ring_only:
++            jobs += [("aby3-f61-adapter", circuit, "circuit_bench", base, False, False),
++                     ("aby3-ring64", circuit, "circuit_bench", base + ["ring64"], False, False),
++                     ("spdzwise-f61-normal", circuit, "ring_circuit_bench", base + ["f61"], True, False)]
++        jobs += [("spdzwise-ring128", circuit, "ring_circuit_bench", base, True, False)]
++    if not args.ring_only:
++        jobs += [("aby3-boolean", "C2", "binary_bench", ["--aby3"], False, True),
++                 ("spdzwise-abfl", "C2", "binary_bench", [], False, True)]
++    summaries = []
++    for protocol, circuit, executable, options, normal, binary in jobs:
++        name = f"{protocol}-{circuit}"
++        command = [str(binaries[executable]), *options]
++        print("Running", name, flush=True)
++        start = time.monotonic()
++        with (out / f"{name}.stdout").open("w") as stdout, (out / f"{name}.log").open("w") as stderr:
++            process = subprocess.Popen(command, env=env, stdout=stdout, stderr=stderr)
++            _, status, usage = os.wait4(process.pid, 0)
++            process.returncode = os.waitstatus_to_exitcode(status)
++        resource = {"command": command, "exit_code": process.returncode,
++                    "wall_seconds": time.monotonic() - start, "user_seconds": usage.ru_utime,
++                    "system_seconds": usage.ru_stime, "max_rss_kib": usage.ru_maxrss,
++                    "loadavg_at_end": os.getloadavg()}
++        (out / f"{name}-resources.json").write_text(json.dumps(resource, indent=2) + "\n")
++        if process.returncode:
++            raise RuntimeError(f"{name} failed; see archived log")
++        stdout_text = (out / f"{name}.stdout").read_text()
++        pool_sizes = {int(n) for n in re.findall(r"Create a fixed thread pool with size (\d+)", stdout_text)}
++        # Small batches can stay on the callers without creating the lazy pool.
++        assert not pool_sizes or pool_sizes == {64}, (name, pool_sizes)
++        resource["observed_pool_workers"] = sorted(pool_sizes)
++        (out / f"{name}-resources.json").write_text(json.dumps(resource, indent=2) + "\n")
++        lines = [line for line in stdout_text.splitlines(True)
++                 if line.startswith(("protocol,", protocol + ","))]
++        (out / f"{name}.csv").write_text("".join(lines))
++        summary = summarize(list(csv.DictReader(lines)), protocol, circuit, normal, binary)
++        summaries.append(summary)
++        print(name, {k: round(v["median_ms"], 3) for k, v in summary["phases"].items()}, flush=True)
++        (out / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
++    assert all(digest(p) == parameters["binary_sha256"][n] for n, p in binaries.items())
++    assert all(digest(ROOT / n) == sha for n, sha in parameters["source_sha256"].items())
++    (out / "SHA256SUMS").write_text("".join(f"{digest(p)}  {p.name}\n" for p in sorted(out.iterdir()) if p.is_file()))
++
++
++if __name__ == "__main__":
++    main()

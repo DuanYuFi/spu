@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 21.5194 ms, circuit 90.0592 ms (mul 61.3635), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 19.1376 ms, circuit 63.7813 ms (mul 37.3758), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 12.7913 ms, circuit 54.0279 ms (mul 34.8067), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 12.7925 ms, circuit 48.9074 ms (mul 30.2541), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 10.5643 ms, circuit 46.4967 ms (mul 30.7854), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 10.5516 ms, circuit 48.6959 ms (mul 29.394), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 10.5688 ms, circuit 46.5298 ms (mul 30.5892), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 10.5602 ms, circuit 45.5085 ms (mul 29.839), verify 0 ms
+aby3-f61-adapter: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.025823 ms, expand 34.3355 ms, circuit 140.982 ms (mul 121.318), verify 20.7925 ms
+spdzwise-f61 iteration 1: input MAC 0.043318 ms, expand 48.6766 ms, circuit 106.269 ms (mul 86.765), verify 19.818 ms
+spdzwise-f61 iteration 2: input MAC 0.039705 ms, expand 29.024 ms, circuit 97.9905 ms (mul 81.9126), verify 19.1504 ms
+spdzwise-f61 iteration 3: input MAC 0.03995 ms, expand 26.6882 ms, circuit 104.235 ms (mul 88.0501), verify 20.117 ms
+spdzwise-f61 iteration 4: input MAC 0.039328 ms, expand 31.8866 ms, circuit 103.389 ms (mul 83.8722), verify 19.1533 ms
+spdzwise-f61 iteration 5: input MAC 0.040219 ms, expand 26.7114 ms, circuit 105.533 ms (mul 89.4622), verify 19.2587 ms
+spdzwise-f61 iteration 6: input MAC 0.038516 ms, expand 26.7576 ms, circuit 111.025 ms (mul 88.735), verify 20.0493 ms
+spdzwise-f61 iteration 7: input MAC 0.038359 ms, expand 30.226 ms, circuit 95.5776 ms (mul 79.5339), verify 19.3677 ms
+spdzwise-f61: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements

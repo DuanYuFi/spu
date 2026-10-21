@@ -27,12 +27,15 @@ spu_cc_library(
         "boolean.cc",
         "conversion.cc",
         "state.cc",
+        "ring.cc",
     ],
     hdrs = [
         "arithmetic.h",
         "boolean.h",
         "conversion.h",
         "state.h",
+        "ring.h",
+        "ring_arithmetic.h",
     ],
     deps = [
         ":replicated",
@@ -80,7 +83,7 @@ spu_cc_library(
 spu_cc_library(
     name = "type",
     srcs = ["type.cc"],
-    hdrs = ["type.h"],
+    hdrs = ["type.h", "ring_type.h", "ring_math.h"],
     deps = [
         ":field",
         "//libspu/core:type",
@@ -118,6 +121,20 @@ spu_cc_test(
         ":io",
         ":protocol",
         ":state",
+        "//libspu/mpc:api",
+        "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_test(
+    name = "ring_test",
+    srcs = ["ring_test.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":state",
+        "@yacl//yacl/crypto/hash:blake3",
         "//libspu/mpc:api",
         "//libspu/mpc/common:pv2k",
         "//libspu/mpc/utils:simulate",

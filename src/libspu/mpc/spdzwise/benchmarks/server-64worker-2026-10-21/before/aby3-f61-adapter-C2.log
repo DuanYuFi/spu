@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 1.51405 ms, circuit 80.562 ms (mul 51.4953), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 1.00021 ms, circuit 73.2526 ms (mul 45.484), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 0.999311 ms, circuit 73.3294 ms (mul 45.4796), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 1.01559 ms, circuit 73.5781 ms (mul 45.6336), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 1.00536 ms, circuit 72.7935 ms (mul 45.0156), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 0.814536 ms, circuit 63.0829 ms (mul 40.4105), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 0.830788 ms, circuit 62.6764 ms (mul 40.0797), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 0.823689 ms, circuit 62.8276 ms (mul 40.1911), verify 0 ms
+aby3-f61-adapter: checked all 65536 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.014378 ms, expand 3.75192 ms, circuit 140.399 ms (mul 122.441), verify 25.5334 ms
+spdzwise-f61 iteration 1: input MAC 0.02964 ms, expand 2.58931 ms, circuit 91.4189 ms (mul 73.9921), verify 23.7158 ms
+spdzwise-f61 iteration 2: input MAC 0.026553 ms, expand 2.01912 ms, circuit 94.2714 ms (mul 74.6486), verify 22.8716 ms
+spdzwise-f61 iteration 3: input MAC 0.028529 ms, expand 2.06641 ms, circuit 99.0021 ms (mul 78.0853), verify 23.8896 ms
+spdzwise-f61 iteration 4: input MAC 0.023324 ms, expand 2.21129 ms, circuit 102.397 ms (mul 80.0334), verify 23.7554 ms
+spdzwise-f61 iteration 5: input MAC 0.03099 ms, expand 2.13884 ms, circuit 104.733 ms (mul 81.4087), verify 25.7356 ms
+spdzwise-f61 iteration 6: input MAC 0.052916 ms, expand 2.69982 ms, circuit 104.377 ms (mul 77.8214), verify 25.3718 ms
+spdzwise-f61 iteration 7: input MAC 0.052124 ms, expand 3.04903 ms, circuit 110.278 ms (mul 82.7445), verify 27.4614 ms
+spdzwise-f61: checked all 65536 outputs; 1048576 multiplication gates, two secret input elements

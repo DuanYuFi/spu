@@ -20,25 +20,26 @@ domain independently from the SPU word size:
 ```
 
 `FIELD` (the default, including legacy configurations) selects the Mersenne
-prime `p = 2^61 - 1` with FM64 storage. `RING` reserves arithmetic modulo `2^64`;
-its registration and IO entrypoints currently throw `not implemented` before
-installing kernels or constructing field IO. Both domains reject FM32 and
-FM128. Neither setting enables the production runtime factory.
+prime `p = 2^61 - 1` with FM64 storage. `RING` implements arithmetic modulo
+`2^64` using internal value/MAC components modulo `2^128` (64 extension bits).
+Both domains reject FM32 and FM128. Neither setting enables the production runtime factory.
 
 In Python, use `config.spdzwise_config.domain = spu.SpdzWiseConfig.FIELD`
 or `spu.SpdzWiseConfig.RING`. JSON/protobuf serialization and config copies
 preserve the domain, which is also included in execution agreement.
 
 - `protocol.h/.cc`: configuration-based domain dispatch, lifecycle and common
-  registration; explicit field and reserved ring prototype entrypoints.
+  registration; explicit field and ring prototype entrypoints.
 - `arithmetic.h/.cc`: F61 arithmetic operations and `spdzwise::field` kernels,
   including `field::MulAA`, `field::MulAP` and field matrix multiplication.
+- `ring.h/.cc`, `ring_math.h`, `ring_type.h`, `ring_arithmetic.h`: independent
+  128-bit arithmetic state, Protocol 9 checking, domain types and ring kernels.
 - `boolean.h/.cc`: shared ABFL implementation and Boolean kernel adapters.
 - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
   registers no conversions. Ring conversions and domain-specific PPML kernels
   (truncation/comparison) remain future work.
-- `state.h/.cc`: checked session lifecycle, field authentication and checks.
-  The current state rejects ring configurations.
+- `state.h/.cc`: checked session lifecycle, field authentication and checks;
+  owns the separate ring arithmetic state and shared Boolean state.
 
 The source files share one implementation library because the kernels and
 checked session depend on each other. The `:boolean` build label remains
@@ -52,7 +53,7 @@ available as an alias. Existing F61/ABFL development calls continue to use
 - Three replicated-share servers, one static malicious corruption at most,
   honest external clients, authenticated confidential channels, security with
   abort. Network identities and client authorization belong to the deployment.
-- Arithmetic: `p = 2^61 - 1`, FM64 storage, default 16 fractional bits. Boolean
+- FIELD arithmetic: `p = 2^61 - 1`, FM64 storage, default 16 fractional bits. Boolean
   prototype: ABFL post-sacrifice. Forty-bit statistical checking parameters are
   per reference procedure; a complete task needs a separately derived composed
   error bound. No security bound is certified for this prototype.
@@ -92,7 +93,7 @@ as a runtime dependency.
 | Arithmetic types and key | `Protocols/SpdzWiseShare.h`, `SpdzWiseShare.hpp` | Two value and two tag components; fresh key per runtime; no persisted keys |
 | Input authentication | `Protocols/SpdzWiseInput.hpp::exchange` | Replicated-copy validation followed by shared-key multiplication and arithmetic check; external-client integrity still needs source/proof review |
 | Multiplication and dot product | `Protocols/SpdzWise.hpp::prepare_mul`, `prepare_dotprod` | Multiply value/value and tag/value, enqueue result; matrix terms accumulated locally before one batched exchange |
-| Arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
+| FIELD arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
 | Boolean online and checking | ABY3 online AND; `Protocols/ShuffleSacrifice.h`, `MalRepRingPrep.hpp` | ABFL prototype with 64-bit word buckets, final post-sacrifice and checked Boolean IO; uses one fresh random pool rather than `PostSacriBin`'s two-level pools |
 | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
 | A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
@@ -117,7 +118,7 @@ three-share bundle is **not** distinguished by this IO prototype. Client/server
 request binding and the authenticated-channel deployment example remain M1
 work and are required before enabling external use.
 
-### Message inventory
+### FIELD message inventory
 
 | Message | Contents and visibility | Required protection |
 |---|---|---|
@@ -132,6 +133,97 @@ work and are required before enabling external use.
 `openRaw()` is private to the arithmetic checker. It must never become a
 general reveal kernel. Application-level reveal kernels explicitly reject.
 No destructor performs network communication.
+
+## RING arithmetic prototype
+
+Use `SPDZWISE + FM64 + spdzwise_config.domain=RING` with the explicit C++
+prototype registration. The implementation provides input authentication,
+`p2a`, negation, secret/public addition and multiplication, and secret/public
+matrix multiplication. Matrices accumulate each dot product locally before
+exchanging two 128-bit words per output cell. A fixed status exchange also
+rejects malformed wire lengths; payload does not grow with the inner dimension.
+A2B/B2A, truncation, comparison and PPML integration remain unimplemented.
+
+Client input words are zero-extended from 64 to 128 bits, then shared in
+Z/(2^128). Internal authenticated elements contain two value and two MAC words
+(64 bytes), carry the session identity, and cannot be serialized. Wire words
+use exactly 16 little-endian bytes. Shapes and strided views operate on complete
+authenticated elements. Public words retain FM64 storage. FIELD and RING types
+are distinct and cannot be interchanged.
+
+Imports check replicated copies, generate MACs and immediately check the
+authentication batch. Every secret multiplication stores an immutable copy of
+its result in the pending queue. After finalization succeeds, exports contain
+only the low 64 bits of each value share plus rank/execution binding. Clients
+reconstruct modulo 2^64. External outputs are lifted component by component and
+reauthenticated on reimport; authenticated internal values can be reused only
+within the same healthy session. Empty batches skip zero checking; executions
+with no outputs still finalize. Any checking failure clears pending exports
+and permanently poisons the session.
+
+The checker agrees batch size, verifies copies, draws fresh secret coefficients
+from a dedicated PRSS stream, and computes one aggregation
+`w=sum(r_i*x_i), u=sum(r_i*mac_i), t=u-alpha*w`. Neither `t` nor a multiple
+of it is opened. Keys, masks and coefficients use separate PRSS instances.
+
+Final RING measurements are included in the project
+[Arithmetic Benchmark](../../../../readme-malicious-ppml.md#arithmetic-benchmark);
+raw samples, parameters and validation evidence are in
+[`benchmarks/spdzwise-ring128-latest/`](benchmarks/spdzwise-ring128-latest/).
+
+### Protocol 9 and security model
+
+Reference: Mark Abspoel, Anders Dalskov, Daniel Escudero, Ariel Nof,
+*An Efficient Passive-to-Active Compiler for Honest-Majority MPC over Rings*,
+[Section 6.3, Protocol 9](https://ir.cwi.nl/pub/31033/31033.pdf#page=23).
+The reference is also adjacent to `ring::CheckZero`.
+
+Party i holds (t_i,t_{i+1}), sends H(-(t_i+t_{i+1})) to i+1, and checks the
+digest from i-1 against H(t_{i+1}). BLAKE3-256 instantiates the random oracle.
+The hash frames version, domain, session, execution, batch and component owner.
+The sender targets owner i+2 and the receiver expects owner i+1. Replicated-copy
+checks use a separate domain. Two status rounds propagate a detected failure
+to every honest party, including a corrupt sender's equivocation about status.
+
+| Proof premise / interface | Prototype mapping |
+|---|---|
+| Three-party replicated shares, at most one static malicious party | Pair (component i, component i+1); channels must be authenticated and confidential |
+| k=64, s=64, arithmetic in Z/(2^(k+s)) | Unsigned native 128-bit wraparound; only low 64-bit results leave the session |
+| Random key and secret fresh coefficients | Separate AES-CTR PRSS streams; uniform full-ring words in the ideal-PRG model |
+| Fixed records before fresh challenges | Owned pending snapshots; count agreement and copy hashes before coefficient generation |
+| Passive multiplication / dot product with additive errors | Replicated local cross terms, fresh zero masks, batched exchange |
+| Zero test in the random-oracle model | Protocol 9, with additional domain/copy/status checks; extra rejection is allowed |
+| Checked release with abort | Mandatory finalization, staged exports, terminal session failure |
+
+The paper's main protocol gives the statistical term (s+1)*2^-s, which at
+s=64 is 65/2^64, approximately 2^-57.98. This is a **hybrid-model reference
+bound for incorrect low-64-bit computations**, not a claim that every isolated
+high-bit MAC perturbation has that detection probability. Protocol 9 additionally
+requires the random-oracle assumption; real BLAKE3 and AES-CTR introduce
+computational assumptions. The hash output length alone is not a full protocol
+security proof.
+
+There is a material distinction from Protocol 4 step 5(d-e): that presentation
+opens the key for its terminal check. This prototype follows the approved
+SPDZ-wise session design, retains the key, and computes alpha*w with a secret
+multiplication. Its extra additive error enters the residual alongside the dot
+product errors. A composable proof must account for that error, repeated
+successful checks with a reused key, and authenticated-value reuse. The mapping
+above identifies these obligations; unit tests do not discharge them. The
+production factory remains closed pending that source/proof review.
+
+For q checks, the conditional union-bound budget is
+`min(1, q*65/2^64 + epsilon_hash(q) + epsilon_PRSS(q))`, **provided** the
+per-check bound holds conditional on prior accepted transcripts. That
+conditioning is part of the reuse proof obligation, not something established
+by a test run. Include immediate input checks in q; there is no blanket
+40-bit lifetime guarantee for an unbounded session. Client IO still does not
+detect replay of a whole previously valid three-share output bundle.
+
+No 192-bit auxiliary sacrifice or random-bit zero-test circuit is used.
+Performance measurements are deferred: measure aggregation and Protocol 9
+separately, including copy/status exchanges. The earlier 23% estimate for a
+different zero checker does not apply.
 
 ## ABFL Boolean development prototype
 

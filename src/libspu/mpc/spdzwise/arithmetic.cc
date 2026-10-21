@@ -28,10 +28,10 @@ void RequirePublic(const NdArrayRef& x) {
 
 }  // namespace
 
-// These state operations implement F61 arithmetic only. The field registration
-// and state constructor reject RING configurations before installing kernels.
+// Dispatch RING operations to its independent arithmetic state.
 NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
   requireRunning();
+  if (isRing()) return ring_->publicValue(value);
   RequirePublic(value);
   NdArrayRef result(makeType<AShrTy>(session_), value.shape());
   const NdArrayView<uint64_t> in(value);
@@ -45,6 +45,8 @@ NdArrayRef SpdzWiseState::publicValue(const NdArrayRef& value) const {
 }
 
 NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
+  requireRunning();
+  if (isRing()) return ring_->add(x, y);
   validateInternal(x);
   validateInternal(y);
   SPU_ENFORCE(x.shape() == y.shape(), "add shape mismatch");
@@ -60,6 +62,8 @@ NdArrayRef SpdzWiseState::add(const NdArrayRef& x, const NdArrayRef& y) const {
 }
 
 NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
+  requireRunning();
+  if (isRing()) return ring_->negate(x);
   validateInternal(x);
   NdArrayRef result(x.eltype(), x.shape());
   const NdArrayView<AuthShare> in(x);
@@ -74,6 +78,8 @@ NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
 
 NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
                                          const NdArrayRef& y) const {
+  requireRunning();
+  if (isRing()) return ring_->multiplyPublic(x, y);
   validateInternal(x);
   RequirePublic(y);
   SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
@@ -90,6 +96,15 @@ NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
 }
 
 NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
+  requireRunning();
+  if (isRing()) {
+    try {
+      return ring_->multiply(x, y);
+    } catch (...) {
+      abort();
+      throw;
+    }
+  }
   validateInternal(x);
   validateInternal(y);
   SPU_ENFORCE(x.shape() == y.shape(), "multiply shape mismatch");
@@ -113,6 +128,15 @@ NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
 
 NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
                                  bool public_rhs) {
+  requireRunning();
+  if (isRing()) {
+    try {
+      return ring_->matmul(x, y, public_rhs);
+    } catch (...) {
+      abort();
+      throw;
+    }
+  }
   validateInternal(x);
   if (public_rhs) {
     RequirePublic(y);

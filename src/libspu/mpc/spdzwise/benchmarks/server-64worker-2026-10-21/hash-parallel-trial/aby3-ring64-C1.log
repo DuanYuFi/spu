@@ -1,0 +1,9 @@
+aby3-ring64 iteration 0: input MAC 0 ms, expand 8.54777 ms, circuit 53.9074 ms (mul 46.45), verify 0 ms
+aby3-ring64 iteration 1: input MAC 0 ms, expand 4.93202 ms, circuit 43.849 ms (mul 38.7146), verify 0 ms
+aby3-ring64 iteration 2: input MAC 0 ms, expand 5.24593 ms, circuit 39.4353 ms (mul 34.2745), verify 0 ms
+aby3-ring64 iteration 3: input MAC 0 ms, expand 5.39773 ms, circuit 41.112 ms (mul 35.941), verify 0 ms
+aby3-ring64 iteration 4: input MAC 0 ms, expand 5.37419 ms, circuit 42.0489 ms (mul 36.967), verify 0 ms
+aby3-ring64 iteration 5: input MAC 0 ms, expand 5.40726 ms, circuit 42.9997 ms (mul 37.6924), verify 0 ms
+aby3-ring64 iteration 6: input MAC 0 ms, expand 5.26291 ms, circuit 42.3788 ms (mul 37.4749), verify 0 ms
+aby3-ring64 iteration 7: input MAC 0 ms, expand 5.41247 ms, circuit 44.1562 ms (mul 39.054), verify 0 ms
+aby3-ring64: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements

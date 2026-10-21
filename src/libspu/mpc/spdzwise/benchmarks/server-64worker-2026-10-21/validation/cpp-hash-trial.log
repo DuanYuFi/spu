@@ -1,0 +1,100 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 6 targets (4 packages loaded, 0 targets configured)
+Analyzing: 6 targets (4 packages loaded, 0 targets configured)
+
+Analyzing: 6 targets (237 packages loaded, 7499 targets configured)
+
+INFO: Analyzed 6 targets (298 packages loaded, 19863 targets configured).
+[59 / 1,425] checking cached actions
+INFO: From Foreign Cc - CMake: Building Microsoft.GSL:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Compiling simplest_ot_x86_asm/gfe4x.c:
+external/simplest-ot~/simplest_ot_x86_asm/gfe4x.c:167:49: warning: argument 2 of type 'const unsigned char[128]' with mismatched bound [-Warray-parameter=]
+  167 | void gfe4x_unpack(gfe4x *r, const unsigned char x[128]) {
+      |                             ~~~~~~~~~~~~~~~~~~~~^~~~~~
+In file included from external/simplest-ot~/simplest_ot_x86_asm/gfe4x.c:1:
+external/simplest-ot~/simplest_ot_x86_asm/gfe4x.h:14:28: note: previously declared as 'const unsigned char *'
+   14 | void gfe4x_unpack(gfe4x *, const unsigned char *);
+      |                            ^~~~~~~~~~~~~~~~~~~~~
+INFO: From Foreign Cc - CMake: Building xtl:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,678 / 1,816] Compiling yacl/io/stream/file_io.cc; 0s processwrapper-sandbox ... (16 actions running)
+INFO: From Foreign Cc - CMake: Building xtensor:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,686 / 1,816] Compiling yacl/io/stream/file_io.cc; 1s processwrapper-sandbox ... (17 actions, 16 running)
+[1,691 / 1,816] Compiling yacl/io/stream/file_io.cc; 2s processwrapper-sandbox ... (17 actions, 16 running)
+INFO: From Foreign Cc - CMake: Building emp-tool:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,694 / 1,816] Compiling yacl/io/stream/file_io.cc; 3s processwrapper-sandbox ... (16 actions running)
+[1,696 / 1,816] Compiling yacl/io/stream/file_io.cc; 5s processwrapper-sandbox ... (16 actions, 15 running)
+INFO: From Foreign Cc - CMake: Building emp-ot:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,711 / 1,817] Foreign Cc - CMake: Building zstd; 6s processwrapper-sandbox ... (16 actions, 15 running)
+[1,714 / 1,817] Foreign Cc - CMake: Building zstd; 7s processwrapper-sandbox ... (16 actions, 15 running)
+[1,715 / 1,817] Foreign Cc - CMake: Building zstd; 8s processwrapper-sandbox ... (16 actions, 15 running)
+[1,717 / 1,817] Foreign Cc - CMake: Building zstd; 9s processwrapper-sandbox ... (17 actions, 16 running)
+[1,720 / 1,817] Foreign Cc - CMake: Building zstd; 10s processwrapper-sandbox ... (16 actions, 15 running)
+INFO: From Foreign Cc - CMake: Building zstd:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,723 / 1,817] Compiling libspu/kernel/hal/prot_wrapper.cc; 10s processwrapper-sandbox ... (16 actions, 15 running)
+[1,725 / 1,817] Compiling libspu/kernel/hal/prot_wrapper.cc; 11s processwrapper-sandbox ... (16 actions, 15 running)
+[1,729 / 1,817] Compiling libspu/kernel/hal/public_helper.cc; 8s processwrapper-sandbox ... (16 actions, 15 running)
+[1,734 / 1,818] Compiling libspu/kernel/hal/public_helper.cc; 9s processwrapper-sandbox ... (16 actions, 15 running)
+[1,734 / 1,818] Compiling libspu/kernel/hal/public_helper.cc; 11s processwrapper-sandbox ... (17 actions, 16 running)
+[1,735 / 1,818] Compiling libspu/kernel/hal/public_helper.cc; 13s processwrapper-sandbox ... (16 actions, 15 running)
+[1,742 / 1,818] Compiling libspu/kernel/hal/public_helper.cc; 14s processwrapper-sandbox ... (16 actions running)
+INFO: From Foreign Cc - CMake: Building seal:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,751 / 1,818] Compiling libspu/mpc/semi2k/lowmc.cc; 11s processwrapper-sandbox ... (16 actions, 15 running)
+[1,753 / 1,818] Compiling libspu/mpc/semi2k/lowmc.cc; 12s processwrapper-sandbox ... (16 actions, 15 running)
+[1,755 / 1,818] Compiling libspu/mpc/experimental/swift/arithmetic.cc; 11s processwrapper-sandbox ... (17 actions, 16 running)
+[1,756 / 1,818] Compiling libspu/mpc/experimental/swift/arithmetic.cc; 15s processwrapper-sandbox ... (16 actions, 15 running)
+[1,757 / 1,818] Compiling libspu/mpc/experimental/swift/arithmetic.cc; 16s processwrapper-sandbox ... (16 actions, 15 running)
+[1,762 / 1,818] Compiling libspu/mpc/experimental/swift/arithmetic.cc; 18s processwrapper-sandbox ... (16 actions, 15 running)
+[1,766 / 1,818] Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 16s processwrapper-sandbox ... (16 actions, 15 running)
+[1,767 / 1,818] Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 18s processwrapper-sandbox ... (17 actions, 16 running)
+[1,769 / 1,818] Compiling libspu/mpc/cheetah/ot/emp/ferret.cc; 19s processwrapper-sandbox ... (17 actions, 16 running)
+[1,772 / 1,818] Compiling libspu/mpc/semi2k/arithmetic.cc; 6s processwrapper-sandbox ... (16 actions running)
+[1,773 / 1,818] Compiling libspu/mpc/semi2k/arithmetic.cc; 9s processwrapper-sandbox ... (16 actions, 15 running)
+[1,776 / 1,818] 2 / 6 tests; Compiling libspu/mpc/semi2k/arithmetic.cc; 10s processwrapper-sandbox ... (17 actions, 16 running)
+[1,778 / 1,818] 2 / 6 tests; Compiling libspu/mpc/semi2k/arithmetic.cc; 12s processwrapper-sandbox ... (17 actions, 16 running)
+[1,783 / 1,819] 2 / 6 tests; Compiling libspu/mpc/semi2k/arithmetic.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,787 / 1,819] 2 / 6 tests; Compiling libspu/mpc/spdzwise/ring_test.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,788 / 1,819] 3 / 6 tests; Compiling libspu/mpc/spdzwise/ring_test.cc; 15s processwrapper-sandbox ... (17 actions, 16 running)
+[1,792 / 1,819] 3 / 6 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,794 / 1,819] 3 / 6 tests; Compiling libspu/mpc/securenn/arithmetic.cc; 15s processwrapper-sandbox ... (16 actions, 15 running)
+[1,796 / 1,820] 3 / 6 tests; Compiling libspu/mpc/spdzwise/boolean_test.cc; 14s processwrapper-sandbox ... (16 actions, 15 running)
+[1,799 / 1,820] 4 / 6 tests; Compiling libspu/mpc/spdzwise/boolean_test.cc; 16s processwrapper-sandbox ... (16 actions, 15 running)
+[1,801 / 1,820] 4 / 6 tests; Compiling libspu/mpc/semi2k/prime_utils.cc; 9s processwrapper-sandbox ... (16 actions running)
+[1,802 / 1,820] 4 / 6 tests; Compiling libspu/mpc/cheetah/arith/cheetah_mul.cc; 10s processwrapper-sandbox ... (16 actions, 15 running)
+[1,803 / 1,821] 4 / 6 tests; Compiling libspu/mpc/cheetah/arith/cheetah_mul.cc; 11s processwrapper-sandbox ... (16 actions running)
+[1,804 / 1,821] 4 / 6 tests; Compiling libspu/mpc/cheetah/arith/cheetah_mul.cc; 12s processwrapper-sandbox ... (16 actions running)
+[1,805 / 1,821] 4 / 6 tests; Compiling libspu/mpc/cheetah/arith/cheetah_mul.cc; 13s processwrapper-sandbox ... (15 actions running)
+[1,808 / 1,821] 4 / 6 tests; Compiling libspu/mpc/semi2k/conversion.cc; 15s processwrapper-sandbox ... (12 actions running)
+[1,812 / 1,821] 4 / 6 tests; Compiling libspu/mpc/semi2k/boolean.cc; 13s processwrapper-sandbox ... (8 actions running)
+[1,816 / 1,821] 5 / 6 tests; Compiling libspu/mpc/cheetah/protocol.cc; 11s processwrapper-sandbox ... (4 actions running)
+[1,818 / 1,821] 5 / 6 tests; Compiling libspu/mpc/cheetah/arithmetic.cc; 12s processwrapper-sandbox ... (2 actions running)
+[1,819 / 1,821] 5 / 6 tests; Compiling libspu/kernel/hal/ring_test.cc; 11s processwrapper-sandbox
+[1,820 / 1,821] 5 / 6 tests; checking cached actions
+INFO: Found 6 test targets...
+INFO: Elapsed time: 73.051s, Critical Path: 36.94s
+INFO: 172 processes: 3 internal, 169 processwrapper-sandbox.
+INFO: Build completed successfully, 172 total actions
+//libspu/kernel/hal:ring_test                                            PASSED in 0.0s
+//libspu/mpc:protocol_session_test                                       PASSED in 0.0s
+//libspu/mpc/spdzwise:boolean_test                                       PASSED in 6.4s
+//libspu/mpc/spdzwise:io_test                                            PASSED in 0.0s
+//libspu/mpc/spdzwise:protocol_test                                      PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_test                                          PASSED in 0.3s
+
+Executed 6 out of 6 tests: 6 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

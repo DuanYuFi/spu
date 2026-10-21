@@ -57,8 +57,9 @@ SpdzWiseState::SpdzWiseState(const RuntimeConfig& config,
   SPU_ENFORCE(link_ && link_->WorldSize() == 3,
               "SPDZWISE requires three parties");
   SPU_ENFORCE(config.field == FM64, "SPDZWISE requires FM64");
-  SPU_ENFORCE(config.spdzwise_config.domain == SpdzWiseConfig::FIELD,
-              "SPDZWISE F61 state requires domain FIELD");
+  SPU_ENFORCE(config.spdzwise_config.domain == SpdzWiseConfig::FIELD ||
+                  config.spdzwise_config.domain == SpdzWiseConfig::RING,
+              "invalid SPDZWISE arithmetic domain");
   SPU_ENFORCE(!config.experimental_enable_inter_op_par &&
                   !config.experimental_enable_intra_op_par,
               "SPDZWISE context parallelism is not supported");
@@ -137,6 +138,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
     } else if (value.storage_type().isa<BShrTy>()) {
       validateBoolean(value.data());
       Append(descriptor, value.storage_type().toString());
+    } else if (value.storage_type().isa<ring::AShrTy>()) {
+      validateInternal(value.data());
+      Append(descriptor, "ring-authenticated");
+      Append(descriptor, value.storage_type().as<ring::AShrTy>()->session());
     } else if (value.storage_type().isa<AShrTy>()) {
       validateInternal(value.data());
       Append(descriptor, "authenticated");
@@ -155,6 +160,10 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
         Append(descriptor,
                std::to_string(value.storage_type().as<BOutputTy>()->nbits()));
         Append(descriptor, value.storage_type().as<BOutputTy>()->binding());
+      } else if (value.storage_type().isa<ring::OutputTy>()) {
+        Append(descriptor, "ring-external-output");
+        Append(descriptor,
+               value.storage_type().as<ring::OutputTy>()->binding());
       } else if (value.storage_type().isa<OutputTy>()) {
         Append(descriptor, "external-output");
         Append(descriptor, value.storage_type().as<OutputTy>()->binding());
@@ -175,15 +184,24 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
     }
     session_ = Digest(combined);
     agree(session_);
-    key_prg_ = std::make_unique<PrgState>(link_);
-    mask_prg_ = std::make_unique<PrgState>(link_);
-    check_prg_ = std::make_unique<PrgState>(link_);
+    if (isRing()) {
+      ring_ = std::make_unique<ring::ArithmeticState>(
+          link_, session_, [this](std::string_view operation) {
+            return session_ + "/" + tag(operation);
+          });
+    } else {
+      key_prg_ = std::make_unique<PrgState>(link_);
+      mask_prg_ = std::make_unique<PrgState>(link_);
+      check_prg_ = std::make_unique<PrgState>(link_);
+    }
     boolean_ = std::make_unique<BooleanState>(
         link_, [this](std::string_view operation) {
           return session_ + "/" + tag(operation);
         });
-    key_ = RandomF61Rep(key_prg_.get(), 1)[0];
-    checkCopies({key_});
+    if (!isRing()) {
+      key_ = RandomF61Rep(key_prg_.get(), 1)[0];
+      checkCopies({key_});
+    }
   }
 }
 
@@ -202,12 +220,17 @@ Type SpdzWiseState::exportType(const std::string& name,
     Append(descriptor, std::to_string(width));
     return makeType<BOutputTy>(rank(), width, Digest(descriptor));
   }
+  if (isRing()) {
+    Append(descriptor, "ring");
+    return makeType<ring::OutputTy>(rank(), Digest(descriptor));
+  }
   return makeType<OutputTy>(rank(), Digest(descriptor));
 }
 
 void SpdzWiseState::onAbort() noexcept {
   pending_.clear();
   boolean_.reset();
+  ring_.reset();
   key_ = {};
   key_prg_.reset();
   mask_prg_.reset();
@@ -231,6 +254,12 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
       SPU_ENFORCE(((words[i][0] | words[i][1]) & ~mask) == 0,
                   "noncanonical Boolean input");
     }
+  } else if (isRing()) {
+    SPU_ENFORCE((type.isa<ring::InputTy>() &&
+                 type.as<ring::InputTy>()->rank() == rank()) ||
+                    (type.isa<ring::OutputTy>() &&
+                     type.as<ring::OutputTy>()->rank() == rank()),
+                "ring external input domain/rank mismatch");
   } else {
     SPU_ENFORCE(
         (type.isa<InputTy>() && type.as<InputTy>()->rank() == rank()) ||
@@ -241,6 +270,10 @@ void SpdzWiseState::validateExternalInput(const Value& value) const {
 
 void SpdzWiseState::validateInternal(const NdArrayRef& value) const {
   requireRunning();
+  if (isRing()) {
+    SPU_ENFORCE(ring_, "ring state is not initialized");
+    return ring_->validateInternal(value);
+  }
   SPU_ENFORCE(value.eltype().isa<AShrTy>() &&
                   value.eltype().as<AShrTy>()->session() == session_,
               "SPDZWISE value belongs to a different session/type");
@@ -275,6 +308,14 @@ uint64_t SpdzWiseState::openRaw(const RepShare& value) {
 void SpdzWiseState::check() {
   try {
     requireRunning();
+    if (isRing()) {
+      if (ring_->check()) {
+        SPU_ENFORCE(arithmetic_checks_ != std::numeric_limits<uint64_t>::max(),
+                    "check counter overflow");
+        ++arithmetic_checks_;
+      }
+      return;
+    }
     if (pending_.empty()) {
       return;
     }
@@ -367,6 +408,16 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
       return value.clone().as(
           makeType<BShrTy>(session_, value.eltype().as<BShare>()->nbits()));
     }
+    if (isRing()) {
+      if (value.eltype().isa<ring::AShrTy>()) {
+        validateInternal(value);
+        return value;
+      }
+      validateExternalInput(Value(value, DT_I64));
+      auto result = ring_->importValue(value);
+      check();
+      return result;
+    }
     if (value.eltype().isa<AShrTy>()) {
       validateInternal(value);
       return value;
@@ -402,7 +453,8 @@ void SpdzWiseState::finalize() {
 NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
                                       const Type& type) const {
   requireRunning();
-  SPU_ENFORCE(pending_.empty() && pendingBooleanBits() == 0,
+  SPU_ENFORCE(pending_.empty() && (!ring_ || ring_->empty()) &&
+                  pendingBooleanBits() == 0,
               "unchecked SPDZWISE results cannot be exported");
   if (value.eltype().isa<BShrTy>()) {
     validateBoolean(value);
@@ -413,6 +465,7 @@ NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
                 "invalid Boolean export type");
     return value.clone().as(type);
   }
+  if (isRing()) return ring_->exportValue(value, type);
   validateInternal(value);
   SPU_ENFORCE(type.isa<OutputTy>() && type.as<OutputTy>()->rank() == rank(),
               "invalid export type");

@@ -1,6 +1,20 @@
 load("@spulib//bazel:spu.bzl", "spu_cc_binary")
 
 spu_cc_binary(
+    name = "ring_circuit_bench",
+    srcs = ["ring_circuit_bench.cc"],
+    deps = [
+        "@spulib//libspu/mpc:api",
+        "@spulib//libspu/mpc/common:pv2k",
+        "@spulib//libspu/mpc/spdzwise:field",
+        "@spulib//libspu/mpc/spdzwise:io",
+        "@spulib//libspu/mpc/spdzwise:protocol",
+        "@spulib//libspu/mpc/spdzwise:state",
+        "@spulib//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_binary(
     name = "circuit_bench",
     srcs = ["circuit_bench.cc"],
     deps = [

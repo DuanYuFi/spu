@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 0.402678 ms, circuit 84.8365 ms (mul 53.4464), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 0.244118 ms, circuit 76.8264 ms (mul 49.0671), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 0.248352 ms, circuit 76.5916 ms (mul 48.8856), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 0.230985 ms, circuit 60.1641 ms (mul 32.6225), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 0.194751 ms, circuit 60.7031 ms (mul 33.222), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 0.194753 ms, circuit 67.3618 ms (mul 39.7821), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 0.189875 ms, circuit 60.2132 ms (mul 32.715), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 0.190558 ms, circuit 54.1054 ms (mul 29.1932), verify 0 ms
+aby3-f61-adapter: checked all 16384 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.018157 ms, expand 0.946914 ms, circuit 129.097 ms (mul 108.872), verify 30.9138 ms
+spdzwise-f61 iteration 1: input MAC 0.037054 ms, expand 1.20022 ms, circuit 132.693 ms (mul 100.598), verify 29.3747 ms
+spdzwise-f61 iteration 2: input MAC 0.024771 ms, expand 0.691543 ms, circuit 83.4071 ms (mul 64.3115), verify 26.6677 ms
+spdzwise-f61 iteration 3: input MAC 0.037542 ms, expand 0.436229 ms, circuit 83.4047 ms (mul 67.3243), verify 26.8262 ms
+spdzwise-f61 iteration 4: input MAC 0.034665 ms, expand 0.434327 ms, circuit 82.9142 ms (mul 65.9524), verify 26.846 ms
+spdzwise-f61 iteration 5: input MAC 0.025437 ms, expand 0.46289 ms, circuit 82.8641 ms (mul 65.8804), verify 27.1123 ms
+spdzwise-f61 iteration 6: input MAC 0.050378 ms, expand 0.515449 ms, circuit 80.7908 ms (mul 63.5796), verify 24.4336 ms
+spdzwise-f61 iteration 7: input MAC 0.049986 ms, expand 0.734181 ms, circuit 70.7656 ms (mul 54.5044), verify 23.9839 ms
+spdzwise-f61: checked all 16384 outputs; 1048576 multiplication gates, two secret input elements

@@ -14,21 +14,23 @@
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/protocol_session.h"
 #include "libspu/mpc/spdzwise/boolean.h"
+#include "libspu/mpc/spdzwise/ring.h"
 #include "libspu/mpc/spdzwise/type.h"
 
 namespace spu::mpc::spdzwise {
 
-// Checked session for the current F61 arithmetic and shared ABFL prototype.
-// F61 arithmetic kernels live in arithmetic.h/.cc, Boolean kernels in
-// boolean.h/.cc. This state rejects RING configurations; ring arithmetic must
-// provide its own state/checking implementation. The production factory stays
-// closed until mixed protocols, source review and integration tests complete.
+// Checked session for separate FIELD/RING arithmetic and shared Boolean
+// kernels. The production factory remains closed.
 class SpdzWiseState final : public ProtocolSession {
   // The benchmark separates MAC generation from the final batched check.
   // Normal imports retain their mandatory immediate check.
   friend class SpdzWiseBenchmarkAccess;
   friend class BooleanTestAccess;
   std::unique_ptr<BooleanState> boolean_;
+  std::unique_ptr<ring::ArithmeticState> ring_;
+  bool isRing() const {
+    return config_.spdzwise_config.domain == SpdzWiseConfig::RING;
+  }
   std::shared_ptr<yacl::link::Context> link_;
   RuntimeConfig config_;
   std::string session_;

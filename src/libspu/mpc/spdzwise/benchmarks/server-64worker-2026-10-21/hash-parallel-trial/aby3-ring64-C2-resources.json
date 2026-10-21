@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/circuit_bench",
+    "65536",
+    "16",
+    "7",
+    "ring64"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 0.40727173001505435,
+  "user_seconds": 1.568336,
+  "system_seconds": 0.13675099999999998,
+  "max_rss_kib": 31836,
+  "loadavg_at_end": [
+    17.82470703125,
+    15.171875,
+    12.220703125
+  ],
+  "observed_pool_workers": [
+    64
+  ]
+}

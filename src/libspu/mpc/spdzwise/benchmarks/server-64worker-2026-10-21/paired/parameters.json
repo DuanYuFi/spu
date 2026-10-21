@@ -1,0 +1,27 @@
+{
+  "started_at": "2026-10-21T09:39:49.559907+08:00",
+  "binaries": {
+    "before": {
+      "path": "/tmp/spdzwise-64worker/before-bin/ring_circuit_bench",
+      "sha256": "96744d4832510d3f0579cabf88cca9a883f8b7ab555f39de6f3be8f68d5eee51"
+    },
+    "after": {
+      "path": "/tmp/malicious-spu-bazel/53093b917b1433e6b1b5379b4207a5e2/execroot/_main/bazel-out/k8-opt/bin/ring_circuit_bench",
+      "sha256": "ac1cc2abe03b0361a566484623e7ab47520d1a7a4dbbb44443ae665436b6fa2a"
+    }
+  },
+  "YACL_NUM_THREADS": "65",
+  "background_workers": 64,
+  "warmups": 1,
+  "repetitions": 7,
+  "loadavg_at_start": [
+    12.39306640625,
+    13.95458984375,
+    12.0888671875
+  ],
+  "method": "adjacent before/after invocations, alternating order by circuit; phase maxima across parties then medians over iterations 1..7",
+  "script_sha256": {
+    "run_ring_comparison.py": "27bd8078d27e675db1ba0676769e062c93ebc169df6ca6815f97ba0c4771945b",
+    "run_server.py": "5b1c90b4153fddff7db8d38cad5ee579b94d679aa97b34e5a61b9810920b96c3"
+  }
+}

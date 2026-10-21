@@ -1,0 +1,15 @@
+{
+  "cpp_cases": {
+    "mpc/spdzwise/ring_test": 13,
+    "mpc/spdzwise/protocol_test": 11,
+    "mpc/spdzwise/io_test": 8,
+    "mpc/spdzwise/boolean_test": 16,
+    "mpc/protocol_session_test": 7,
+    "kernel/hal/ring_test": 4
+  },
+  "cpp_total": 59,
+  "cpp_failures": 0,
+  "python_tests": 9,
+  "YACL_NUM_THREADS": "65",
+  "background_workers": 64
+}

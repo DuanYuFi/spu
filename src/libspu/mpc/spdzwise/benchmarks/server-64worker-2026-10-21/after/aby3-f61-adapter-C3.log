@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 0.646028 ms, circuit 80.5459 ms (mul 52.075), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 0.221385 ms, circuit 77.9364 ms (mul 53.6175), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 0.195349 ms, circuit 78.0544 ms (mul 54.2729), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 0.210087 ms, circuit 59.8142 ms (mul 36.7997), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 0.153819 ms, circuit 59.3033 ms (mul 36.3209), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 0.155733 ms, circuit 52.2609 ms (mul 29.1048), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 0.15741 ms, circuit 57.0884 ms (mul 34.0762), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 0.154438 ms, circuit 56.7089 ms (mul 33.8198), verify 0 ms
+aby3-f61-adapter: checked all 16384 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.028787 ms, expand 1.05793 ms, circuit 126.184 ms (mul 105.971), verify 27.2589 ms
+spdzwise-f61 iteration 1: input MAC 0.033041 ms, expand 0.690164 ms, circuit 87.6366 ms (mul 68.1091), verify 26.9921 ms
+spdzwise-f61 iteration 2: input MAC 0.027721 ms, expand 0.529697 ms, circuit 76.939 ms (mul 60.1756), verify 24.4226 ms
+spdzwise-f61 iteration 3: input MAC 0.063895 ms, expand 0.451547 ms, circuit 75.3574 ms (mul 59.1659), verify 24.4705 ms
+spdzwise-f61 iteration 4: input MAC 0.024675 ms, expand 0.459205 ms, circuit 75.6175 ms (mul 59.4941), verify 24.9184 ms
+spdzwise-f61 iteration 5: input MAC 0.062754 ms, expand 0.731702 ms, circuit 75.4103 ms (mul 59.2924), verify 24.6234 ms
+spdzwise-f61 iteration 6: input MAC 0.025512 ms, expand 0.468991 ms, circuit 75.8378 ms (mul 59.6734), verify 24.8248 ms
+spdzwise-f61 iteration 7: input MAC 0.051605 ms, expand 0.686853 ms, circuit 75.3401 ms (mul 59.3049), verify 24.8149 ms
+spdzwise-f61: checked all 16384 outputs; 1048576 multiplication gates, two secret input elements

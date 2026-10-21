@@ -1,0 +1,133 @@
+--- a/src/libspu/mpc/spdzwise/ring.cc
++++ b/src/libspu/mpc/spdzwise/ring.cc
+@@ -202,17 +202,38 @@
+               "ring value belongs to a different session/domain");
+ }
+ 
+-std::vector<Word> ArithmeticState::exchange(const std::vector<Word>& local,
+-                                            std::string_view operation) {
++void ArithmeticState::exchange(const std::vector<Word>& local,
++                               std::vector<Word>& next,
++                               std::string_view operation) {
+   const auto context = tag_(operation);
+-  if (local.empty()) return {};
++  if (local.empty()) {
++    next.clear();
++    return;
++  }
++  SPU_ENFORCE(local.size() <= std::numeric_limits<size_t>::max() / sizeof(Word),
++              "ring wire size overflow");
++  const size_t nbytes = local.size() * sizeof(Word);
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  // SendAsync copies this view into transport-owned storage before returning.
++  // The native layout already is the canonical wire format on LE hosts.
++  link_->SendAsync(link_->PrevRank(),
++                   yacl::ByteContainerView(local.data(), nbytes), context);
++#else
+   const auto bytes = Encode(local);
+   link_->SendAsync(link_->PrevRank(), yacl::ByteContainerView(bytes), context);
++#endif
+   const auto received = link_->Recv(link_->NextRank(), context);
+-  // Propagate malformed messages before any party proceeds to another step.
+-  RequireAll(link_, static_cast<size_t>(received.size()) == bytes.size(),
++  // Keep the same two-round failure propagation before reading the payload.
++  RequireAll(link_, static_cast<size_t>(received.size()) == nbytes,
+              context + "/wire");
+-  return Decode(std::string_view(received), local.size());
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++  // The second PRSS mask has already been consumed. Reuse its allocation,
++  // avoiding a new zero-initialized decoding vector on every multiplication.
++  next.resize(local.size());
++  std::memcpy(next.data(), received.data(), nbytes);
++#else
++  next = Decode(std::string_view(received), local.size());
++#endif
+ }
+ 
+ std::vector<RepShare> ArithmeticState::reshare(std::vector<Word> local,
+@@ -224,9 +245,9 @@
+   }
+   pforeach(0, local.size(),
+            [&](int64_t i) { local[i] += first[i] - second[i]; });
+-  const auto next = exchange(local, operation);
++  exchange(local, second, operation);
+   std::vector<RepShare> out(local.size());
+-  pforeach(0, local.size(), [&](int64_t i) { out[i] = {local[i], next[i]}; });
++  pforeach(0, local.size(), [&](int64_t i) { out[i] = {local[i], second[i]}; });
+   return out;
+ }
+ 
+@@ -415,7 +436,7 @@
+     first[2 * i] += lhs[0] * ysum + lhs[1] * rhs[0] - second[2 * i];
+     first[2 * i + 1] += lhs[2] * ysum + lhs[3] * rhs[0] - second[2 * i + 1];
+   });
+-  second = exchange(first, "ring-multiply");
++  exchange(first, second, "ring-multiply");
+   NdArrayRef result(x.eltype(), x.shape());
+   auto* out = result.data<AuthShare>();
+   pforeach(0, x.numel(), [&](int64_t i) {
+--- a/src/libspu/mpc/spdzwise/ring.h
++++ b/src/libspu/mpc/spdzwise/ring.h
+@@ -36,8 +36,8 @@
+   RepShare key_{};
+   std::vector<AuthShare> pending_;
+ 
+-  std::vector<Word> exchange(const std::vector<Word>& local,
+-                             std::string_view operation);
++  void exchange(const std::vector<Word>& local, std::vector<Word>& next,
++                std::string_view operation);
+   std::vector<RepShare> reshare(std::vector<Word> local,
+                                 std::string_view operation);
+   std::vector<RepShare> multiplyRaw(const std::vector<RepShare>& x,
+--- a/src/libspu/mpc/spdzwise/ring_test.cc
++++ b/src/libspu/mpc/spdzwise/ring_test.cc
+@@ -486,7 +486,8 @@
+ 
+ TEST(SpdzWiseRing, WireTamperingPoisonsEverySession) {
+   for (size_t party = 0; party < 3; ++party) {
+-    for (const std::string fault : {"value", "mac", "digest", "truncate"}) {
++    for (const std::string fault :
++         {"value", "mac", "digest", "truncate", "product-truncate"}) {
+       utils::simulate(3, [&](const auto& base) {
+         int phase = 0;
+         bool injected = false;
+@@ -494,6 +495,11 @@
+         // During checking, the only 32-byte message to NextRank is Protocol 9.
+         auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
+           if (base->Rank() != party) return bytes;
++          if (phase == 1 && fault == "product-truncate" &&
++              destination == base->PrevRank() && bytes.size() == 32) {
++            injected = true;
++            return yacl::Buffer(bytes.data(), 31);
++          }
+           if (phase == 1 && (fault == "value" || fault == "mac") &&
+               destination == base->PrevRank() && bytes.size() == 32) {
+             injected = true;
+@@ -518,15 +524,19 @@
+         state->begin(ExecutableProto("fault", {}, {"y"}, "test"), {});
+         auto p = state->publicValue(Plain({1}).as(makeType<Pub2kTy>(FM64)));
+         phase = 1;
+-        auto product = state->multiply(p, p);
+-        phase = 2;
+-        if (fault == "value") {
+-          // Repair the exposed buffer. Its queued snapshot must remain bad.
+-          product.data<AuthShare>()[0] = p.data<AuthShare>()[0];
++        if (fault == "product-truncate") {
++          ExpectCheckFailure([&] { state->multiply(p, p); });
++        } else {
++          auto product = state->multiply(p, p);
++          phase = 2;
++          if (fault == "value") {
++            // Repair the exposed buffer. Its queued snapshot must remain bad.
++            product.data<AuthShare>()[0] = p.data<AuthShare>()[0];
++          }
++          ExpectCheckFailure([&] {
++            state->prepareOutputs(&ctx, {"y"}, {Value(product, DT_I64)});
++          });
+         }
+-        ExpectCheckFailure([&] {
+-          state->prepareOutputs(&ctx, {"y"}, {Value(product, DT_I64)});
+-        });
+         if (base->Rank() == party) {
+           EXPECT_TRUE(injected);
+         }

@@ -1,0 +1,18 @@
+aby3-f61-adapter iteration 0: input MAC 0 ms, expand 22.368 ms, circuit 92.7886 ms (mul 64.152), verify 0 ms
+aby3-f61-adapter iteration 1: input MAC 0 ms, expand 18.6599 ms, circuit 63.2153 ms (mul 37.1487), verify 0 ms
+aby3-f61-adapter iteration 2: input MAC 0 ms, expand 12.7424 ms, circuit 39.4886 ms (mul 23.6704), verify 0 ms
+aby3-f61-adapter iteration 3: input MAC 0 ms, expand 10.6469 ms, circuit 40.575 ms (mul 24.8258), verify 0 ms
+aby3-f61-adapter iteration 4: input MAC 0 ms, expand 10.547 ms, circuit 37.3625 ms (mul 21.6773), verify 0 ms
+aby3-f61-adapter iteration 5: input MAC 0 ms, expand 10.7026 ms, circuit 37.4944 ms (mul 21.7609), verify 0 ms
+aby3-f61-adapter iteration 6: input MAC 0 ms, expand 10.258 ms, circuit 38.4254 ms (mul 22.1061), verify 0 ms
+aby3-f61-adapter iteration 7: input MAC 0 ms, expand 10.7598 ms, circuit 38.1547 ms (mul 22.1864), verify 0 ms
+aby3-f61-adapter: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements
+spdzwise-f61 iteration 0: input MAC 0.01779 ms, expand 33.1564 ms, circuit 137.68 ms (mul 118.194), verify 18.2847 ms
+spdzwise-f61 iteration 1: input MAC 0.037067 ms, expand 43.6545 ms, circuit 112.784 ms (mul 96.8403), verify 19.1146 ms
+spdzwise-f61 iteration 2: input MAC 0.041056 ms, expand 44.2755 ms, circuit 104.858 ms (mul 88.8191), verify 19.4865 ms
+spdzwise-f61 iteration 3: input MAC 0.041415 ms, expand 40.4845 ms, circuit 107.036 ms (mul 91.1039), verify 19.3596 ms
+spdzwise-f61 iteration 4: input MAC 0.039721 ms, expand 40.4737 ms, circuit 103.816 ms (mul 87.8837), verify 19.0438 ms
+spdzwise-f61 iteration 5: input MAC 0.036061 ms, expand 41.4025 ms, circuit 104.269 ms (mul 88.2766), verify 19.2563 ms
+spdzwise-f61 iteration 6: input MAC 0.037782 ms, expand 40.8174 ms, circuit 101.091 ms (mul 85.1328), verify 19.2506 ms
+spdzwise-f61 iteration 7: input MAC 0.028401 ms, expand 30.7148 ms, circuit 105.289 ms (mul 89.275), verify 19.6482 ms
+spdzwise-f61: checked all 1048576 outputs; 1048576 multiplication gates, two secret input elements

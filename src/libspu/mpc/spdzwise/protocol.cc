@@ -16,6 +16,7 @@
 #include "libspu/mpc/spdzwise/arithmetic.h"
 #include "libspu/mpc/spdzwise/boolean.h"
 #include "libspu/mpc/spdzwise/conversion.h"
+#include "libspu/mpc/spdzwise/ring_arithmetic.h"
 #include "libspu/mpc/spdzwise/state.h"
 #include "libspu/mpc/standard_shape/protocol.h"
 
@@ -87,12 +88,16 @@ void registerFieldArithmeticPrototype(
 }
 
 void registerRingArithmeticPrototype(
-    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& /*link*/) {
+    SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link) {
   SPU_ENFORCE(ctx->config().field == FM64,
               "SPDZWISE FIELD and RING domains require FM64");
-  // TODO: install ring state/arithmetic/conversions/PPML and shared ABFL
-  // kernels.
-  SPU_THROW("SPDZWISE RING arithmetic is not implemented");
+  SPU_ENFORCE(ctx->config().spdzwise_config.domain == SpdzWiseConfig::RING,
+              "SPDZWISE ring arithmetic requires domain RING");
+  registerTypes();
+  ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+  registerCommonKernels(ctx);
+  ring::registerArithmeticKernels(ctx->prot());
+  registerBooleanKernels(ctx->prot());
 }
 
 void registerArithmeticPrototype(

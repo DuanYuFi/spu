@@ -59,7 +59,7 @@ TEST(SpdzWiseIo, RoutesByDomainAndRejectsUnsupportedStorage) {
   }
   config.field = FM64;
   config.spdzwise_config.domain = SpdzWiseConfig::RING;
-  EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
+  EXPECT_NO_THROW(makeSpdzWiseIo(config, 3));
   config.spdzwise_config.domain = static_cast<SpdzWiseConfig::Domain>(99);
   EXPECT_ANY_THROW(makeSpdzWiseIo(config, 3));
 }

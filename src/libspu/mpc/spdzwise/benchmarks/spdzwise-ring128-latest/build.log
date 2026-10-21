@@ -1,0 +1,23 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+[0.001s][warning][perf,memops] Cannot use file /tmp/hsperfdata_duanyufei/13 because it is locked by another process (errno = 11)
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: target //:ring_circuit_bench (2 packages loaded, 0 targets configured)
+Analyzing: target //:ring_circuit_bench (2 packages loaded, 0 targets configured)
+
+Analyzing: target //:ring_circuit_bench (206 packages loaded, 8214 targets configured)
+
+INFO: Analyzed target //:ring_circuit_bench (264 packages loaded, 17662 targets configured).
+[1 / 1] no actions running
+[1,572 / 1,574] Compiling ring_circuit_bench.cc; 0s processwrapper-sandbox
+[1,572 / 1,574] Compiling ring_circuit_bench.cc; 11s processwrapper-sandbox
+[1,573 / 1,574] [Prepa] Linking ring_circuit_bench
+INFO: Found 1 target...
+Target //:ring_circuit_bench up-to-date:
+  bazel-bin/ring_circuit_bench
+INFO: Elapsed time: 17.621s, Critical Path: 13.00s
+INFO: 4 processes: 2 internal, 2 processwrapper-sandbox.
+INFO: Build completed successfully, 4 total actions
