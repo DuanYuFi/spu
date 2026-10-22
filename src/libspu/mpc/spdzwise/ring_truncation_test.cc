@@ -27,6 +27,18 @@ class TruncationTestAccess {
     std::vector<uint64_t> coefficients;
     s.checkTruncBits(b, coefficients);
   }
+  static void observeOpening(SpdzWiseState* s, std::function<void()> observe) {
+    auto original = s->ring_->tag_;
+    s->ring_->tag_ = [original, observe](std::string_view name) {
+      if (name == "trunc-open") observe();
+      return original(name);
+    };
+  }
+  static void corruptMac(SpdzWiseState* s, size_t party, bool consistent) {
+    auto& record = s->ring_->pending_.front();
+    if (s->rank() == party) record[2] ^= 1;
+    if (consistent && s->rank() == (party + 2) % 3) record[3] ^= 1;
+  }
 };
 namespace {
 RuntimeConfig Config() {
@@ -84,17 +96,14 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
     EXPECT_EQ(y.storage_type(), x.storage_type());
     EXPECT_EQ(y.dtype(), x.dtype());
     EXPECT_EQ(y.shape(), x.shape());
-    EXPECT_EQ(s->arithmeticChecks(), checks);  // No output MAC check.
+    const bool opened = !values.empty() && m != 0;
+    EXPECT_EQ(s->arithmeticChecks(), checks + (opened ? 1 : 0));
+    EXPECT_EQ(TruncationTestAccess::pending(s), 0);
     if (!values.empty() && m) {
-      EXPECT_GT(TruncationTestAccess::pending(s), 0);
       EXPECT_GT(s->truncMaterialMs(), 0);
       EXPECT_GT(link->GetStats()->sent_bytes.load(), bytes);
     } else {
       EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
-    }
-    if (!values.empty() && m) {
-      const size_t tiles = (values.size() + 4095) / 4096;
-      EXPECT_EQ(TruncationTestAccess::pending(s), 3 * 64 * values.size() + tiles);
     }
     const auto key = TruncationTestAccess::key(s);
     // A subsequent authenticated multiplication must accept the output.
@@ -159,6 +168,75 @@ TEST(SpdzWiseTruncation, SignedEdgesStridesAndShiftBounds) {
       65536, -65536, 65537, -65537, -bound, -bound + 1, bound - 1};
   for (size_t m : {0U, 1U, 2U, 16U, 62U}) RunTruncation(values, m, true);
   RunTruncation({}, 16);
+}
+
+TEST(SpdzWiseTruncation, VerifiesBothDomainsBeforeEveryMaskedOpening) {
+  utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(Config(), link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    state->begin(ExecutableProto("trunc-checkpoint", {}, {}, "test"), {});
+    const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
+    auto x = state->publicValue(p);
+    const auto b = state->publicBoolean(p);
+    size_t openings = 0;
+    TruncationTestAccess::observeOpening(state, [&] {
+      ++openings;
+      EXPECT_EQ(state->arithmeticChecks(), openings);
+      EXPECT_EQ(state->booleanChecks(), openings);
+      EXPECT_EQ(TruncationTestAccess::pending(state), 0);
+      EXPECT_EQ(state->pendingBooleanBits(), 0);
+    });
+    for (size_t batch = 0; batch < 2; ++batch) {
+      x = state->multiply(x, x);
+      state->booleanBinary(b, b, true, false);
+      EXPECT_EQ(state->pendingBooleanBits(), 64);
+      x = state->truncPrRandomBit(x, 1, SignType::Unknown);
+      EXPECT_EQ(openings, batch + 1);
+    }
+    state->prepareOutputs(&ctx, {}, {});
+    state->commit();
+  });
+}
+
+TEST(SpdzWiseTruncation, PendingFaultsRejectBeforeMaskedOpening) {
+  for (size_t party = 0; party < 3; ++party) {
+    for (int fault = 0; fault < 3; ++fault) {
+      utils::simulate(3, [&](const auto& link) {
+        SPUContext ctx(Config(), link);
+        registerArithmeticPrototype(&ctx, link);
+        auto* state = ctx.prot()->getState<SpdzWiseState>();
+        state->begin(ExecutableProto("trunc-checkpoint-fault", {}, {}, "test"),
+                     {});
+        const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
+        auto x = state->publicValue(p);
+        x = state->multiply(x, x);
+        if (fault < 2) {
+          TruncationTestAccess::corruptMac(state, party, fault == 1);
+        } else {
+          auto b = state->publicBoolean(p);
+          if (state->rank() == party) b.data<spdzwise::RepShare>()[0][0] ^= 1;
+          state->booleanBinary(b, b, true, false);
+        }
+        bool opened = false;
+        TruncationTestAccess::observeOpening(state, [&] { opened = true; });
+        try {
+          state->truncPrRandomBit(x, 1, SignType::Unknown);
+          FAIL() << "accepted corrupt pending work";
+        } catch (const std::exception& error) {
+          const std::string reason = error.what();
+          EXPECT_NE(
+              reason.find(fault < 2 ? "SPDZWISE ring check failed"
+                                    : "Boolean replicated copies disagree"),
+              std::string::npos)
+              << reason;
+        }
+        EXPECT_FALSE(opened);
+        EXPECT_TRUE(state->failed());
+        EXPECT_ANY_THROW(state->exportedValue("out"));
+      });
+    }
+  }
 }
 
 TEST(SpdzWiseTruncation, RotatingOwnersAndPartialTile) {

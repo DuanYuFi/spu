@@ -91,7 +91,10 @@ class SpdzWiseState final : public ProtocolSession {
   }
   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
-  void check();
+  // Collective checkpoints: all parties must call them in the same order.
+  void checkMac();  // Arithmetic MAC checks only; leaves Boolean work pending.
+  void checkBoolean();
+  void verify();  // Flush both domains before opening dependent secrets.
   void finalize();
   // Value-only split-3 RING A2B; AND checks are deferred to finalize().
   NdArrayRef a2b(const NdArrayRef& in);

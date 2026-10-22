@@ -77,6 +77,7 @@ spu_cc_test(
         ":protocol",
         ":replicated",
         "//libspu/mpc:api",
+        "//libspu/mpc/common:pv2k",
         "//libspu/mpc/utils:simulate",
     ],
 )

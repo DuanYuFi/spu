@@ -15,7 +15,8 @@ python3 run_conversion.py NEW_OUTPUT_DIRECTORY
 固定 64 个后台 worker、预热一次、测量七次；每轮取三方完整主计时最大值，再统计
 中位数和范围。转换和验证分项中位数不可相加。记录逐方通信量、三方总发送量、
 消息数、峰值 RSS、源码及二进制指纹。`--count 1025 --repetitions 1` 可运行小规模
-正确性检查；过小批次仍受现有 ABFL 最终检查阈值限制。
+正确性检查；不足 1024 packed words 的非空 ABFL 队列使用公开零 triple
+补齐后检查，padding 不计入真实 AND 工作量。
 
 [100K 选型与最终结果](a2b-split3-100k-2026-10-22/RESULTS.md)保留了
 CSA + bit-sliced RCA、剪枝 Brent–Kung、word-packed Kogge–Stone 和原生 ABY3
@@ -36,8 +37,8 @@ XOR RSS，ABY3 在计时外使用其原生 Boolean 类型；不把 A2B 输入转
 
 CSV 的 `online_ms` 表示总耗时减去验证，包含掩码生成；额外四组阶段字段分别记录
 material、circuit、check、open 的耗时和发送字节。算术认证与 ABFL 预处理均计入
-完整成本。默认仍运行 A2B。独立 B2A 至少需要 321 个元素，或者利用会话中已有
-的真实 AND 记录满足 1024 packed-word 的检查阈值。
+完整成本。默认仍运行 A2B。独立 B2A 支持单元素输入；不足 1024 packed words
+时使用零 padding 检查，电路工作量统计不计入 padding。
 
 [100K B2A 实测报告](b2a-split3-100k-2026-10-22/RESULTS.md)归档全部输出核对、
 逐方原始样本、完整通信与资源数据、构建指纹及回归测试证据。

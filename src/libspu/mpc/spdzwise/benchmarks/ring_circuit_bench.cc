@@ -127,7 +127,7 @@ void Run(int64_t width, int64_t depth, int repetitions, bool ring = true) {
       });
       SPU_ENFORCE(state->arithmeticChecks() == checks + 1,
                   "unexpected check within the circuit");
-      phase(3, [&] { state->check(); });
+      phase(3, [&] { state->checkMac(); });
       SPU_ENFORCE(state->arithmeticChecks() == checks + 2);
       // Per-party payloads: each resharing sends two 128-bit words per gate,
       // plus two all-gather status rounds (4 bytes) per layer. Verification

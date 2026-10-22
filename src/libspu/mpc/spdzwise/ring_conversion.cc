@@ -184,8 +184,7 @@ NdArrayRef SpdzWiseState::finishB2A(const NdArrayRef& mask,
                                     const NdArrayRef& masked) {
   auto start = Clock::now();
   auto bytes = link_->GetStats()->sent_bytes.load();
-  check();
-  boolean_->check();
+  verify();
   b2a_ms_[2] = Ms(start);
   b2a_bytes_[2] = link_->GetStats()->sent_bytes.load() - bytes;
   start = Clock::now();

@@ -218,7 +218,7 @@ void Run(bool wise, const std::vector<NdArrayRef>& inputs,
       }
       phase(3, [&] {
         if (wise) {
-          state->check();
+          state->checkMac();
         }
       });
       if (!wise) {

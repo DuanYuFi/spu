@@ -557,8 +557,12 @@ std::vector<size_t> BooleanState::shuffledIndices(size_t count,
   }
   return perm;
 }
+size_t BooleanState::checkWords() const {
+  return bits_ ? std::max(size_t{1024}, Words(bits_)) : 0;
+}
 void BooleanState::checkPrepared(TriplePool pool) {
-  const auto words = Words(bits_);
+  const auto real_words = Words(bits_);
+  const auto words = checkWords();
   const auto bucket = AbflBucketSize(words);
   const auto count = PoolWords(words, bucket);
   SPU_ENFORCE(pool.size() == count, "ABFL random pool length mismatch");
@@ -570,11 +574,17 @@ void BooleanState::checkPrepared(TriplePool pool) {
   if (overflow_bits_) blocks.emplace_back(&overflow_, 1);
   size_t total = 0;
   for (const auto& block : blocks) {
-    SPU_ENFORCE(block.size() <= words - total,
+    SPU_ENFORCE(block.size() <= real_words - total,
                 "ABFL online pool length mismatch");
     total += block.size();
   }
-  SPU_ENFORCE(total == words, "ABFL online pool length mismatch");
+  SPU_ENFORCE(total == real_words, "ABFL online pool length mismatch");
+  // Public, correct online anchors need no AND or PRSS generation. Keep them
+  // separate from real snapshots so pendingBits() and circuit metrics remain
+  // unchanged. Include every dummy in copy checks and all sacrifice columns;
+  // random companions must remain fresh, secret and used exactly once.
+  const std::vector<Triple> padding(words - real_words, Triple{});
+  blocks.emplace_back(padding);
   // Each worker owns an output range, irrespective of call-block boundaries.
   // No task mutates snapshots, counters, PRGs, or communication state.
   auto visitRange = [&](size_t first, size_t last, auto&& fn) {
@@ -740,10 +750,11 @@ void BooleanState::check() {
     layout_.clear();
     return;
   }
-  const auto words = Words(bits_);
+  const auto words = checkWords();
   const auto bucket = AbflBucketSize(words);
-  agree(fmt::format("word64-v8-parallel-views:{}:{}:{}:{}:{}:{}", bits_, words,
-                    bucket, overflow_bits_, kSacrificeTile, layout_));
+  agree(fmt::format("word64-v9-zero-padding:{}:{}:{}:{}:{}:{}:{}", bits_,
+                    Words(bits_), words, bucket, overflow_bits_, kSacrificeTile,
+                    layout_));
   checkPrepared(generate(PoolWords(words, bucket)));
 }
 

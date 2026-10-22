@@ -338,7 +338,7 @@ NdArrayRef ArithmeticState::randomAuthenticated(const Shape& shape) {
   return out;
 }
 
-bool ArithmeticState::check() {
+bool ArithmeticState::checkMac() {
   const auto context = tag_("ring-check");
   const auto count = std::to_string(pending_.size());
   const auto counts = yacl::link::AllGather(

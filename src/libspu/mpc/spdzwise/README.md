@@ -171,6 +171,16 @@ within the same healthy session. Empty batches skip zero checking; executions
 with no outputs still finalize. Any checking failure clears pending exports
 and permanently poisons the session.
 
+Collective checkpoints are available on `SpdzWiseState`: `checkMac()` flushes
+arithmetic MAC records, `checkBoolean()` flushes ABFL records, and `verify()`
+flushes both without ending the execution. All parties must call checkpoints
+in the same order. Empty queues perform no new cryptographic checks; RING
+retains its collective count agreement. `finalize()` uses the same combined
+checkpoint. B2A and probabilistic truncation call `verify()`
+after mask generation and before their masked opening; verification-internal
+openings follow their own checking procedure. Public and specific-party reveal
+kernels remain disabled.
+
 The checker agrees batch size, verifies copies, draws fresh secret coefficients
 from a dedicated PRSS stream, and computes one aggregation
 `w=sum(r_i*x_i), u=sum(r_i*mac_i), t=u-alpha*w`. Neither `t` nor a multiple
@@ -239,7 +249,9 @@ without allocating a repeated-key array. Copy checks stream directly from
 authenticated storage in the same canonical value/MAC order. Combining the
 64 bits uses a 256-input parallel grain; raw local products are parallelized.
 These changes preserve the bitness checks, freeze-before-challenge ordering,
-and `3*64*N + ceil(N/4096)` deferred records per nonzero truncation call.
+and `3*64*N + ceil(N/4096)` authentication records per nonzero truncation call.
+The combined checkpoint verifies these records and all earlier arithmetic and
+Boolean work before opening the masked input.
 
 After freezing and checking bit/MAC replicas, a fresh commit/reveal coin
 produces public 64-bit coefficients for `sum_i r_i*(1-b_i)*b_i`. The value/MAC
@@ -252,9 +264,9 @@ new composed malicious-security bound or enable the production factory.
 
 Mask openings check low-word replicas, send only the missing 64-bit component,
 and compare reconstructed transcript hashes with all-party failure propagation.
-Any rejection poisons the session. Finalization still checks all queued records
-before external export, including when the truncation caller does not export
-the result. Generic reveal kernels remain disabled.
+Any rejection poisons the session. Later finalization checks any newly queued
+work before external export, including when the truncation caller does not
+export the result. Generic reveal kernels remain disabled.
 
 The signed 100K benchmark compares against the normally registered ABY3
 `TruncAPr2` on the common strict range `|x|<2^62`, with `m=16` and unknown sign.
@@ -354,19 +366,21 @@ validation is retained, but width-64 values skip the vacuous high-bit scan.
 Narrow-width values retain canonical checks and the general masked packing path.
 Verification visits the narrow-word buffer, full-width call blocks, then the
 tail in a deterministic public order, without concatenating the blocks. The
-batch agreement uses the `word64-v8-parallel-views` format tag and binds the
+batch agreement uses the `word64-v9-zero-padding` format tag and binds the
 65,536-word tile size. Mixed versions fail agreement before random generation.
 The sacrifice formula, bucket parameters and random-pool-only permutation are
 unchanged. The implementation uses existing parallel and transport APIs; it
 does not modify framework PRGs, communication implementations or thread pools.
 
-Finalization counts M=ceil(N/64) packed word triples, where N is the active
-bit count. It selects B=3 for M>=1048576, B=4 for M>=10368, and B=5 for
-M>=1024. A nonempty smaller word batch fails and poisons the session; N=0 is a
-no-op. Thus 1,024 **bits** no longer suffice: the smallest accepted bit count
-is 65,473 (1,023 full words plus a one-bit tail). No extra full words are added
-to reach a bucket threshold. One partial word, if present, is zero-extended
-with valid (0,0,0) lanes and checked in its entirety, including padding.
+Each checkpoint counts R=ceil(N/64) real packed word triples, where N is the
+active bit count. N=0 is a no-op. For nonempty queues the checking size is
+M=max(R,1024): R<1024 is extended with locally constructed public (0,0,0)
+online word triples and uses B=5. It selects B=3 for M>=1048576, B=4 for
+M>=10368, and B=5 otherwise. Dummy words are held separately from the real
+snapshots and never count toward pending bit counts or circuit work metrics.
+One partial real word, if present, is zero-extended with valid (0,0,0) lanes.
+All partial-word lanes and dummy words participate in copy checking and every
+sacrifice column. No dummy AND or PRSS generation is performed.
 The 10368 threshold follows the local MP-SPDZ `ShuffleSacrifice.h` reference.
 The checker generates `(B-1)*M+3` full-width random word triples using independent Boolean
 PRSS streams and the semi-honest AND primitive. It checks the online and random
@@ -374,7 +388,7 @@ replicated copies before a fresh, session/execution/batch-bound commit–reveal
 coin. An unbiased Fisher–Yates permutation applies only to the random pool, with
 whole words as permutation entries. Three full random words (192 bit lanes)
 are opened and checked; each online word is checked against B-1 random word
-companions. The batch agreement binds the word64 format version, N, M, B,
+companions. The batch agreement binds the word64 format version, N, R, M, B,
 overflow width and call layout. Online inputs are never sampled for
 public opening.
 
@@ -431,6 +445,12 @@ These are the requested prototype parameters, not a certified 40-bit bound for
 this modified, fixed-online-bucket construction. The parameter table and C=3
 come from reference procedures with different pooling/selection schedules;
 security analysis and whole-execution composition remain acceptance gates.
+Zero padding applies only to online anchors; random companions stay fresh,
+secret and disjoint. In the fixed-error, uniformly permuted word model, a batch
+with 1<=R<1024 and k erroneous real words passes with probability at most
+`1/binom(4099,4*k) <= 1/binom(4099,4)`, approximately `2^-43.42`. This is a
+single-check error-detection bound, excluding coin/hash failures and execution
+composition; it does not certify other batch sizes or the complete protocol.
 A2B/B2A, daBits, comparisons, truncation and full Python/device integration are
 not supplied by these Boolean kernels.
 
@@ -486,10 +506,10 @@ ABFL check. Existing pending arithmetic checks still run at finalization;
 unchecked output cannot be exported. Wrong domains, sessions or lifecycle
 states abort through the normal session mechanism.
 
-There is no minimum A2B input size. Empty inputs need no ANDs. The existing
-ABFL finalization requirement of at least 1024 packed AND words still applies
-to nonempty queues; small conversions must accumulate enough real circuit work
-in the session. No artificial ANDs or new verifier parameters are introduced.
+There is no minimum A2B input size. Empty inputs need no ANDs. Small nonempty
+queues can be verified immediately using the zero-padded ABFL checkpoint;
+callers can still accumulate real work to amortize checking costs. Padding adds
+no circuit ANDs and uses the existing B=5 parameters.
 The security assumptions and outstanding ABFL composition review described
 above are unchanged by this conversion implementation.
 
@@ -539,11 +559,10 @@ repeat a nonempty ABFL check unless new ANDs were executed. A2B's deferred
 checking behavior remains unchanged.
 
 Empty inputs consume no randomness, send no messages and trigger no checks.
-For nonempty inputs the existing ABFL minimum of 1024 packed AND words still
-applies **at this opening checkpoint**. With an otherwise empty Boolean queue,
-321 elements (six SIMD blocks) suffice; 320 or fewer do not. A smaller call
-can use real AND work already pending in the same session. Insufficient
-batches abort before opening; no virtual gates or verifier changes are added.
+Every nonempty input size can reach this opening checkpoint. If the combined
+Boolean queue has fewer than 1024 packed words, the checker appends public zero
+anchors and uses B=5. The `188 * ceil(numel/64)` circuit-word count excludes
+these anchors. Even a standalone single-element B2A verifies before opening.
 
 Run the comparable 100K full-word benchmark with:
 

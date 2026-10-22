@@ -137,7 +137,7 @@ void Run(bool wise, int64_t count, int repetitions) {
         barrier.wait();
         const auto verify_bytes = stats->sent_bytes.load();
         const auto verify_start = Clock::now();
-        state->check();
+        state->checkMac();
         result.verify_ms = Ms(verify_start);
         result.verify_bytes = stats->sent_bytes.load() - verify_bytes;
         result.final_checks = state->arithmeticChecks() - result.input_checks;

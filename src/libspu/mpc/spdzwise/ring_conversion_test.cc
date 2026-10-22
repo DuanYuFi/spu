@@ -42,8 +42,9 @@ class ConversionTestAccess {
       return original(name);
     };
   }
-  static void fault(SpdzWiseState* s, size_t party, int fault) {
-    auto mask = s->ring_->randomAuthenticated({1025});
+  static void fault(SpdzWiseState* s, size_t party, int fault,
+                    int64_t count = 1025) {
+    auto mask = s->ring_->randomAuthenticated({count});
     auto masked = s->a2b(mask);  // Valid B2A masked result for x=0.
     const bool first = s->rank() == party;
     const bool second = s->rank() == (party + 2) % 3;
@@ -202,7 +203,7 @@ TEST(RingConversion, WrongDomainSessionAndLifecycleRejected) {
     });
   }
 }
-TEST(RingConversion, EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold) {
+TEST(RingConversion, EmptyNeedsNoAndAndSmallCallUsesZeroPadding) {
   for (int64_t n : {0, 1}) {
     utils::simulate(3, [&](const auto& link) {
       SPUContext ctx(Config(), link);
@@ -211,14 +212,10 @@ TEST(RingConversion, EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold) {
       Begin(state);
       auto x = state->publicValue(Plain(n).as(makeType<Pub2kTy>(FM64)));
       EXPECT_NO_THROW(state->a2b(x));
-      if (n) {
-        EXPECT_GT(state->pendingBooleanBits(), 0);
-        EXPECT_ANY_THROW(state->finalize());
-      } else {
-        EXPECT_EQ(state->pendingBooleanBits(), 0);
-        EXPECT_NO_THROW(state->finalize());
-        EXPECT_EQ(state->booleanChecks(), 0);
-      }
+      EXPECT_EQ(state->pendingBooleanBits(), n ? 125 * 64 : 0);
+      EXPECT_NO_THROW(state->finalize());
+      EXPECT_EQ(state->pendingBooleanBits(), 0);
+      EXPECT_EQ(state->booleanChecks(), n ? 1 : 0);
     });
   }
 }
@@ -348,7 +345,7 @@ TEST(RingConversion, B2ARoundtripConsumersAndFreshRepeatedMasks) {
   }
 }
 
-TEST(RingConversion, B2AEmptySmallCallsAndThreshold) {
+TEST(RingConversion, B2AEmptyAndSmallCallsWithZeroPadding) {
   SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
   for (int64_t n : {0, 1, 63, 64, 65, 320, 321}) {
     const auto plain = Plain(n);
@@ -361,22 +358,15 @@ TEST(RingConversion, B2AEmptySmallCallsAndThreshold) {
       Value input(shares[link->Rank()], DT_I64);
       Begin(state, {input});
       const auto x = import_s(&ctx, input);
-      if (n > 0 && n < 320) {
-        auto pad =
-            state->publicBoolean(Plain(1024).as(makeType<Pub2kTy>(FM64)));
-        state->booleanBinary(pad, pad, true, false);
-      }
       bool opened = false;
       ring::ConversionTestAccess::observeOpening(state, opened);
       const auto bytes = link->GetStats()->sent_bytes.load();
-      if (n == 320) {  // 5 blocks * 188 = 940 words, below 1024.
-        EXPECT_ANY_THROW(b2a(&ctx, x));
-        EXPECT_FALSE(opened);
-        EXPECT_TRUE(state->failed());
-        return NdArrayRef();
-      }
       const auto y = b2a(&ctx, x);
       EXPECT_EQ(opened, n != 0);
+      EXPECT_EQ(state->pendingBooleanBits(), 0);
+      EXPECT_EQ(ring::ConversionTestAccess::gates(state),
+                ((n + 63) / 64) * 64 * 188);
+      EXPECT_EQ(state->booleanChecks(), n ? 1 : 0);
       if (!n) {
         EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
         EXPECT_EQ(state->booleanChecks(), 0);
@@ -386,24 +376,10 @@ TEST(RingConversion, B2AEmptySmallCallsAndThreshold) {
       guard.commit();
       return state->exportedValue("out").data();
     });
-    if (n == 320) continue;
     const auto actual = io.fromShares(outputs);
     for (int64_t i = 0; i < n; ++i)
       ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
   }
-  // A standalone single element must also fail before opening.
-  utils::simulate(3, [&](const auto& link) {
-    SPUContext ctx(Config(), link);
-    registerArithmeticPrototype(&ctx, link);
-    auto* state = ctx.prot()->getState<SpdzWiseState>();
-    Begin(state);
-    auto x = state->publicBoolean(Plain(1).as(makeType<Pub2kTy>(FM64)));
-    bool opened = false;
-    ring::ConversionTestAccess::observeOpening(state, opened);
-    EXPECT_ANY_THROW(state->b2a(x));
-    EXPECT_FALSE(opened);
-    EXPECT_TRUE(state->failed());
-  });
 }
 
 TEST(RingConversion, B2AInvalidInputAndLifecycleRejected) {
@@ -432,21 +408,23 @@ TEST(RingConversion, B2AInvalidInputAndLifecycleRejected) {
 }
 
 TEST(RingConversion, B2ARejectsFaultsBeforeOpeningOrOutput) {
-  for (size_t party = 0; party < 3; ++party) {
-    for (int fault = 0; fault < 6; ++fault) {
-      utils::simulate(3, [&](const auto& link) {
-        SPUContext ctx(Config(), link);
-        registerArithmeticPrototype(&ctx, link);
-        auto* state = ctx.prot()->getState<SpdzWiseState>();
-        Begin(state);
-        bool opened = false;
-        ring::ConversionTestAccess::observeOpening(state, opened);
-        EXPECT_ANY_THROW(
-            ring::ConversionTestAccess::fault(state, party, fault));
-        EXPECT_EQ(opened, fault == 4);
-        EXPECT_TRUE(state->failed());
-        EXPECT_ANY_THROW(state->exportedValue("out"));
-      });
+  for (int64_t count : {1, 1025}) {
+    for (size_t party = 0; party < 3; ++party) {
+      for (int fault = 0; fault < 6; ++fault) {
+        utils::simulate(3, [&](const auto& link) {
+          SPUContext ctx(Config(), link);
+          registerArithmeticPrototype(&ctx, link);
+          auto* state = ctx.prot()->getState<SpdzWiseState>();
+          Begin(state);
+          bool opened = false;
+          ring::ConversionTestAccess::observeOpening(state, opened);
+          EXPECT_ANY_THROW(
+              ring::ConversionTestAccess::fault(state, party, fault, count));
+          EXPECT_EQ(opened, fault == 4);
+          EXPECT_TRUE(state->failed());
+          EXPECT_ANY_THROW(state->exportedValue("out"));
+        });
+      }
     }
   }
 }

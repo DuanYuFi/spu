@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "libspu/mpc/api.h"
+#include "libspu/mpc/common/pv2k.h"
 #include "libspu/mpc/spdzwise/arithmetic.h"
 #include "libspu/mpc/spdzwise/io.h"
 #include "libspu/mpc/spdzwise/replicated.h"
@@ -140,7 +141,7 @@ TEST(SpdzWiseProtocol, MultiplicationPayloadAndConstantSizeVerification) {
       before = stats->sent_bytes.load();
       const auto actions = stats->sent_actions.load();
       const auto checks = state->arithmeticChecks();
-      state->check();
+      state->checkMac();
       EXPECT_EQ(stats->sent_bytes.load() - before, 64);
       // One batched dot exchange, two scalar multiplications, and the final
       // opening's two peer sends. The old separate dots needed six sends.
@@ -167,6 +168,79 @@ TEST(SpdzWiseProtocol, F61WireEncodingRejectsInvalidResiduesAndLengths) {
   EXPECT_ANY_THROW(DecodeF61(EncodeF61({kPrime}), 1));
   EXPECT_ANY_THROW(DecodeF61("short", 1));
   EXPECT_TRUE(DecodeF61("", 0).empty());
+}
+
+TEST(SpdzWiseProtocol, SelectiveAndCombinedVerificationCheckpoints) {
+  for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
+    auto config = Config();
+    config.spdzwise_config.domain = domain;
+    utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      state->begin(ExecutableProto("checkpoints", {}, {}, "test"), {});
+      const auto p = Matrix({1}, {7}).as(makeType<Pub2kTy>(FM64));
+      const auto a = state->publicValue(p), b = state->publicBoolean(p);
+      for (size_t batch = 0; batch < 3; ++batch) {
+        state->multiply(a, a);
+        state->booleanBinary(b, b, true, false);
+        if (batch == 0) {
+          state->checkMac();
+          EXPECT_EQ(state->arithmeticChecks(), 1);
+          EXPECT_EQ(state->booleanChecks(), 0);
+          EXPECT_EQ(state->pendingBooleanBits(), 64);
+        } else if (batch == 1) {
+          state->checkBoolean();
+          EXPECT_EQ(state->arithmeticChecks(), 1);
+          EXPECT_EQ(state->booleanChecks(), 2);
+          EXPECT_EQ(state->pendingBooleanBits(), 0);
+        }
+        state->verify();
+        EXPECT_EQ(state->arithmeticChecks(), batch + 1);
+        EXPECT_EQ(state->booleanChecks(), batch + 1);
+        EXPECT_EQ(state->pendingBooleanBits(), 0);
+        const auto bytes = link->GetStats()->sent_bytes.load();
+        state->verify();
+        EXPECT_EQ(state->arithmeticChecks(), batch + 1);
+        EXPECT_EQ(state->booleanChecks(), batch + 1);
+        // RING retains its collective count agreement even for empty queues.
+        if (domain == SpdzWiseConfig::FIELD) {
+          EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+        }
+      }
+      state->prepareOutputs(&ctx, {}, {});
+      state->commit();
+    });
+  }
+}
+
+TEST(SpdzWiseProtocol, PublicAndSpecificPartyRevealRemainClosed) {
+  for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
+    auto config = Config();
+    config.spdzwise_config.domain = domain;
+    utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      state->begin(ExecutableProto("denied-reveal", {}, {}, "test"), {});
+      const auto p = Matrix({1}, {7}).as(makeType<Pub2kTy>(FM64));
+      const auto a = state->publicValue(p), b = state->publicBoolean(p);
+      const Value product(state->multiply(a, a), DT_I64);
+      const Value bit_product(state->booleanBinary(b, b, true, false), DT_I64);
+      const auto bytes = link->GetStats()->sent_bytes.load();
+      for (const auto* name : {"a2p", "a2v", "s2p", "s2v"}) {
+        EXPECT_ANY_THROW(dynDispatch(&ctx, name, product, size_t{1}));
+      }
+      for (const auto* name : {"b2p", "b2v"}) {
+        EXPECT_ANY_THROW(dynDispatch(&ctx, name, bit_product, size_t{1}));
+      }
+      EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+      EXPECT_ANY_THROW(state->exportValue(
+          bit_product.data(), makeType<BOutputTy>(link->Rank(), 64, "test")));
+      state->prepareOutputs(&ctx, {}, {});
+      state->commit();
+    });
+  }
 }
 
 TEST(SpdzWiseProtocol, ArithmeticTransactionAndMacFreeExport) {

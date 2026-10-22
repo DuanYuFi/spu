@@ -78,10 +78,11 @@ class ArithmeticState {
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
   // Signed 63-bit input contract: -2^62 <= x < 2^62. No sign disclosure.
-  NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits);
+  NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits,
+                              const std::function<void()>& verify);
   double truncMaterialMs() const { return trunc_material_ms_; }
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
-  bool check();
+  bool checkMac();
   bool empty() const { return pending_.empty(); }
 };
 }  // namespace spu::mpc::spdzwise::ring

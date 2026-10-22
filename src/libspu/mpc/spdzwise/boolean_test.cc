@@ -117,7 +117,7 @@ class BooleanTestAccess {
   }
   static void randomFault(SpdzWiseState* state, size_t party, bool all) {
     auto& checker = *state->boolean_;
-    const auto words = checker.bits_ / 64 + (checker.bits_ % 64 != 0);
+    const auto words = checker.checkWords();
     auto pool = checker.generate((AbflBucketSize(words) - 1) * words + 3);
     for (size_t i = 0; i < pool.size(); ++i) {
       const uint64_t error = all ? ~uint64_t{0} : (i == 0 ? 1 : 0);
@@ -413,7 +413,7 @@ TEST(Abfl, MixedWidthsViewsAndDeferredBatch) {
     auto aa = dynDispatch(&ctx, "p2a", p);
     auto product = dynDispatch(&ctx, "mul_aa", aa, aa);
     (void)product;
-    state->check();
+    state->checkMac();
     EXPECT_ANY_THROW(state->exportValue(
         product.data(),
         makeType<OutputTy>(link->Rank(), std::string(64, 'a'))));
@@ -458,16 +458,56 @@ TEST(Abfl, EmptySmallAndNoOutputExecutions) {
       auto b =
           state->publicBoolean(p).as(makeType<BShrTy>(state->session(), 1));
       state->booleanBinary(b, b, true, false);
-      if (count > 0 && count <= 65472) {
-        EXPECT_ANY_THROW(state->prepareOutputs(&ctx, {}, {}));
-        EXPECT_TRUE(state->failed());
-        EXPECT_ANY_THROW(Begin(state));
-      } else {
-        state->prepareOutputs(&ctx, {}, {});
-        EXPECT_EQ(state->booleanChecks(), count == 0 ? 0 : 1);
-        state->commit();
-      }
+      EXPECT_EQ(state->pendingBooleanBits(), count);
+      state->prepareOutputs(&ctx, {}, {});
+      EXPECT_EQ(state->booleanChecks(), count == 0 ? 0 : 1);
+      EXPECT_EQ(state->pendingBooleanBits(), 0);
+      state->commit();
     });
+  }
+}
+
+TEST(Abfl, SmallBatchesAllWidthsAndRepeatedCheckpoints) {
+  SpdzWiseIo io(FM64, 3);
+  for (size_t width : {1U, 7U, 32U, 64U}) {
+    for (int64_t count : {1, 63, 64, 65, 1023}) {
+      const auto plain = Plain(count, width, 11);
+      const auto shares = io.toBooleanShares(plain, width);
+      const auto outputs = utils::simulate(3, [&](const auto& link) {
+        SPUContext ctx(Config(), link);
+        registerArithmeticPrototype(&ctx, link);
+        auto* state = ctx.prot()->getState<SpdzWiseState>();
+        Value x(shares[link->Rank()], DT_U64);
+        Begin(state, {x});
+        x = import_s(&ctx, x);
+        size_t coins = 0;
+        BooleanTestAccess::phase(state, [&](std::string_view name) {
+          if (name == "boolean-coin") {
+            ++coins;
+            // Padding is present during checking, but never counts as work.
+            EXPECT_EQ(state->pendingBooleanBits(), count * width);
+          }
+        });
+        for (size_t batch = 0; batch < 2; ++batch) {
+          x = dynDispatch(&ctx, "and_bb", x, x);
+          EXPECT_EQ(state->pendingBooleanBits(), count * width);
+          state->checkBoolean();
+          EXPECT_EQ(state->booleanChecks(), batch + 1);
+          EXPECT_EQ(state->pendingBooleanBits(), 0);
+          const auto bytes = link->GetStats()->sent_bytes.load();
+          state->verify();
+          EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+        }
+        EXPECT_EQ(coins, 2);
+        state->prepareOutputs(&ctx, {"out"}, {x});
+        state->commit();
+        return state->exportedValue("out").data();
+      });
+      const auto actual = io.fromShares(outputs);
+      for (int64_t i = 0; i < count; ++i) {
+        ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
+      }
+    }
   }
 }
 
@@ -514,64 +554,73 @@ TEST(Abfl, SnapshotAndReuse) {
 }
 
 TEST(Abfl, OnlineAndRandomFaultsAtEveryParty) {
-  for (size_t party = 0; party < 3; ++party) {
-    for (int fault = 0; fault < 4; ++fault) {
-      utils::simulate(3, [&](const auto& link) {
-        SPUContext ctx(Config(), link);
-        registerArithmeticPrototype(&ctx, link);
-        auto* state = ctx.prot()->getState<SpdzWiseState>();
-        Begin(state);
-        auto x = state->publicBoolean(
-            Plain(1024, 64, 73).as(makeType<Pub2kTy>(FM64)));
-        state->booleanBinary(x, x, true, false);
-        if (fault < 2) {
-          BooleanTestAccess::corrupt(state, party, fault == 1);
-          ExpectFailure([&] { state->finalize(); },
-                        fault == 0 ? "Boolean replicated copies disagree"
-                                   : "ABFL sacrifice failed");
-        } else {
-          ExpectFailure(
-              [&] { BooleanTestAccess::randomFault(state, party, fault == 3); },
-              fault == 3 ? "ABFL cut-and-choose failed" : "ABFL");
-        }
-        EXPECT_TRUE(state->failed());
-        EXPECT_ANY_THROW(state->exportedValue("out"));
-        EXPECT_ANY_THROW(Begin(state));
-      });
+  for (int64_t count : {1, 1023, 1024}) {
+    for (size_t party = 0; party < 3; ++party) {
+      for (int fault = 0; fault < 4; ++fault) {
+        utils::simulate(3, [&](const auto& link) {
+          SPUContext ctx(Config(), link);
+          registerArithmeticPrototype(&ctx, link);
+          auto* state = ctx.prot()->getState<SpdzWiseState>();
+          Begin(state);
+          auto x = state->publicBoolean(
+              Plain(count, 64, 73).as(makeType<Pub2kTy>(FM64)));
+          state->booleanBinary(x, x, true, false);
+          if (fault < 2) {
+            BooleanTestAccess::corrupt(state, party, fault == 1);
+            ExpectFailure([&] { state->finalize(); },
+                          fault == 0 ? "Boolean replicated copies disagree"
+                                     : "ABFL sacrifice failed");
+          } else {
+            ExpectFailure(
+                [&] {
+                  BooleanTestAccess::randomFault(state, party, fault == 3);
+                },
+                fault == 3 ? "ABFL cut-and-choose failed" : "ABFL");
+          }
+          EXPECT_TRUE(state->failed());
+          EXPECT_ANY_THROW(state->exportedValue("out"));
+          EXPECT_ANY_THROW(Begin(state));
+        });
+      }
     }
   }
 }
 
 TEST(Abfl, DetectsFaultInLastPartialWord) {
-  utils::simulate(3, [&](const auto& link) {
-    SPUContext ctx(Config(), link);
-    registerArithmeticPrototype(&ctx, link);
-    auto* state = ctx.prot()->getState<SpdzWiseState>();
-    Begin(state);
-    auto x = state->publicBoolean(Plain(9363, 7).as(makeType<Pub2kTy>(FM64)))
-                 .as(makeType<BShrTy>(state->session(), 7));
-    state->booleanBinary(x, x, true, false);
-    EXPECT_EQ(state->pendingBooleanBits(), 65541);
-    BooleanTestAccess::corrupt(state, 1, true, 65540);
-    EXPECT_ANY_THROW(state->finalize());
-    EXPECT_TRUE(state->failed());
-  });
+  for (int64_t count : {1, 65, 9363}) {
+    utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(Config(), link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      Begin(state);
+      auto x = state->publicBoolean(Plain(count, 7).as(makeType<Pub2kTy>(FM64)))
+                   .as(makeType<BShrTy>(state->session(), 7));
+      state->booleanBinary(x, x, true, false);
+      EXPECT_EQ(state->pendingBooleanBits(), count * 7);
+      BooleanTestAccess::corrupt(state, 1, true, count * 7 - 1);
+      ExpectFailure([&] { state->checkBoolean(); }, "ABFL sacrifice failed");
+      EXPECT_TRUE(state->failed());
+    });
+  }
 }
 
 TEST(Abfl, DetectsCorruptionInZeroExtendedPadding) {
-  utils::simulate(3, [&](const auto& link) {
-    SPUContext ctx(Config(), link);
-    registerArithmeticPrototype(&ctx, link);
-    auto* state = ctx.prot()->getState<SpdzWiseState>();
-    Begin(state);
-    auto x = state->publicBoolean(Plain(9363, 7).as(makeType<Pub2kTy>(FM64)))
-                 .as(makeType<BShrTy>(state->session(), 7));
-    state->booleanBinary(x, x, true, false);
-    // Last word has five valid bits. Even its padding is checked, not masked.
-    BooleanTestAccess::corrupt(state, 2, true, 65599);
-    ExpectFailure([&] { state->finalize(); }, "ABFL sacrifice failed");
-    EXPECT_TRUE(state->failed());
-  });
+  for (int64_t count : {1, 65, 9363}) {
+    utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(Config(), link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      Begin(state);
+      auto x = state->publicBoolean(Plain(count, 7).as(makeType<Pub2kTy>(FM64)))
+                   .as(makeType<BShrTy>(state->session(), 7));
+      state->booleanBinary(x, x, true, false);
+      // Even inactive bits of the last real word are checked, not masked.
+      const auto last_bit = ((count * 7 + 63) / 64) * 64 - 1;
+      BooleanTestAccess::corrupt(state, 2, true, last_bit);
+      ExpectFailure([&] { state->finalize(); }, "ABFL sacrifice failed");
+      EXPECT_TRUE(state->failed());
+    });
+  }
 }
 
 TEST(Abfl, DetectsFaultInLastSacrificeTile) {

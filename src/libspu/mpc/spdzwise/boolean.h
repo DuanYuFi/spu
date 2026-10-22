@@ -26,7 +26,8 @@ class ConversionTestAccess;
 }
 
 // Counts packed 64-bit triples (including one zero-extended partial word),
-// not the number of active bit lanes. Small nonempty batches are unsupported.
+// not the number of active bit lanes. Callers pad nonempty checking batches
+// to at least 1024 words before selecting a bucket size.
 size_t AbflBucketSize(size_t words);
 
 // Owned by the checked session. No application reveal API is exposed.
@@ -75,6 +76,7 @@ class BooleanState {
   void append(const std::vector<RepShare>& a, const std::vector<RepShare>& b,
               const std::vector<RepShare>& c, size_t width);
   TriplePool generate(size_t words);
+  size_t checkWords() const;
   void checkPrepared(TriplePool pool);
   std::vector<size_t> permutation(size_t count);
   static std::vector<size_t> shuffledIndices(size_t count, uint128_t seed);

@@ -1,5 +1,65 @@
 # Development validation record
 
+## Zero-padded ABFL and opening checkpoints — 2026-10-22
+
+`SpdzWiseState::checkMac()` is the arithmetic MAC checkpoint;
+`checkBoolean()` exposes the session-bound ABFL checkpoint with terminal
+failure handling, and `verify()` flushes both queues without ending execution.
+Finalization, masked B2A opening and masked probabilistic-truncation opening use
+this combined interface. Truncation verifies newly generated mask records as
+well as earlier work before sending its opening payload. Internal checking
+openings retain their own protocol schedule. Public and specific-party reveal
+kernels remain closed; regression tests exercise all six denied kernel names
+with pending work in both arithmetic domains.
+
+For a nonempty Boolean queue, the verifier appends public zero online anchors
+to reach 1024 packed words when needed, chooses B=5, and still generates 4099
+fresh random companions. Dummy anchors participate in pre-coin copy agreement
+and every sacrifice column. The versioned batch agreement binds real bits,
+real words, checking words, bucket size, overflow and call layout. Padding is
+local to checking and does not change pending-bit or B2A gate-work statistics.
+Empty ABFL checks remain no-ops. RING arithmetic retains its empty-queue count
+agreement without repeating the cryptographic check.
+
+All seven optimized-build regression targets passed (80 test cases):
+
+| Target | Cases | Failures |
+| --- | ---: | ---: |
+| `//libspu/mpc/spdzwise:boolean_test` | 17 | 0 |
+| `//libspu/mpc/spdzwise:protocol_test` | 13 | 0 |
+| `//libspu/mpc/spdzwise:ring_conversion_test` | 11 | 0 |
+| `//libspu/mpc/spdzwise:ring_truncation_test` | 9 | 0 |
+| `//libspu/mpc/spdzwise:ring_test` | 15 | 0 |
+| `//libspu/mpc/spdzwise:io_test` | 8 | 0 |
+| `//libspu/mpc:protocol_session_test` | 7 | 0 |
+
+New and expanded cases cover 1/7/32/64-bit inputs, single-element and
+1023-word batches, partial-word padding, repeated checkpoints, no-output
+executions, unchanged work counters, and online/random-pool faults at all three
+party positions. B2A accepts standalone small inputs and rejects faulty MACs,
+ANDs and tail lanes before masked opening. Truncation observes both queues empty
+at every opening and rejects pending MAC/Boolean faults before that boundary.
+The run used the command below from `src`; the last invocation reused six
+passing target caches and executed the corrected protocol target.
+
+```sh
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 \
+  --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt \
+  //libspu/mpc/spdzwise:boolean_test //libspu/mpc/spdzwise:protocol_test \
+  //libspu/mpc/spdzwise:ring_conversion_test \
+  //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc/spdzwise:ring_test \
+  //libspu/mpc/spdzwise:io_test //libspu/mpc:protocol_session_test \
+  --lockfile_mode=off --jobs=16 --test_env=YACL_NUM_THREADS=4 \
+  --test_timeout=180 \
+  --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+```
+
+This supersedes the small-final-batch rejection and deferred truncation-mask
+authentication described in earlier records. Existing benchmark results are
+historical and were not rerun. The prototype's outstanding whole-execution
+security/composition review remains unchanged; functional and fault-injection
+tests do not certify the complete protocol's statistical security bound.
+
 ## RING split-3 A2B — 2026-10-22
 
 Registered value-only RING/FM64 `a2b`, preserving shape/dtype/session. Compared

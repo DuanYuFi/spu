@@ -305,11 +305,11 @@ uint64_t SpdzWiseState::openRaw(const RepShare& value) {
   return Add(Add(shares[0][0], shares[1][0]), shares[2][0]);
 }
 
-void SpdzWiseState::check() {
+void SpdzWiseState::checkMac() {
   try {
     requireRunning();
     if (isRing()) {
-      if (ring_->check()) {
+      if (ring_->checkMac()) {
         SPU_ENFORCE(arithmetic_checks_ != std::numeric_limits<uint64_t>::max(),
                     "check counter overflow");
         ++arithmetic_checks_;
@@ -415,7 +415,7 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
       }
       validateExternalInput(Value(value, DT_I64));
       auto result = ring_->importValue(value);
-      check();
+      checkMac();
       return result;
     }
     if (value.eltype().isa<AShrTy>()) {
@@ -430,7 +430,7 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
     }
     checkCopies(values);
     auto result = authenticateInput(values, value.shape());
-    check();
+    checkMac();
     return result;
 
   } catch (...) {
@@ -439,16 +439,22 @@ NdArrayRef SpdzWiseState::importValue(const NdArrayRef& value) {
   }
 }
 
-void SpdzWiseState::finalize() {
+void SpdzWiseState::checkBoolean() {
   try {
     requireRunning();
-    check();
     boolean_->check();
   } catch (...) {
     abort();
     throw;
   }
 }
+
+void SpdzWiseState::verify() {
+  checkMac();
+  checkBoolean();
+}
+
+void SpdzWiseState::finalize() { verify(); }
 
 NdArrayRef SpdzWiseState::exportValue(const NdArrayRef& value,
                                       const Type& type) const {

@@ -83,7 +83,8 @@ std::vector<uint64_t> ArithmeticState::openTruncMask(
   return opened;
 }
 
-NdArrayRef ArithmeticState::truncPrRandomBit(const NdArrayRef& x, size_t bits) {
+NdArrayRef ArithmeticState::truncPrRandomBit(
+    const NdArrayRef& x, size_t bits, const std::function<void()>& verify) {
   validateInternal(x);
   SPU_ENFORCE(bits <= 62, "signed 63-bit truncation requires bits in [0,62]");
   trunc_material_ms_ = 0;
@@ -143,6 +144,9 @@ NdArrayRef ArithmeticState::truncPrRandomBit(const NdArrayRef& x, size_t bits) {
     masked[i] = {input[i][0] + offset[0] + masks[i][0],
                  input[i][1] + offset[1] + masks[i][1]};
   });
+  // Mask authentication creates new deferred records. Flush both domains
+  // after generating it and before any masked secret leaves this party.
+  verify();
   const auto opened = openTruncMask(masked);
   pforeach(0, x.numel(), [&](int64_t i) {
     const Word cb = opened[i] >> 63;
@@ -193,7 +197,7 @@ NdArrayRef SpdzWiseState::truncPrRandomBit(const NdArrayRef& x, size_t bits,
     SPU_ENFORCE(sign == SignType::Unknown || sign == SignType::Positive ||
                     sign == SignType::Negative,
                 "invalid truncation sign hint");
-    return ring_->truncPrRandomBit(x, bits);
+    return ring_->truncPrRandomBit(x, bits, [this] { verify(); });
   } catch (...) {
     abort();
     throw;
