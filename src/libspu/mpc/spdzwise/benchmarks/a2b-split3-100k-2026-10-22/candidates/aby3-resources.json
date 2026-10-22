@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/conversion_bench",
+    "aby3",
+    "100000",
+    "7"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 1.314237029000651,
+  "user_seconds": 3.745394,
+  "system_seconds": 0.8698089999999999,
+  "max_rss_kib": 107468
+}

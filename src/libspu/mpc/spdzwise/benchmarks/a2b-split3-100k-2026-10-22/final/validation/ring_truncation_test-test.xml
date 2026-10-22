@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="7" failures="0" disabled="0" errors="0" time="1.387" timestamp="2026-10-22T07:17:38.764" name="AllTests">
+  <testsuite name="SpdzWiseTruncation" tests="7" failures="0" disabled="0" skipped="0" errors="0" time="1.387" timestamp="2026-10-22T07:17:38.764">
+    <testcase name="ExhaustiveSignedSmallRingFormula" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="137" status="run" result="completed" time="0." timestamp="2026-10-22T07:17:38.764" classname="SpdzWiseTruncation" />
+    <testcase name="SignedEdgesStridesAndShiftBounds" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="155" status="run" result="completed" time="0.017" timestamp="2026-10-22T07:17:38.765" classname="SpdzWiseTruncation" />
+    <testcase name="RotatingOwnersAndPartialTile" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="164" status="run" result="completed" time="0.839" timestamp="2026-10-22T07:17:38.782" classname="SpdzWiseTruncation" />
+    <testcase name="SignedRoundingFrequency" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="173" status="run" result="completed" time="0.524" timestamp="2026-10-22T07:17:39.621" classname="SpdzWiseTruncation" />
+    <testcase name="BadParametersAndBindingsPoisonSession" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="190" status="run" result="completed" time="0.003" timestamp="2026-10-22T07:17:40.146" classname="SpdzWiseTruncation" />
+    <testcase name="BitnessRejectsNonBitsIncludingHighValuation" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="214" status="run" result="completed" time="0.001" timestamp="2026-10-22T07:17:40.150" classname="SpdzWiseTruncation" />
+    <testcase name="NativeAby3RegisteredTruncAPr2MixedSigns" file="libspu/mpc/spdzwise/ring_truncation_test.cc" line="227" status="run" result="completed" time="0." timestamp="2026-10-22T07:17:40.151" classname="SpdzWiseTruncation" />
+  </testsuite>
+</testsuites>

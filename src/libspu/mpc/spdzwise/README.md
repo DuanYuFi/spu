@@ -38,8 +38,9 @@ preserve the domain, which is also included in execution agreement.
 - `correlated_randomness.h/.cc`: RING authenticated random-bit generation,
   private bit inputs, public challenges, bitness checks and scratch storage.
 - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
-  registers no conversions. Ring conversions, FIELD truncation and comparisons
-  remain future work. `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
+  registers no conversions. FIELD truncation and comparisons remain future work.
+  `ring_conversion.h/.cc` implements value-only split-3 RING A2B.
+  `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
   through `TruncASelector`.
 - `state.h/.cc`: checked session lifecycle, field authentication and checks;
   owns the separate ring arithmetic state and shared Boolean state.
@@ -99,7 +100,8 @@ as a runtime dependency.
 | FIELD arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
 | Boolean online and checking | ABY3 online AND; `Protocols/ShuffleSacrifice.h`, `MalRepRingPrep.hpp` | ABFL prototype with 64-bit word buckets, final post-sacrifice and checked Boolean IO; uses one fresh random pool rather than `PostSacriBin`'s two-level pools |
 | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
-| A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
+| FIELD A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
+| RING A2B | `SpdzWiseRingShare::split`, `Rep3Share2::split(case 3)` | Value-only local split-3, bit-sliced CSA + RCA, existing ABFL final verification |
 | B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
 | FIELD truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
 | RING probabilistic truncation | `floatingpoint.py::TruncPrRing`, signed, k=63 | Authenticated random masks, low-64-bit opening and signed offset correction |
@@ -146,8 +148,9 @@ prototype registration. The implementation provides input authentication,
 matrix multiplication. Matrices accumulate each dot product locally before
 exchanging two 128-bit words per output cell. A fixed status exchange also
 rejects malformed wire lengths; payload does not grow with the inner dimension.
-A2B/B2A, exact truncation, comparison and PPML integration remain unimplemented.
-Signed probabilistic truncation is described below.
+RING `a2b` converts the application value to 64-bit Boolean RSS. B2A, exact
+truncation, comparison and PPML integration remain unimplemented. Signed
+probabilistic truncation is described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
 Z/(2^128). Internal authenticated elements contain two value and two MAC words
@@ -428,6 +431,65 @@ come from reference procedures with different pooling/selection schedules;
 security analysis and whole-execution composition remain acceptance gates.
 A2B/B2A, daBits, comparisons, truncation and full Python/device integration are
 not supplied by these Boolean kernels.
+
+## RING split-3 A2B
+
+The RING prototype registers `a2b` for an active session's authenticated
+`ring::AShrTy`. It returns `BShrTy(session, 64)` with the input shape and dtype.
+The input is a valid authenticated arithmetic sharing. Conversion reads only
+its two value components, reduced to their low 64 bits; it neither converts
+MACs nor repeats input authentication. FIELD A2B remains unimplemented.
+
+Following MP-SPDZ `SpdzWiseRingShare::split` and `Rep3Share2::split(case 3)`,
+party i embeds component x_i in slot 0 of Boolean summand i and component
+x_(i+1) in slot 1 of summand (i+1) mod 3; all other slots are zero. This local
+mapping respects this repository's replica ordering and sends no shares.
+The circuit computes:
+
+```
+s = x0 XOR x1 XOR x2
+c = ((x0 XOR x2) AND (x1 XOR x2)) XOR x2
+result = s + (c << 1) mod 2^64
+```
+
+The retained circuit is a bit-sliced CSA followed by a ripple-carry adder.
+Each 64-bit word packs the same bit of 64 separate inputs; a 64x64 transpose
+packs and restores the ordinary word representation. The CSA uses 63 ANDs
+and the adder 62, for 125 active ANDs per input and 63 online AND rounds.
+The last SIMD block is zero-padded on input; its lanes are still checked.
+The checker records `125 * ceil(numel / 64)` full AND words.
+
+The carry identity `carry_out = carry_in XOR ((a XOR carry_in) AND
+(b XOR carry_in))` needs just one AND per full adder. This is an existing
+circuit optimization: [Kolesnikov–Sadeghi–Schneider, CANS 2009, Section 3.1](https://encrypto.de/papers/KSS09.pdf)
+describes the one-AND full adder; [ABY3, CCS 2018](https://eprint.iacr.org/2018/403.pdf)
+uses the same three-to-two CSA reduction followed by a parallel-prefix adder
+for malicious A2B; [SECRECY, NSDI 2023, Appendix A.1](https://www.usenix.org/system/files/nsdi23-liagouris.pdf)
+also describes RCA-based arithmetic/Boolean sharing conversion.
+
+Our choice combines these existing techniques with bit-slicing and deferred
+ABFL verification. RCA reduces AND work but has a linear carry dependency;
+prefix adders reduce communication rounds. In the 100K-input FactoryMem
+experiment, CSA + RCA was fastest including final verification; this does not
+establish the fastest circuit on high-latency networks. Word-packed AND counts
+include unused bit positions and are not minimum circuit gate counts.
+Native ABY3 uses a different default adder and is a semi-honest baseline, so
+this comparison does not isolate per-gate protocol overhead. See the
+[selection and final benchmark report](benchmarks/a2b-split3-100k-2026-10-22/RESULTS.md).
+
+Every secret AND uses the existing ABFL session and its saved verification
+records. A2B itself does not finalize or reveal. Callers can compose its output
+with Boolean operations and accumulate multiple conversions before one final
+ABFL check. Existing pending arithmetic checks still run at finalization;
+unchecked output cannot be exported. Wrong domains, sessions or lifecycle
+states abort through the normal session mechanism.
+
+There is no minimum A2B input size. Empty inputs need no ANDs. The existing
+ABFL finalization requirement of at least 1024 packed AND words still applies
+to nonempty queues; small conversions must accumulate enough real circuit work
+in the session. No artificial ANDs or new verifier parameters are introduced.
+The security assumptions and outstanding ABFL composition review described
+above are unchanged by this conversion implementation.
 
 ## Numerical contract
 

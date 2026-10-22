@@ -30,6 +30,7 @@ spu_cc_library(
         "state.cc",
         "ring.cc",
         "ring_truncation.cc",
+        "ring_conversion.cc",
     ],
     hdrs = [
         "arithmetic.h",
@@ -40,6 +41,7 @@ spu_cc_library(
         "ring.h",
         "ring_arithmetic.h",
         "ring_truncation.h",
+        "ring_conversion.h",
     ],
     deps = [
         ":replicated",
@@ -153,6 +155,19 @@ spu_cc_test(
         ":protocol",
         ":state",
         "@yacl//yacl/crypto/hash:blake3",
+        "//libspu/mpc:api",
+        "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_test(
+    name = "ring_conversion_test",
+    srcs = ["ring_conversion_test.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":state",
         "//libspu/mpc:api",
         "//libspu/mpc/common:pv2k",
         "//libspu/mpc/utils:simulate",

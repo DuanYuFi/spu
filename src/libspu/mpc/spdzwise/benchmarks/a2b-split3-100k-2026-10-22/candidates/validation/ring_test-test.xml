@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="15" failures="0" disabled="0" errors="0" time="0.351" timestamp="2026-10-22T07:14:51.321" name="AllTests">
+  <testsuite name="SpdzWiseRing" tests="15" failures="0" disabled="0" skipped="0" errors="0" time="0.351" timestamp="2026-10-22T07:14:51.321">
+    <testcase name="WireEncodingIsFixedLittleEndian" file="libspu/mpc/spdzwise/ring_test.cc" line="67" status="run" result="completed" time="0." timestamp="2026-10-22T07:14:51.321" classname="SpdzWiseRing" />
+    <testcase name="Protocol9EveryNonzeroBitAndCarry" file="libspu/mpc/spdzwise/ring_test.cc" line="82" status="run" result="completed" time="0.016" timestamp="2026-10-22T07:14:51.321" classname="SpdzWiseRing" />
+    <testcase name="IoTypesFullRangeAndStrides" file="libspu/mpc/spdzwise/ring_test.cc" line="115" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:14:51.337" classname="SpdzWiseRing" />
+    <testcase name="ArithmeticChainingInternal128AndChecked64Export" file="libspu/mpc/spdzwise/ring_test.cc" line="151" status="run" result="completed" time="0.001" timestamp="2026-10-22T07:14:51.340" classname="SpdzWiseRing" />
+    <testcase name="MatrixSecretAndPublicWithStrides" file="libspu/mpc/spdzwise/ring_test.cc" line="203" status="run" result="completed" time="0.007" timestamp="2026-10-22T07:14:51.342" classname="SpdzWiseRing" />
+    <testcase name="EmptyFinalizationReuseAndReauthentication" file="libspu/mpc/spdzwise/ring_test.cc" line="251" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:14:51.350" classname="SpdzWiseRing" />
+    <testcase name="InputCopyErrorsAbortAllRanks" file="libspu/mpc/spdzwise/ring_test.cc" line="286" status="run" result="completed" time="0.005" timestamp="2026-10-22T07:14:51.352" classname="SpdzWiseRing" />
+    <testcase name="ConsistentValueAndMacErrorsFailWithoutOutputs" file="libspu/mpc/spdzwise/ring_test.cc" line="307" status="run" result="completed" time="0.005" timestamp="2026-10-22T07:14:51.358" classname="SpdzWiseRing" />
+    <testcase name="RejectsCrossSessionAndDomainInputs" file="libspu/mpc/spdzwise/ring_test.cc" line="332" status="run" result="completed" time="0." timestamp="2026-10-22T07:14:51.363" classname="SpdzWiseRing" />
+    <testcase name="DirectAuthCopyHashesMatchMaterializedCopies" file="libspu/mpc/spdzwise/ring_test.cc" line="415" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:14:51.364" classname="SpdzWiseRing" />
+    <testcase name="StreamedCopyHashesMatchCanonicalTranscript" file="libspu/mpc/spdzwise/ring_test.cc" line="448" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:14:51.367" classname="SpdzWiseRing" />
+    <testcase name="TruncationWireFaultsAbortAllRanks" file="libspu/mpc/spdzwise/ring_test.cc" line="489" status="run" result="completed" time="0.045" timestamp="2026-10-22T07:14:51.370" classname="SpdzWiseRing" />
+    <testcase name="ParallelStridedArithmeticAndAggregation" file="libspu/mpc/spdzwise/ring_test.cc" line="551" status="run" result="completed" time="0.237" timestamp="2026-10-22T07:14:51.416" classname="SpdzWiseRing" />
+    <testcase name="WireTamperingPoisonsEverySession" file="libspu/mpc/spdzwise/ring_test.cc" line="582" status="run" result="completed" time="0.017" timestamp="2026-10-22T07:14:51.653" classname="SpdzWiseRing" />
+    <testcase name="HashContextBindsBatchAndComponent" file="libspu/mpc/spdzwise/ring_test.cc" line="650" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:14:51.671" classname="SpdzWiseRing" />
+  </testsuite>
+</testsuites>

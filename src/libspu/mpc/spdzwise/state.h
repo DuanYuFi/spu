@@ -86,6 +86,8 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
   void check();
   void finalize();
+  // Value-only split-3 RING A2B; AND checks are deferred to finalize().
+  NdArrayRef a2b(const NdArrayRef& in);
   void validateBoolean(const NdArrayRef& value) const;
   NdArrayRef publicBoolean(const NdArrayRef& value) const;
   NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,

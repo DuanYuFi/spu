@@ -1,5 +1,28 @@
 # Development validation record
 
+## RING split-3 A2B — 2026-10-22
+
+Registered value-only RING/FM64 `a2b`, preserving shape/dtype/session. Compared
+CSA + bit-sliced RCA, pruned Brent–Kung, word-packed Kogge–Stone, and the native
+ABY3 A2B on identical full-width 100K inputs. RCA won by more than the 3% tie
+threshold; the other implementations and candidate switches were deleted.
+Final optimized build and six regression targets passed 61 cases (the unchanged
+session target was cached). Conversion tests cover shape/stride/tails, arithmetic
+and Boolean composition, session rejection, small-batch accumulation and six
+corrupt-triple executions across all parties. Both final benchmark protocols
+verified every output in one warmup and seven measured iterations.
+
+Final median total: SPDZwise 134.182 ms, native ABY3 146.386 ms; ratio 0.917x.
+SPDZwise conversion/verification medians: 12.950/121.232 ms. Main timing includes
+one final ABFL verification; input authentication and output reconstruction are
+excluded. Three-party sent bytes: 187,567,008 vs 33,600,000 (5.582x). These are
+FactoryMem results with 64 background workers; phase medians are independent.
+The existing ABFL security/composition premises and small-final-batch threshold
+remain unchanged.
+
+[Selection, raw samples, final source fingerprints and test evidence](benchmarks/a2b-split3-100k-2026-10-22/RESULTS.md).
+
+
 ## Truncation selector — 2026-10-22
 
 Renamed the arithmetic-bit implementation to `TruncPrRandomBit` and its state

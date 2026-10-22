@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="5" failures="0" disabled="0" errors="0" time="0.092" timestamp="2026-10-22T07:15:34.164" name="AllTests">
+  <testsuite name="RingConversion" tests="5" failures="0" disabled="0" skipped="0" errors="0" time="0.092" timestamp="2026-10-22T07:15:34.164">
+    <testcase name="BoundariesShapesStridesAndAccumulatedSmallCalls" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="47" status="run" result="completed" time="0.055" timestamp="2026-10-22T07:15:34.164" classname="RingConversion" />
+    <testcase name="ArithmeticCompositionHighLimbsAndBooleanConsumer" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="101" status="run" result="completed" time="0.006" timestamp="2026-10-22T07:15:34.219" classname="RingConversion" />
+    <testcase name="WrongDomainSessionAndLifecycleRejected" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="137" status="run" result="completed" time="0.001" timestamp="2026-10-22T07:15:34.226" classname="RingConversion" />
+    <testcase name="EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="155" status="run" result="completed" time="0.002" timestamp="2026-10-22T07:15:34.228" classname="RingConversion" />
+    <testcase name="CorruptConversionAndRejectedAtEveryParty" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="175" status="run" result="completed" time="0.026" timestamp="2026-10-22T07:15:34.230" classname="RingConversion" />
+  </testsuite>
+</testsuites>

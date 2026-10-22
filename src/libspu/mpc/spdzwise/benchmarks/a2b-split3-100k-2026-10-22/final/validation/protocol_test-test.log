@@ -1,0 +1,84 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:protocol_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 11 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 11 tests from SpdzWiseProtocol
+[ RUN      ] SpdzWiseProtocol.PrssCopiesStayAlignedAcrossOddAndEmptyBatches
+[       OK ] SpdzWiseProtocol.PrssCopiesStayAlignedAcrossOddAndEmptyBatches (2 ms)
+[ RUN      ] SpdzWiseProtocol.FieldRouteUsesF61MultiplicationAndSharedBooleanKernels
+[       OK ] SpdzWiseProtocol.FieldRouteUsesF61MultiplicationAndSharedBooleanKernels (1 ms)
+[ RUN      ] SpdzWiseProtocol.RingRouteHasIndependentArithmeticAndSharedBoolean
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[       OK ] SpdzWiseProtocol.RingRouteHasIndependentArithmeticAndSharedBoolean (0 ms)
+[ RUN      ] SpdzWiseProtocol.MultiplicationPayloadAndConstantSizeVerification
+[2026-10-22 07:17:39.717] [info] [thread_pool.cc:30] Create a fixed thread pool with size 64
+[       OK ] SpdzWiseProtocol.MultiplicationPayloadAndConstantSizeVerification (129 ms)
+[ RUN      ] SpdzWiseProtocol.F61WireEncodingRejectsInvalidResiduesAndLengths
+[       OK ] SpdzWiseProtocol.F61WireEncodingRejectsInvalidResiduesAndLengths (0 ms)
+[ RUN      ] SpdzWiseProtocol.ArithmeticTransactionAndMacFreeExport
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[       OK ] SpdzWiseProtocol.ArithmeticTransactionAndMacFreeExport (1 ms)
+[ RUN      ] SpdzWiseProtocol.MatrixProductAndAuthenticatedReuse
+[       OK ] SpdzWiseProtocol.MatrixProductAndAuthenticatedReuse (0 ms)
+[ RUN      ] SpdzWiseProtocol.PublicArithmeticAndShapeViewsPreserveMacs
+[       OK ] SpdzWiseProtocol.PublicArithmeticAndShapeViewsPreserveMacs (0 ms)
+[ RUN      ] SpdzWiseProtocol.CorruptedMacPoisonsSessionForEveryParty
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[       OK ] SpdzWiseProtocol.CorruptedMacPoisonsSessionForEveryParty (2 ms)
+[ RUN      ] SpdzWiseProtocol.ParallelBatchRejectsMacCorruptionAtDifferentPositions
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[       OK ] SpdzWiseProtocol.ParallelBatchRejectsMacCorruptionAtDifferentPositions (145 ms)
+[ RUN      ] SpdzWiseProtocol.RejectsMixedOutputBatchesBeforeAuthentication
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1754/maps: errno=2
+[       OK ] SpdzWiseProtocol.RejectsMixedOutputBatchesBeforeAuthentication (0 ms)
+[----------] 11 tests from SpdzWiseProtocol (285 ms total)
+
+[----------] Global test environment tear-down
+[==========] 11 tests from 1 test suite ran. (285 ms total)
+[  PASSED  ] 11 tests.

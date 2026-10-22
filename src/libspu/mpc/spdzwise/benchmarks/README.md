@@ -1,5 +1,26 @@
 # Malicious PPML Benchmark
 
+## RING split-3 A2B
+
+`conversion_bench` 比较 SPDZwise RING 的 value-only split-3 A2B 与正常注册的
+原生 ABY3 A2B。使用同一组 100,000 个完整 64 位输入，各轮重新分享并创建协议
+上下文。SPDZwise 在计时前完成输入认证，主计时包含转换与最后一次 ABFL 验证；
+ABY3 主计时包含其完整半诚实 A2B。输出重构与逐元素核对均不计时。
+
+```sh
+bash build.sh //:conversion_bench
+python3 run_conversion.py NEW_OUTPUT_DIRECTORY
+```
+
+固定 64 个后台 worker、预热一次、测量七次；每轮取三方完整主计时最大值，再统计
+中位数和范围。转换和验证分项中位数不可相加。记录逐方通信量、三方总发送量、
+消息数、峰值 RSS、源码及二进制指纹。`--count 1025 --repetitions 1` 可运行小规模
+正确性检查；过小批次仍受现有 ABFL 最终检查阈值限制。
+
+[100K 选型与最终结果](a2b-split3-100k-2026-10-22/RESULTS.md)保留了
+CSA + bit-sliced RCA、剪枝 Brent–Kung、word-packed Kogge–Stone 和原生 ABY3
+的实测数据。最终只保留总耗时最快的 RCA 实现及 ABY3 baseline。
+
 ## Signed RING truncation
 
 `truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的

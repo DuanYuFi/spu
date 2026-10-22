@@ -1,0 +1,47 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:ring_truncation_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 7 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 7 tests from SpdzWiseTruncation
+[ RUN      ] SpdzWiseTruncation.ExhaustiveSignedSmallRingFormula
+[       OK ] SpdzWiseTruncation.ExhaustiveSignedSmallRingFormula (0 ms)
+[ RUN      ] SpdzWiseTruncation.SignedEdgesStridesAndShiftBounds
+[       OK ] SpdzWiseTruncation.SignedEdgesStridesAndShiftBounds (17 ms)
+[ RUN      ] SpdzWiseTruncation.RotatingOwnersAndPartialTile
+[2026-10-22 07:17:38.832] [info] [thread_pool.cc:30] Create a fixed thread pool with size 64
+[       OK ] SpdzWiseTruncation.RotatingOwnersAndPartialTile (839 ms)
+[ RUN      ] SpdzWiseTruncation.SignedRoundingFrequency
+[       OK ] SpdzWiseTruncation.SignedRoundingFrequency (524 ms)
+[ RUN      ] SpdzWiseTruncation.BadParametersAndBindingsPoisonSession
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[       OK ] SpdzWiseTruncation.BadParametersAndBindingsPoisonSession (3 ms)
+[ RUN      ] SpdzWiseTruncation.BitnessRejectsNonBitsIncludingHighValuation
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1609/maps: errno=2
+[       OK ] SpdzWiseTruncation.BitnessRejectsNonBitsIncludingHighValuation (1 ms)
+[ RUN      ] SpdzWiseTruncation.NativeAby3RegisteredTruncAPr2MixedSigns
+[       OK ] SpdzWiseTruncation.NativeAby3RegisteredTruncAPr2MixedSigns (0 ms)
+[----------] 7 tests from SpdzWiseTruncation (1387 ms total)
+
+[----------] Global test environment tear-down
+[==========] 7 tests from 1 test suite ran. (1387 ms total)
+[  PASSED  ] 7 tests.

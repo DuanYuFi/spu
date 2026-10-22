@@ -112,7 +112,7 @@ TEST(SpdzWiseProtocol, RingRouteHasIndependentArithmeticAndSharedBoolean) {
     EXPECT_TRUE(ctx.prot()->hasState(ProtocolSession::kBindName()));
     EXPECT_EQ(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
               nullptr);
-    EXPECT_FALSE(ctx.hasKernel("a2b"));
+    EXPECT_TRUE(ctx.hasKernel("a2b"));
     EXPECT_FALSE(ctx.hasKernel("b2a"));
   });
 }

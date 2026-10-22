@@ -1,0 +1,981 @@
+diff --git a/src/libspu/mpc/spdzwise/BUILD.bazel b/src/libspu/mpc/spdzwise/BUILD.bazel
+index 7b639663..ed911026 100644
+--- a/src/libspu/mpc/spdzwise/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/BUILD.bazel
+@@ -30,6 +30,7 @@ spu_cc_library(
+         "state.cc",
+         "ring.cc",
+         "ring_truncation.cc",
++        "ring_conversion.cc",
+     ],
+     hdrs = [
+         "arithmetic.h",
+@@ -40,6 +41,7 @@ spu_cc_library(
+         "ring.h",
+         "ring_arithmetic.h",
+         "ring_truncation.h",
++        "ring_conversion.h",
+     ],
+     deps = [
+         ":replicated",
+@@ -158,3 +160,16 @@ spu_cc_test(
+         "//libspu/mpc/utils:simulate",
+     ],
+ )
++
++spu_cc_test(
++    name = "ring_conversion_test",
++    srcs = ["ring_conversion_test.cc"],
++    deps = [
++        ":io",
++        ":protocol",
++        ":state",
++        "//libspu/mpc:api",
++        "//libspu/mpc/common:pv2k",
++        "//libspu/mpc/utils:simulate",
++    ],
++)
+diff --git a/src/libspu/mpc/spdzwise/README.md b/src/libspu/mpc/spdzwise/README.md
+index 38acca73..88d6da7f 100644
+--- a/src/libspu/mpc/spdzwise/README.md
++++ b/src/libspu/mpc/spdzwise/README.md
+@@ -38,8 +38,9 @@ preserve the domain, which is also included in execution agreement.
+ - `correlated_randomness.h/.cc`: RING authenticated random-bit generation,
+   private bit inputs, public challenges, bitness checks and scratch storage.
+ - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
+-  registers no conversions. Ring conversions, FIELD truncation and comparisons
+-  remain future work. `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
++  registers no conversions. FIELD truncation and comparisons remain future work.
++  `ring_conversion.h/.cc` implements value-only split-3 RING A2B.
++  `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
+   through `TruncASelector`.
+ - `state.h/.cc`: checked session lifecycle, field authentication and checks;
+   owns the separate ring arithmetic state and shared Boolean state.
+@@ -99,7 +100,8 @@ as a runtime dependency.
+ | FIELD arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
+ | Boolean online and checking | ABY3 online AND; `Protocols/ShuffleSacrifice.h`, `MalRepRingPrep.hpp` | ABFL prototype with 64-bit word buckets, final post-sacrifice and checked Boolean IO; uses one fresh random pool rather than `PostSacriBin`'s two-level pools |
+ | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
+-| A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
++| FIELD A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
++| RING A2B | `SpdzWiseRingShare::split`, `Rep3Share2::split(case 3)` | Value-only local split-3, bit-sliced CSA + RCA, existing ABFL final verification |
+ | B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
+ | FIELD truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
+ | RING probabilistic truncation | `floatingpoint.py::TruncPrRing`, signed, k=63 | Authenticated random masks, low-64-bit opening and signed offset correction |
+@@ -146,8 +148,9 @@ prototype registration. The implementation provides input authentication,
+ matrix multiplication. Matrices accumulate each dot product locally before
+ exchanging two 128-bit words per output cell. A fixed status exchange also
+ rejects malformed wire lengths; payload does not grow with the inner dimension.
+-A2B/B2A, exact truncation, comparison and PPML integration remain unimplemented.
+-Signed probabilistic truncation is described below.
++RING `a2b` converts the application value to 64-bit Boolean RSS. B2A, exact
++truncation, comparison and PPML integration remain unimplemented. Signed
++probabilistic truncation is described below.
+ 
+ Client input words are zero-extended from 64 to 128 bits, then shared in
+ Z/(2^128). Internal authenticated elements contain two value and two MAC words
+@@ -429,6 +432,47 @@ security analysis and whole-execution composition remain acceptance gates.
+ A2B/B2A, daBits, comparisons, truncation and full Python/device integration are
+ not supplied by these Boolean kernels.
+ 
++## RING split-3 A2B
++
++The RING prototype registers `a2b` for an active session's authenticated
++`ring::AShrTy`. It returns `BShrTy(session, 64)` with the input shape and dtype.
++The input is a valid authenticated arithmetic sharing. Conversion reads only
++its two value components, reduced to their low 64 bits; it neither converts
++MACs nor repeats input authentication. FIELD A2B remains unimplemented.
++
++Following MP-SPDZ `SpdzWiseRingShare::split` and `Rep3Share2::split(case 3)`,
++party i embeds component x_i in slot 0 of Boolean summand i and component
++x_(i+1) in slot 1 of summand (i+1) mod 3; all other slots are zero. This local
++mapping respects this repository's replica ordering and sends no shares.
++The circuit computes:
++
++```
++s = x0 XOR x1 XOR x2
++c = ((x0 XOR x2) AND (x1 XOR x2)) XOR x2
++result = s + (c << 1) mod 2^64
++```
++
++The retained circuit is a bit-sliced CSA followed by a ripple-carry adder.
++Each 64-bit word packs the same bit of 64 separate inputs; a 64x64 transpose
++packs and restores the ordinary word representation. The CSA uses 63 ANDs
++and the adder 62, for 125 active ANDs per input and 63 online AND rounds.
++The last SIMD block is zero-padded on input; its lanes are still checked.
++The checker records `125 * ceil(numel / 64)` full AND words.
++
++Every secret AND uses the existing ABFL session and its saved verification
++records. A2B itself does not finalize or reveal. Callers can compose its output
++with Boolean operations and accumulate multiple conversions before one final
++ABFL check. Existing pending arithmetic checks still run at finalization;
++unchecked output cannot be exported. Wrong domains, sessions or lifecycle
++states abort through the normal session mechanism.
++
++There is no minimum A2B input size. Empty inputs need no ANDs. The existing
++ABFL finalization requirement of at least 1024 packed AND words still applies
++to nonempty queues; small conversions must accumulate enough real circuit work
++in the session. No artificial ANDs or new verifier parameters are introduced.
++The security assumptions and outstanding ABFL composition review described
++above are unchanged by this conversion implementation.
++
+ ## Numerical contract
+ 
+ Public and Boolean words retain SPU's 64-bit two's-complement representation.
+diff --git a/src/libspu/mpc/spdzwise/VALIDATION.md b/src/libspu/mpc/spdzwise/VALIDATION.md
+index 6139f0fc..ac55d841 100644
+--- a/src/libspu/mpc/spdzwise/VALIDATION.md
++++ b/src/libspu/mpc/spdzwise/VALIDATION.md
+@@ -1,5 +1,28 @@
+ # Development validation record
+ 
++## RING split-3 A2B — 2026-10-22
++
++Registered value-only RING/FM64 `a2b`, preserving shape/dtype/session. Compared
++CSA + bit-sliced RCA, pruned Brent–Kung, word-packed Kogge–Stone, and the native
++ABY3 A2B on identical full-width 100K inputs. RCA won by more than the 3% tie
++threshold; the other implementations and candidate switches were deleted.
++Final optimized build and six regression targets passed 61 cases (the unchanged
++session target was cached). Conversion tests cover shape/stride/tails, arithmetic
++and Boolean composition, session rejection, small-batch accumulation and six
++corrupt-triple executions across all parties. Both final benchmark protocols
++verified every output in one warmup and seven measured iterations.
++
++Final median total: SPDZwise 134.182 ms, native ABY3 146.386 ms; ratio 0.917x.
++SPDZwise conversion/verification medians: 12.950/121.232 ms. Main timing includes
++one final ABFL verification; input authentication and output reconstruction are
++excluded. Three-party sent bytes: 187,567,008 vs 33,600,000 (5.582x). These are
++FactoryMem results with 64 background workers; phase medians are independent.
++The existing ABFL security/composition premises and small-final-batch threshold
++remain unchanged.
++
++[Selection, raw samples, final source fingerprints and test evidence](benchmarks/a2b-split3-100k-2026-10-22/RESULTS.md).
++
++
+ ## Truncation selector — 2026-10-22
+ 
+ Renamed the arithmetic-bit implementation to `TruncPrRandomBit` and its state
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+index d77750ce..9e673397 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+@@ -59,3 +59,18 @@ spu_cc_binary(
+         "@spulib//libspu/mpc/utils:simulate",
+     ],
+ )
++
++spu_cc_binary(
++    name = "conversion_bench",
++    srcs = ["conversion_bench.cc"],
++    deps = [
++        "@spulib//libspu/mpc:api",
++        "@spulib//libspu/mpc/aby3:protocol",
++        "@spulib//libspu/mpc/aby3:io",
++        "@spulib//libspu/mpc/common:pv2k",
++        "@spulib//libspu/mpc/spdzwise:io",
++        "@spulib//libspu/mpc/spdzwise:protocol",
++        "@spulib//libspu/mpc/spdzwise:state",
++        "@spulib//libspu/mpc/utils:simulate",
++    ],
++)
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/README.md b/src/libspu/mpc/spdzwise/benchmarks/README.md
+index 747aa109..e3a35f0a 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/README.md
++++ b/src/libspu/mpc/spdzwise/benchmarks/README.md
+@@ -1,5 +1,26 @@
+ # Malicious PPML Benchmark
+ 
++## RING split-3 A2B
++
++`conversion_bench` 比较 SPDZwise RING 的 value-only split-3 A2B 与正常注册的
++原生 ABY3 A2B。使用同一组 100,000 个完整 64 位输入，各轮重新分享并创建协议
++上下文。SPDZwise 在计时前完成输入认证，主计时包含转换与最后一次 ABFL 验证；
++ABY3 主计时包含其完整半诚实 A2B。输出重构与逐元素核对均不计时。
++
++```sh
++bash build.sh //:conversion_bench
++python3 run_conversion.py NEW_OUTPUT_DIRECTORY
++```
++
++固定 64 个后台 worker、预热一次、测量七次；每轮取三方完整主计时最大值，再统计
++中位数和范围。转换和验证分项中位数不可相加。记录逐方通信量、三方总发送量、
++消息数、峰值 RSS、源码及二进制指纹。`--count 1025 --repetitions 1` 可运行小规模
++正确性检查；过小批次仍受现有 ABFL 最终检查阈值限制。
++
++[100K 选型与最终结果](a2b-split3-100k-2026-10-22/RESULTS.md)保留了
++CSA + bit-sliced RCA、剪枝 Brent–Kung、word-packed Kogge–Stone 和原生 ABY3
++的实测数据。最终只保留总耗时最快的 RCA 实现及 ABY3 baseline。
++
+ ## Signed RING truncation
+ 
+ `truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的
+diff --git a/src/libspu/mpc/spdzwise/protocol.cc b/src/libspu/mpc/spdzwise/protocol.cc
+index 9f36f65e..777692ed 100644
+--- a/src/libspu/mpc/spdzwise/protocol.cc
++++ b/src/libspu/mpc/spdzwise/protocol.cc
+@@ -17,6 +17,7 @@
+ #include "libspu/mpc/spdzwise/boolean.h"
+ #include "libspu/mpc/spdzwise/conversion.h"
+ #include "libspu/mpc/spdzwise/ring_arithmetic.h"
++#include "libspu/mpc/spdzwise/ring_conversion.h"
+ #include "libspu/mpc/spdzwise/ring_truncation.h"
+ #include "libspu/mpc/spdzwise/state.h"
+ #include "libspu/mpc/standard_shape/protocol.h"
+@@ -98,7 +99,7 @@ void registerRingArithmeticPrototype(
+   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+   registerCommonKernels(ctx);
+   ring::registerArithmeticKernels(ctx->prot());
+-  ctx->prot()->regKernel<ring::TruncASelector>();
++  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B>();
+   registerBooleanKernels(ctx->prot());
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/protocol_test.cc b/src/libspu/mpc/spdzwise/protocol_test.cc
+index 05ca2d5a..7edf7d3f 100644
+--- a/src/libspu/mpc/spdzwise/protocol_test.cc
++++ b/src/libspu/mpc/spdzwise/protocol_test.cc
+@@ -112,7 +112,7 @@ TEST(SpdzWiseProtocol, RingRouteHasIndependentArithmeticAndSharedBoolean) {
+     EXPECT_TRUE(ctx.prot()->hasState(ProtocolSession::kBindName()));
+     EXPECT_EQ(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
+               nullptr);
+-    EXPECT_FALSE(ctx.hasKernel("a2b"));
++    EXPECT_TRUE(ctx.hasKernel("a2b"));
+     EXPECT_FALSE(ctx.hasKernel("b2a"));
+   });
+ }
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index 4436758c..f173b43e 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -86,6 +86,8 @@ class SpdzWiseState final : public ProtocolSession {
+   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
+   void check();
+   void finalize();
++  // Value-only split-3 RING A2B; AND checks are deferred to finalize().
++  NdArrayRef a2b(const NdArrayRef& in);
+   void validateBoolean(const NdArrayRef& value) const;
+   NdArrayRef publicBoolean(const NdArrayRef& value) const;
+   NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion.cc b/src/libspu/mpc/spdzwise/ring_conversion.cc
+new file mode 100644
+index 00000000..e25cc38f
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_conversion.cc
+@@ -0,0 +1,151 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++// Local split-3 follows MP-SPDZ SpdzWiseRingShare::split and
++// Rep3Share2::split(case 3); see MP-SPDZ-LICENSE.txt. Only value limbs enter
++// the circuit. The application ring is Z/2^64, irrespective of MAC extension.
++#include "libspu/mpc/spdzwise/ring_conversion.h"
++
++#include <algorithm>
++#include <array>
++#include <vector>
++
++#include "libspu/core/parallel_utils.h"
++#include "libspu/mpc/spdzwise/state.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++using Planes = std::vector<NdArrayRef>;
++NdArrayRef Zero(const Type& type, int64_t n) {
++  NdArrayRef a(type, {n});
++  std::fill_n(a.data<RepShare>(), n, RepShare{});
++  return a;
++}
++NdArrayRef Xor(const NdArrayRef& a, const NdArrayRef& b) {
++  NdArrayRef r(a.eltype(), a.shape());
++  const auto* x = a.data<RepShare>();
++  const auto* y = b.data<RepShare>();
++  auto* z = r.data<RepShare>();
++  for (int64_t i = 0; i < a.numel(); ++i)
++    z[i] = {x[i][0] ^ y[i][0], x[i][1] ^ y[i][1]};
++  return r;
++}
++// Batch independent gates into one ABFL call/round. All lanes, including the
++// last input block's padding, stay in the verifier's immutable snapshots.
++Planes AndLayer(SpdzWiseState* state, const Planes& a, const Planes& b) {
++  SPU_ENFORCE(!a.empty() && a.size() == b.size());
++  const int64_t n = a[0].numel();
++  NdArrayRef x(a[0].eltype(), {int64_t(a.size()) * n});
++  NdArrayRef y(x.eltype(), x.shape());
++  for (size_t j = 0; j < a.size(); ++j) {
++    std::copy_n(a[j].data<RepShare>(), n, x.data<RepShare>() + j * n);
++    std::copy_n(b[j].data<RepShare>(), n, y.data<RepShare>() + j * n);
++  }
++  auto z = state->booleanBinary(x, y, true, false);
++  Planes out;
++  for (size_t j = 0; j < a.size(); ++j) {
++    NdArrayRef v(z.eltype(), {n});
++    std::copy_n(z.data<RepShare>() + j * n, n, v.data<RepShare>());
++    out.push_back(std::move(v));
++  }
++  return out;
++}
++// In-place 64x64 transpose: row i, bit j maps to row j, bit i.
++void Transpose(std::array<uint64_t, 64>& a) {
++  uint64_t mask = 0x00000000ffffffffULL;
++  for (unsigned d = 32; d; d >>= 1, mask ^= mask << d) {
++    for (unsigned i = 0; i < 64; i = (i + d + 1) & ~d) {
++      const auto t = ((a[i] >> d) ^ a[i + d]) & mask;
++      a[i] ^= t << d;
++      a[i + d] ^= t;
++    }
++  }
++}
++// 63 CSA ANDs plus 62 ripple-carry ANDs per input; neither the CSA
++// carry above bit 63 nor the final addition carry is needed modulo 2^64.
++Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
++  const auto type = makeType<BShrTy>(state->session(), 64);
++  const auto blocks = in.numel() / 64 + (in.numel() % 64 != 0);
++  std::array<Planes, 3> x;
++  for (auto& summand : x)
++    for (size_t bit = 0; bit < 64; ++bit)
++      summand.push_back(Zero(type, blocks));
++  const NdArrayView<ring::AuthShare> input(in);
++  yacl::parallel_for(0, blocks, 64, [&](int64_t begin, int64_t end) {
++    for (auto block = begin; block < end; ++block) {
++      for (size_t c = 0; c < 2; ++c) {
++        std::array<uint64_t, 64> rows{};
++        const auto lanes = std::min(int64_t(64), in.numel() - 64 * block);
++        for (int64_t lane = 0; lane < lanes; ++lane) {
++          rows[lane] = uint64_t(input[64 * block + lane][c]);
++        }
++        Transpose(rows);
++        for (size_t bit = 0; bit < 64; ++bit)
++          x[(state->rank() + c) % 3][bit].data<RepShare>()[block][c] = rows[bit];
++      }
++    }
++  });
++  Planes s, lhs, rhs;
++  for (size_t bit = 0; bit < 64; ++bit) {
++    auto a = Xor(x[0][bit], x[2][bit]);
++    s.push_back(Xor(a, x[1][bit]));
++    if (bit < 63) {
++      lhs.push_back(std::move(a));
++      rhs.push_back(Xor(x[1][bit], x[2][bit]));
++    }
++  }
++  const auto products = AndLayer(state, lhs, rhs);
++  Planes b{Zero(type, blocks)};
++  for (size_t bit = 0; bit < 63; ++bit)
++    b.push_back(Xor(products[bit], x[2][bit]));
++  Planes result{s[0]};
++  auto carry = Zero(type, blocks);
++  for (size_t bit = 1; bit < 64; ++bit) {
++    result.push_back(Xor(Xor(s[bit], b[bit]), carry));
++    if (bit < 63) {
++      auto next = state->booleanBinary(Xor(s[bit], carry),
++                                       Xor(b[bit], carry), true, false);
++      carry = Xor(next, carry);
++    }
++  }
++  return result;
++}
++}  // namespace
++
++NdArrayRef SpdzWiseState::a2b(const NdArrayRef& in) {
++  try {
++    requireRunning();
++    SPU_ENFORCE(isRing(), "split-3 A2B requires RING");
++    validateInternal(in);
++    NdArrayRef out(makeType<BShrTy>(session_, 64), in.shape());
++    if (in.numel() == 0) return out;
++    const auto planes = Sliced(this, in);
++    const auto blocks = planes[0].numel();
++    yacl::parallel_for(0, blocks, 64, [&](int64_t begin, int64_t end) {
++      for (auto block = begin; block < end; ++block)
++        for (size_t c = 0; c < 2; ++c) {
++          std::array<uint64_t, 64> rows;
++          for (size_t bit = 0; bit < 64; ++bit)
++            rows[bit] = planes[bit].data<RepShare>()[block][c];
++          Transpose(rows);
++          const auto lanes = std::min(int64_t(64), in.numel() - 64 * block);
++          for (int64_t lane = 0; lane < lanes; ++lane) {
++            out.data<RepShare>()[64 * block + lane][c] = rows[lane];
++          }
++        }
++    });
++    return out;
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++void ring::A2B::evaluate(KernelEvalContext* ctx) const {
++  const auto& in = ctx->getParam<Value>(0);
++  ctx->pushOutput(Value(proc(ctx, in.data()), in.dtype()));
++}
++NdArrayRef ring::A2B::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
++  return ctx->getState<SpdzWiseState>()->a2b(in);
++}
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion.h b/src/libspu/mpc/spdzwise/ring_conversion.h
+new file mode 100644
+index 00000000..fab3c9b7
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_conversion.h
+@@ -0,0 +1,19 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#pragma once
++
++#include "libspu/mpc/kernel.h"
++
++namespace spu::mpc::spdzwise::ring {
++// Value-only split-3, bit-sliced CSA + ripple-carry addition modulo 2^64.
++// Uses the current ABFL session; final verification remains deferred.
++class A2B final : public UnaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "a2b"; }
++  void evaluate(KernelEvalContext* ctx) const override;
++  Kind kind() const override { return Kind::Dynamic; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
++};
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion_test.cc b/src/libspu/mpc/spdzwise/ring_conversion_test.cc
+new file mode 100644
+index 00000000..84bef949
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_conversion_test.cc
+@@ -0,0 +1,198 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#include "libspu/mpc/spdzwise/ring_conversion.h"
++
++#include <random>
++#include "gtest/gtest.h"
++#include "libspu/mpc/ab_api.h"
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++class BooleanTestAccess {
++ public:
++  static void corrupt(SpdzWiseState* state, size_t party, bool consistent) {
++    auto& triple = state->boolean_->pending_batches_.front().front();
++    if (state->rank() == party) triple[2][0] ^= 1;
++    if (consistent && state->rank() == (party + 2) % 3) triple[2][1] ^= 1;
++  }
++};
++namespace {
++RuntimeConfig Config() {
++  RuntimeConfig c(SPDZWISE, FM64);
++  c.spdzwise_config.domain = SpdzWiseConfig::RING;
++  return c;
++}
++NdArrayRef Plain(int64_t n) {
++  NdArrayRef x(makeType<RingTy>(FM64), {n});
++  std::mt19937_64 random(1234);
++  for (int64_t i = 0; i < n; ++i) {
++    const auto bit = size_t(i / 2) % 64;
++    x.data<uint64_t>()[i] = i < 128 ? (i % 2 ? (uint64_t(1) << bit) - 1 : uint64_t(1) << bit) : random();
++  }
++  if (n) x.data<uint64_t>()[n - 1] = ~uint64_t(0);
++  return x;
++}
++void Begin(SpdzWiseState* state, const std::vector<Value>& inputs = {}) {
++  std::vector<std::string> names(inputs.size());
++  for (size_t i = 0; i < names.size(); ++i) names[i] = std::to_string(i);
++  state->begin(ExecutableProto("a2b-test", names, {"out"}, "test"), inputs);
++}
++TEST(RingConversion, BoundariesShapesStridesAndAccumulatedSmallCalls) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const std::vector<int64_t> sizes{0, 1, 63, 64, 65, 130, 1025};
++  std::vector<NdArrayRef> plains;
++  std::vector<std::vector<NdArrayRef>> shares;
++  for (auto n : sizes) {
++    plains.push_back(Plain(n));
++    shares.push_back(io.toShares(plains.back(), VIS_SECRET));
++  }
++  const auto results = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    std::vector<Value> inputs;
++    for (const auto& batch : shares) inputs.emplace_back(batch[link->Rank()], DT_I64);
++    Begin(state, inputs);
++    std::vector<Value> outputs;
++    std::vector<std::string> names;
++    for (size_t j = 0; j < sizes.size(); ++j) {
++      auto x = import_s(&ctx, inputs[j]);
++      if (sizes[j] == 130) x = Value(x.data().reshape({65, 2}).transpose({1, 0}), x.dtype());
++      auto y = a2b(&ctx, x);
++      EXPECT_EQ(y.shape(), x.shape());
++      EXPECT_EQ(y.dtype(), x.dtype());
++      EXPECT_EQ(y.storage_type(), makeType<BShrTy>(state->session(), 64));
++      EXPECT_EQ(state->booleanChecks(), 0);
++      outputs.push_back(y);
++      names.push_back(std::to_string(j));
++    }
++    EXPECT_ANY_THROW(state->exportValue(outputs.back().data(), makeType<BOutputTy>(link->Rank(), 64, "test")));
++    state->finalize();
++    EXPECT_EQ(state->booleanChecks(), 1);
++    EXPECT_EQ(state->pendingBooleanBits(), 0);
++    state->prepareOutputs(&ctx, names, outputs);
++    guard.commit();
++    std::vector<NdArrayRef> result;
++    for (const auto& name : names) result.push_back(state->exportedValue(name).data());
++    return result;
++  });
++  for (size_t j = 0; j < sizes.size(); ++j) {
++    const auto actual = io.fromShares({results[0][j], results[1][j], results[2][j]});
++    auto expected = plains[j];
++    if (sizes[j] == 130) expected = expected.reshape({65, 2}).transpose({1, 0});
++    const NdArrayView<uint64_t> view(expected);
++    for (int64_t i = 0; i < sizes[j]; ++i) {
++      ASSERT_EQ(actual.data<uint64_t>()[i], view[i]) << j << ":" << i;
++      for (size_t rank = 0; rank < 3; ++rank)
++        ASSERT_EQ(results[rank][j].data<RepShare>()[i][1], results[(rank + 1) % 3][j].data<RepShare>()[i][0]);
++    }
++  }
++}
++
++TEST(RingConversion, ArithmeticCompositionHighLimbsAndBooleanConsumer) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const auto plain = Plain(1025);
++  const auto shares = io.toShares(plain, VIS_SECRET);
++  const auto result = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    Value input(shares[link->Rank()], DT_U64);
++    Begin(state, {input});
++    auto x = import_s(&ctx, input);
++    auto square = mul_aa(&ctx, x, x);
++    square.setDtype(x.dtype());
++    bool high = false;
++    for (int64_t i = 0; i < square.numel(); ++i)
++      high |= (square.data().data<ring::AuthShare>()[i][0] >> 64) != 0;
++    EXPECT_TRUE(high);
++    const auto before = state->arithmeticChecks();
++    auto b = a2b(&ctx, square);
++    auto z = and_bb(&ctx, b, b);
++    z.setDtype(b.dtype());
++    EXPECT_EQ(state->arithmeticChecks(), before);
++    state->finalize();
++    EXPECT_EQ(state->arithmeticChecks(), before + 1);
++    EXPECT_EQ(state->booleanChecks(), 1);
++    state->prepareOutputs(&ctx, {"out"}, {z});
++    guard.commit();
++    return state->exportedValue("out").data();
++  });
++  const auto actual = io.fromShares(result);
++  for (int64_t i = 0; i < plain.numel(); ++i) {
++    const auto x = plain.data<uint64_t>()[i];
++    EXPECT_EQ(actual.data<uint64_t>()[i], x * x);
++  }
++}
++TEST(RingConversion, WrongDomainSessionAndLifecycleRejected) {
++  for (int fault = 0; fault < 4; ++fault) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      if (fault != 3) Begin(state);
++      const Type type = fault == 0 ? makeType<AShrTy>(state->session()) :
++                        fault == 1 ? makeType<ring::AShrTy>("wrong-session") :
++                        fault == 2 ? makeType<ring::InputTy>(link->Rank()) :
++                                     makeType<ring::AShrTy>("no-session");
++      NdArrayRef input(type, {0});
++      EXPECT_ANY_THROW(state->a2b(input));
++      EXPECT_TRUE(state->failed());
++      EXPECT_ANY_THROW(state->exportedValue("out"));
++    });
++  }
++}
++TEST(RingConversion, EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold) {
++  for (int64_t n : {0, 1}) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      Begin(state);
++      auto x = state->publicValue(Plain(n).as(makeType<Pub2kTy>(FM64)));
++      EXPECT_NO_THROW(state->a2b(x));
++      if (n) {
++        EXPECT_GT(state->pendingBooleanBits(), 0);
++        EXPECT_ANY_THROW(state->finalize());
++      } else {
++        EXPECT_EQ(state->pendingBooleanBits(), 0);
++        EXPECT_NO_THROW(state->finalize());
++        EXPECT_EQ(state->booleanChecks(), 0);
++      }
++    });
++  }
++}
++TEST(RingConversion, CorruptConversionAndRejectedAtEveryParty) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (bool consistent : {false, true}) {
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        Begin(state);
++        auto x = state->publicValue(Plain(1025).as(makeType<Pub2kTy>(FM64)));
++        state->a2b(x);
++        BooleanTestAccess::corrupt(state, party, consistent);
++        try {
++          state->finalize();
++          FAIL() << "accepted corrupt conversion";
++        } catch (const std::exception& e) {
++          EXPECT_NE(std::string(e.what()).find(consistent ? "ABFL sacrifice failed" : "Boolean replicated copies disagree"), std::string::npos);
++        }
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(state->exportedValue("out"));
++      });
++    }
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
+new file mode 100644
+index 00000000..f5846be7
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
+@@ -0,0 +1,169 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#include <chrono>
++#include <condition_variable>
++#include <iomanip>
++#include <iostream>
++#include <mutex>
++
++#include "libspu/mpc/ab_api.h"
++#include "libspu/mpc/aby3/conversion.h"
++#include "libspu/mpc/aby3/io.h"
++#include "libspu/mpc/aby3/protocol.h"
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/ring_conversion.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++using Clock = std::chrono::steady_clock;
++double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
++  return std::chrono::duration<double, std::milli>(end - start).count();
++}
++class Barrier {
++  std::mutex mutex_;
++  std::condition_variable cv_;
++  size_t arrived_ = 0, generation_ = 0;
++
++ public:
++  void wait() {
++    std::unique_lock<std::mutex> lock(mutex_);
++    const auto generation = generation_;
++    if (++arrived_ == 3) {
++      arrived_ = 0;
++      ++generation_;
++      cv_.notify_all();
++    } else {
++      cv_.wait(lock, [&] { return generation_ != generation; });
++    }
++  }
++};
++
++uint64_t SplitMix(uint64_t& state) {
++  uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
++  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
++  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
++  return z ^ (z >> 31);
++}
++NdArrayRef Inputs(int64_t count) {
++  NdArrayRef out(makeType<RingTy>(FM64), {count});
++  const std::array<uint64_t, 8> edges{0, 1, ~uint64_t(0), uint64_t(1) << 63,
++      (uint64_t(1) << 63) - 1, 0xaaaaaaaaaaaaaaaaULL, 0x5555555555555555ULL, 0xffffffffULL};
++  uint64_t seed = 0x53504c4954334132ULL;
++  for (int64_t i = 0; i < count; ++i)
++    out.data<uint64_t>()[i] = size_t(i) < edges.size() ? edges[i] : SplitMix(seed);
++  return out;
++}
++struct Result {
++  double total_ms = 0, online_ms = 0, verify_ms = 0;
++  size_t bytes = 0, actions = 0, online_bytes = 0, verify_bytes = 0,
++         input_checks = 0, final_checks = 0, and_bits = 0;
++  NdArrayRef output;
++};
++void Run(const std::string& protocol, int64_t count, int repetitions) {
++  const bool wise = protocol != "aby3";
++  const auto plain = Inputs(count);
++  SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
++  auto aby_io = aby3::makeAby3Io(FM64, 3);
++  RuntimeConfig config(wise ? SPDZWISE : ABY3, FM64);
++  config.spdzwise_config.domain = SpdzWiseConfig::RING;
++  std::cout << std::fixed << std::setprecision(6)
++      << "protocol,count,iteration,rank,total_ms,online_ms,verify_ms,sent_bytes,online_bytes,verify_bytes,sent_actions,input_checks,final_checks,and_bits,outputs_verified\n";
++  for (int iteration = 0; iteration <= repetitions; ++iteration) {
++    const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
++                            : aby_io->toShares(plain, VIS_SECRET, -1);
++    Barrier barrier;
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      std::unique_ptr<SPUContext> ctx = wise ? std::make_unique<SPUContext>(config, link)
++                      : makeAby3Protocol(config, link);
++      if (wise) registerArithmeticPrototype(ctx.get(), link);
++      auto* state = wise ? ctx->prot()->getState<SpdzWiseState>() : nullptr;
++      ProtocolRunGuard guard(ctx.get());
++      Value x(inputs[link->Rank()], DT_U64);
++      Result r;
++      if (wise) {
++        SPU_ENFORCE(dynamic_cast<ring::A2B*>(ctx->prot()->getKernel("a2b")));
++        state->begin(ExecutableProto("a2b-bench", {"x"}, {"y"}, "test"), {x});
++        x = import_s(ctx.get(), x);
++        r.input_checks = state->arithmeticChecks();
++        SPU_ENFORCE(r.input_checks == 1);
++      } else {
++        SPU_ENFORCE(dynamic_cast<aby3::A2B*>(ctx->prot()->getKernel("a2b")));
++      }
++      const auto stats = link->GetStats();
++      barrier.wait();
++      const auto bytes = stats->sent_bytes.load();
++      const auto actions = stats->sent_actions.load();
++      const auto start = Clock::now();
++      auto y = a2b(ctx.get(), x);
++      const auto online_stop = Clock::now();
++      const auto online_bytes = stats->sent_bytes.load();
++      if (wise) {
++        r.and_bits = state->pendingBooleanBits();
++        state->finalize();
++      }
++      const auto stop = Clock::now();
++      r.total_ms = Ms(start, stop);
++      r.online_ms = Ms(start, online_stop);
++      r.verify_ms = wise ? Ms(online_stop, stop) : 0;
++      r.bytes = stats->sent_bytes.load() - bytes;
++      r.online_bytes = online_bytes - bytes;
++      r.verify_bytes = r.bytes - r.online_bytes;
++      r.actions = stats->sent_actions.load() - actions;
++      if (!wise) y.setDtype(x.dtype());  // Native low-level kernels erase dtype.
++      SPU_ENFORCE(y.shape() == x.shape() && y.dtype() == x.dtype() &&
++                  y.storage_type().as<BShare>()->nbits() == 64);
++      if (wise) {
++        r.final_checks = state->booleanChecks();
++        SPU_ENFORCE(r.final_checks == 1 && state->pendingBooleanBits() == 0);
++        SPU_ENFORCE(state->arithmeticChecks() == r.input_checks);
++        state->prepareOutputs(ctx.get(), {"y"}, {y});
++        guard.commit();
++        SPU_ENFORCE(state->booleanChecks() == 1 && state->arithmeticChecks() == r.input_checks);
++        r.output = state->exportedValue("y").data();
++      } else {
++        r.output = y.data();
++        guard.commit();
++      }
++      return r;
++    });
++    std::vector<NdArrayRef> output;
++    for (const auto& r : results) output.push_back(r.output);
++    const auto actual = wise ? wise_io.fromShares(output) : aby_io->fromShares(output);
++    for (int64_t i = 0; i < count; ++i) {
++      SPU_ENFORCE(actual.data<uint64_t>()[i] == plain.data<uint64_t>()[i],
++                  "A2B output mismatch: iteration {}, element {}", iteration, i);
++      for (size_t rank = 0; rank < 3; ++rank)
++        SPU_ENFORCE(output[rank].data<RepShare>()[i][1] == output[(rank + 1) % 3].data<RepShare>()[i][0]);
++    }
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& r = results[rank];
++      std::cout << protocol << ',' << count << ',' << iteration << ',' << rank << ','
++          << r.total_ms << ',' << r.online_ms << ',' << r.verify_ms << ',' << r.bytes << ','
++          << r.online_bytes << ',' << r.verify_bytes << ',' << r.actions << ','
++          << r.input_checks << ',' << r.final_checks << ',' << r.and_bits << ',' << count << '\n';
++    }
++    std::cout.flush();
++    std::cerr << protocol << " iteration " << iteration << ": verified all " << count << " outputs\n";
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
++int main(int argc, char** argv) {
++  try {
++    const std::string protocol = argc > 1 ? argv[1] : "spdzwise";
++    SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
++    const auto count = argc > 2 ? std::stoll(argv[2]) : 100000;
++    const auto repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
++    SPU_ENFORCE(count > 0 && repetitions > 0 && argc <= 4);
++    spu::mpc::spdzwise::Run(protocol, count, repetitions);
++  } catch (const std::exception& e) {
++    std::cerr << e.what() << '\n';
++    return 1;
++  }
++}
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py b/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
+new file mode 100644
+index 00000000..8df02980
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
+@@ -0,0 +1,157 @@
++"""Archive RING split-3 A2B and native ABY3 conversion measurements.
++
++Build: bash build.sh //:conversion_bench
++Run: python3 run_conversion.py NEW_OUTPUT_DIRECTORY
++"""
++import argparse
++import csv
++import hashlib
++import json
++import os
++import platform
++import re
++import statistics
++import subprocess
++import time
++from datetime import datetime
++from pathlib import Path
++from zoneinfo import ZoneInfo
++
++BENCH = Path(__file__).resolve().parent
++ROOT = BENCH.parents[4]
++
++
++def digest(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def save(path, data):
++    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
++
++
++def summarize(rows, count, repetitions, wise):
++    assert len(rows) == 3 * (repetitions + 1)
++    samples = []
++    for iteration in range(repetitions + 1):
++        batch = [r for r in rows if int(r["iteration"]) == iteration]
++        assert len(batch) == 3 and {int(r["rank"]) for r in batch} == {0, 1, 2}
++        for r in batch:
++            assert int(r["count"]) == int(r["outputs_verified"]) == count
++            assert int(r["input_checks"]) == int(r["final_checks"]) == int(wise)
++            assert int(r["sent_bytes"]) == int(r["online_bytes"]) + int(r["verify_bytes"])
++            if wise:
++                assert abs(float(r["total_ms"]) - float(r["online_ms"]) - float(r["verify_ms"])) < 1e-4
++                assert int(r["and_bits"]) > 0
++            else:
++                assert float(r["verify_ms"]) == int(r["verify_bytes"]) == int(r["and_bits"]) == 0
++        if iteration:
++            samples.append({
++                "iteration": iteration,
++                **{key: max(float(r[key]) for r in batch) for key in ("total_ms", "online_ms", "verify_ms")},
++                **{key: sum(int(r[key]) for r in batch) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions")},
++            })
++    return {
++        "samples": samples,
++        "phases": {key: {"median_ms": statistics.median(s[key] for s in samples),
++                          "min_ms": min(s[key] for s in samples),
++                          "max_ms": max(s[key] for s in samples)} for key in ("total_ms", "online_ms", "verify_ms")},
++        "three_party_traffic": {key: sorted({s[key] for s in samples}) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions")},
++        "recorded_and_bits_per_party": sorted({int(r["and_bits"]) for r in rows}),
++        "outputs_verified": count * (repetitions + 1),
++    }
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--count", type=int, default=100000)
++    parser.add_argument("--repetitions", type=int, default=7)
++    parser.add_argument("--protocols", nargs="+", choices=["spdzwise", "aby3"], default=["spdzwise", "aby3"])
++    args = parser.parse_args()
++    assert args.count > 0 and args.repetitions > 0
++    out = args.output.resolve()
++    out.mkdir(parents=True, exist_ok=False)
++    binary = BENCH / "bazel-bin/conversion_bench"
++    sources = sorted(BENCH.parent.glob("*.cc")) + sorted(BENCH.parent.glob("*.h"))
++    sources += [BENCH.parent / "BUILD.bazel"]
++    sources += [BENCH / n for n in ("conversion_bench.cc", "run_conversion.py", "BUILD.bazel", "build.sh", "MODULE.bazel", "MODULE.bazel.lock", ".bazelrc")]
++    sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "MODULE.bazel.lock", "libspu/mpc/aby3/conversion.cc", "libspu/mpc/aby3/conversion.h", "libspu/mpc/aby3/boolean.cc", "libspu/mpc/aby3/protocol.cc", "libspu/mpc/common/prg_state.cc", "libspu/core/parallel_utils.h")]
++    parameters = {
++        "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++        "count": args.count, "repetitions": args.repetitions, "warmups": 1,
++        "protocols": args.protocols, "YACL_NUM_THREADS": 65, "background_workers": 64,
++        "transport": "FactoryMem, three parties in one process; protocols run serially",
++        "timing": "A2B plus one final ABFL verification; native ABY3 A2B only. Exclude input sharing/authentication, context/PRSS setup, export/reconstruction/comparison.",
++        "aggregation": "maximum whole interval across parties per iteration, then median/min/max; phase medians must not be summed",
++        "input": "full-width uint64 SplitMix64 seed 0x53504c4954334132 with fixed edge prefix; identical plaintext across protocols; fresh protocol-native shares and context each iteration",
++        "security": "SPDZwise uses existing ABFL checks; ABY3 is the native semi-honest baseline",
++        "platform": platform.platform(), "affinity": sorted(os.sched_getaffinity(0)),
++        "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
++        "binary_sha256": digest(binary),
++        "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in sources},
++    }
++    save(out / "parameters.json", parameters)
++    (out / "lscpu.txt").write_text(subprocess.check_output(["lscpu"], text=True))
++    (out / "meminfo.txt").write_text(Path("/proc/meminfo").read_text())
++    (out / "git-status.txt").write_text(subprocess.check_output(["git", "status", "--short"], cwd=ROOT, text=True))
++    results = {}
++    for protocol in args.protocols:
++        command = [str(binary), protocol, str(args.count), str(args.repetitions)]
++        start = time.monotonic()
++        with (out / (protocol + ".stdout")).open("w") as stdout, (out / (protocol + ".log")).open("w") as stderr:
++            process = subprocess.Popen(command, stdout=stdout, stderr=stderr, env=dict(os.environ, YACL_NUM_THREADS="65"))
++            _, status, usage = os.wait4(process.pid, 0)
++            process.returncode = os.waitstatus_to_exitcode(status)
++        resources = {"command": command, "exit_code": process.returncode,
++                     "wall_seconds": time.monotonic() - start, "user_seconds": usage.ru_utime,
++                     "system_seconds": usage.ru_stime, "max_rss_kib": usage.ru_maxrss}
++        save(out / (protocol + "-resources.json"), resources)
++        if process.returncode:
++            raise SystemExit(f"{protocol} failed; inspect {out / (protocol + '.log')}")
++        stdout_text = (out / (protocol + ".stdout")).read_text()
++        pools = {int(n) for n in re.findall(r"Create a fixed thread pool with size (\d+)", stdout_text)}
++        assert pools <= {64} and (args.count < 32768 or pools == {64}), pools
++        lines = [s for s in stdout_text.splitlines(True) if s.startswith(("protocol,", protocol + ","))]
++        (out / (protocol + ".csv")).write_text("".join(lines))
++        results[protocol] = summarize(list(csv.DictReader(lines)), args.count, args.repetitions, protocol != "aby3")
++        results[protocol]["resources"] = resources
++        print(protocol, results[protocol]["phases"], flush=True)
++    if "aby3" in results:
++        base = results["aby3"]
++        for name, r in results.items():
++            if name != "aby3":
++                r["vs_aby3"] = {
++                    "total_time_ratio": r["phases"]["total_ms"]["median_ms"] / base["phases"]["total_ms"]["median_ms"],
++                    "online_time_ratio": r["phases"]["online_ms"]["median_ms"] / base["phases"]["total_ms"]["median_ms"],
++                    "traffic_ratio": r["three_party_traffic"]["sent_bytes"][0] / base["three_party_traffic"]["sent_bytes"][0],
++                }
++    save(out / "summary.json", results)
++    table = ["| Protocol | Total ms | Range ms | Conversion ms | Verification ms | Total sent bytes (3 parties) | Peak RSS MiB |",
++             "|---|---:|---:|---:|---:|---:|---:|"]
++    for name, r in results.items():
++        p = r["phases"]
++        t = p["total_ms"]
++        table.append(f"| {name} | {t['median_ms']:.3f} | {t['min_ms']:.3f}–{t['max_ms']:.3f} | {p['online_ms']['median_ms']:.3f} | {p['verify_ms']['median_ms']:.3f} | {r['three_party_traffic']['sent_bytes'][0]:,} | {r['resources']['max_rss_kib']/1024:.1f} |")
++    report = f"""# RING split-3 A2B versus native ABY3
++
++{args.count:,} full-width 64-bit inputs; three-party FactoryMem; 64 background workers; one warmup and {args.repetitions} measured iterations. Fresh context and native input shares every iteration. All outputs, including warmup, were reconstructed and compared exactly, outside timing.
++
++SPDZwise timing includes conversion and one final ABFL verification, including fresh verification material. Native ABY3 timing includes its complete registered A2B operation. Input authentication, protocol initialization and output reconstruction are excluded. ABY3 is a semi-honest baseline.
++
++{chr(10).join(table)}
++
++Each sample is the maximum whole interval across the three parties; the table reports medians and ranges. Separately aggregated phase medians cannot be summed. CSV includes per-party phase traffic and message counts. Peak RSS covers the whole three-party process, including input preparation.
++"""
++    for name, r in results.items():
++        if "vs_aby3" in r:
++            ratio = r["vs_aby3"]
++            report += f"\n{name} / ABY3: total time **{ratio['total_time_ratio']:.3f}x**, conversion time **{ratio['online_time_ratio']:.3f}x**, total traffic **{ratio['traffic_ratio']:.3f}x**.\n"
++    report += "\nReproduce with `bash build.sh //:conversion_bench` and `python3 run_conversion.py NEW_OUTPUT_DIRECTORY`. Commands, source/binary fingerprints, environment, raw samples and resources are archived alongside this report. These are local-memory transport results.\n"
++    (out / "RESULTS.md").write_text(report)
++    parameters["finished_at"] = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
++    save(out / "parameters.json", parameters)
++    (out / "SHA256SUMS").write_text("".join(f"{digest(p)}  {p.name}\n" for p in sorted(out.iterdir()) if p.is_file()))
++
++
++if __name__ == "__main__":
++    main()

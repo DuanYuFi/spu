@@ -1,0 +1,90 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:ring_conversion_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 5 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 5 tests from RingConversion
+[ RUN      ] RingConversion.BoundariesShapesStridesAndAccumulatedSmallCalls
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[2026-10-22 07:15:34.183] [info] [thread_pool.cc:30] Create a fixed thread pool with size 64
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[       OK ] RingConversion.BoundariesShapesStridesAndAccumulatedSmallCalls (55 ms)
+[ RUN      ] RingConversion.ArithmeticCompositionHighLimbsAndBooleanConsumer
+[       OK ] RingConversion.ArithmeticCompositionHighLimbsAndBooleanConsumer (6 ms)
+[ RUN      ] RingConversion.WrongDomainSessionAndLifecycleRejected
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[       OK ] RingConversion.WrongDomainSessionAndLifecycleRejected (1 ms)
+[ RUN      ] RingConversion.EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[       OK ] RingConversion.EmptyNeedsNoAndAndSmallCallKeepsExistingCheckThreshold (2 ms)
+[ RUN      ] RingConversion.CorruptConversionAndRejectedAtEveryParty
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1349/maps: errno=2
+[       OK ] RingConversion.CorruptConversionAndRejectedAtEveryParty (26 ms)
+[----------] 5 tests from RingConversion (92 ms total)
+
+[----------] Global test environment tear-down
+[==========] 5 tests from 1 test suite ran. (92 ms total)
+[  PASSED  ] 5 tests.
