@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="15" failures="0" disabled="0" errors="0" time="0.497" timestamp="2026-10-22T23:36:20.258" name="AllTests">
+  <testsuite name="RingConversion" tests="15" failures="0" disabled="0" skipped="0" errors="0" time="0.497" timestamp="2026-10-22T23:36:20.258">
+    <testcase name="BoundariesShapesStridesAndAccumulatedSmallCalls" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="108" status="run" result="completed" time="0.026" timestamp="2026-10-22T23:36:20.258" classname="RingConversion" />
+    <testcase name="ArithmeticCompositionHighLimbsAndBooleanConsumer" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="161" status="run" result="completed" time="0.013" timestamp="2026-10-22T23:36:20.284" classname="RingConversion" />
+    <testcase name="WrongDomainSessionAndLifecycleRejected" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="201" status="run" result="completed" time="0.002" timestamp="2026-10-22T23:36:20.297" classname="RingConversion" />
+    <testcase name="EmptyNeedsNoAndAndSmallCallUsesZeroPadding" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="219" status="run" result="completed" time="0.003" timestamp="2026-10-22T23:36:20.300" classname="RingConversion" />
+    <testcase name="CorruptConversionAndRejectedAtEveryParty" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="235" status="run" result="completed" time="0.018" timestamp="2026-10-22T23:36:20.303" classname="RingConversion" />
+    <testcase name="MsbBoundariesShapesStridesAndBooleanOutput" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="259" status="run" result="completed" time="0.029" timestamp="2026-10-22T23:36:20.322" classname="RingConversion" />
+    <testcase name="MsbHalComparisonSecretAndPublicOperands" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="344" status="run" result="completed" time="0.02" timestamp="2026-10-22T23:36:20.351" classname="RingConversion" />
+    <testcase name="MsbRejectsWrongDomainSessionAndLifecycle" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="406" status="run" result="completed" time="0.005" timestamp="2026-10-22T23:36:20.371" classname="RingConversion" />
+    <testcase name="MsbRejectsCorruptCarryAndPaddingAtEveryParty" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="425" status="run" result="completed" time="0.026" timestamp="2026-10-22T23:36:20.377" classname="RingConversion" />
+    <testcase name="B2AWidthsShapesAndAuthenticatedOutput" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="444" status="run" result="completed" time="0.102" timestamp="2026-10-22T23:36:20.404" classname="RingConversion" />
+    <testcase name="B2ARoundtripConsumersAndFreshRepeatedMasks" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="512" status="run" result="completed" time="0.023" timestamp="2026-10-22T23:36:20.506" classname="RingConversion" />
+    <testcase name="B2AEmptyAndSmallCallsWithZeroPadding" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="546" status="run" result="completed" time="0.043" timestamp="2026-10-22T23:36:20.529" classname="RingConversion" />
+    <testcase name="B2AInvalidInputAndLifecycleRejected" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="583" status="run" result="completed" time="0.005" timestamp="2026-10-22T23:36:20.573" classname="RingConversion" />
+    <testcase name="B2ARejectsFaultsBeforeOpeningOrOutput" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="608" status="run" result="completed" time="0.152" timestamp="2026-10-22T23:36:20.578" classname="RingConversion" />
+    <testcase name="B2ARejectsOpeningWireEquivocation" file="libspu/mpc/spdzwise/ring_conversion_test.cc" line="669" status="run" result="completed" time="0.024" timestamp="2026-10-22T23:36:20.731" classname="RingConversion" />
+  </testsuite>
+</testsuites>

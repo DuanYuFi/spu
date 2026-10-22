@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/truncation_bench",
+    "aby3-exact",
+    "100000",
+    "7"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 2.397522974992171,
+  "user_seconds": 7.330603,
+  "system_seconds": 1.467754,
+  "max_rss_kib": 135036,
+  "loadavg_at_end": [
+    25.69580078125,
+    20.80859375,
+    18.2685546875
+  ]
+}

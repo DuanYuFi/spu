@@ -1,0 +1,113 @@
+{
+  "aby3-exact": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 298.052213,
+        "material_ms": 0.0,
+        "online_ms": 298.052213,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 2,
+        "total_ms": 285.973778,
+        "material_ms": 0.0,
+        "online_ms": 285.973778,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 3,
+        "total_ms": 288.482292,
+        "material_ms": 0.0,
+        "online_ms": 288.482292,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 4,
+        "total_ms": 282.113848,
+        "material_ms": 0.0,
+        "online_ms": 282.113848,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 5,
+        "total_ms": 280.834189,
+        "material_ms": 0.0,
+        "online_ms": 280.834189,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 6,
+        "total_ms": 282.852566,
+        "material_ms": 0.0,
+        "online_ms": 282.852566,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 7,
+        "total_ms": 253.501128,
+        "material_ms": 0.0,
+        "online_ms": 253.501128,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 70400000,
+        "total_verify_bytes": 0
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 282.852566,
+        "min_ms": 253.501128,
+        "max_ms": 298.052213
+      },
+      "material_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "online_ms": {
+        "median_ms": 282.852566,
+        "min_ms": 253.501128,
+        "max_ms": 298.052213
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "internal_verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "ns_per_element": 2828.52566,
+    "elements_per_second": 353541.07411562244,
+    "bytes_per_party": [
+      23200000,
+      24000000
+    ],
+    "total_sent_bytes": [
+      70400000
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  }
+}

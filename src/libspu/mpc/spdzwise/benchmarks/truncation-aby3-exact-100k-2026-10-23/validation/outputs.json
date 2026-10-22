@@ -1,0 +1,19 @@
+{
+  "full_run": {
+    "inputs_per_iteration": 100000,
+    "warmups": 1,
+    "measured_iterations": 7,
+    "outputs_verified": 800000,
+    "strict_floor": true,
+    "mismatches": 0
+  },
+  "smoke": {
+    "protocols": [
+      "spdzwise",
+      "aby3",
+      "aby3-exact"
+    ],
+    "outputs_verified_per_protocol": 2000,
+    "all_passed": true
+  }
+}

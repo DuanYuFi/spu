@@ -1,13 +1,14 @@
 # Malicious PPML 开发进展
 
-更新日期：2026-10-22。当前实现是三方 **SPDZwise FIELD/RING 算术原型**，尚未完成恶意安全 PPML 后端验收。`SPDZWISE` 已接入 C++/protobuf/Python 配置和 IO，生产协议工厂仍显式拒绝执行；单元测试和 benchmark 通过 C++ `registerArithmeticPrototype()` 入口运行。
+更新日期：2026-10-23。当前实现是三方 **SPDZwise FIELD/RING 算术原型**，尚未完成恶意安全 PPML 后端验收。`SPDZWISE` 已接入 C++/protobuf/Python 配置和 IO，生产协议工厂仍显式拒绝执行；单元测试和 benchmark 通过 C++ `registerArithmeticPrototype()` 入口运行。
 
 ## 目前代码进展
 
 - **域与分享**：`p=2^61-1`，FM64 存储；秘密数采用中心化有符号解释，默认 16 位小数。实现域运算、输入范围检查、带 MAC 的内部分享及客户端输入/输出类型。
 - **配置与路由**：对外统一使用 `SPDZWISE`，通过 `spdzwise_config.domain` 选择 `FIELD` 或 `RING`，两者都只允许 `FM64`。默认 `FIELD` 对应 Mersenne 素数域 `p=2^61-1`；`RING` 已有独立注册和 IO 路径，内部为 `Z/(2^128)`，应用/输出位宽为 64，不回退到 field。FIELD 与 RING 乘法内核分别位于 `spdzwise::field`、`spdzwise::ring` 命名空间，算术、ABFL Boolean 和 conversion 预留入口已分文件存放。
 - **算术协议**：输入副本一致性检查、输入认证、加法/取负/公开乘法、秘密乘法和矩阵乘法；输入、结果进入认证队列后检查。内部 MAC 类型禁止序列化，只有检查完成并提交的客户端输出可以导出。
-- **RING 概率截断**：实现 MP-SPDZ `TruncPrRing(signed=True,k=63)`，支持符号未知、正负混合的认证输入 `-2^62 <= x < 2^62`；用公开偏移处理符号，输出保留 MAC。FIELD 截断未实现；本次不包含满 64 位输入路线。
+- **RING 精确截断**：`TruncASelector` 默认使用 `TruncNaive`，执行 A2B → 本地符号扩展右移 → B2A，精确输出 `floor(x/2^m)`；支持完整 int64 范围、`m=0..63`，输出保留 MAC，全部转换 AND 在 B2A 打开前统一验证。
+- **RING 概率截断**：实现 MP-SPDZ `TruncPrRing(signed=True,k=63)`，支持符号未知、正负混合的认证输入 `-2^62 <= x < 2^62`；用公开偏移处理符号，输出保留 MAC。保留为显式 `TruncPrRandomBit` 路径，不再是默认方案；该概率算法仍不支持满 64 位输入。FIELD 截断未实现。
 - **随机性与验证**：key、乘法掩码、秘密检查系数使用独立的双边 AES-CTR PRSS 流，F61 采用拒绝采样。verification 直接从队列读取记录，合并 value/MAC 点积归约及交换；每条记录本地乘法由 6 次降为 4 次，单次非空检查每方发送 5 次、共 64 B 应用 payload。
 - **框架集成**：`ProtocolSession` 提供导入、最终检查、暂存输出、提交和失败后禁用导出；device/Python 路径增加相应 hook，HAL 增加协议比较分派。现有协议未安装 session 时沿用原路径。device/Python 完整集成仍未验收。
 - **正确性覆盖**：C++ 协议、IO、会话和 HAL 分派测试；Python 使用真实 C++ 域头文件与大整数对照，并测试明文数值规格。篡改用例覆盖不同服务器和大批次不同位置的 MAC、失败后的会话中止和输出阻断。
@@ -16,7 +17,7 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 
 RING/FM64 已实现 split-3 A2B：仅转换 authenticated share 的 value 低 64 位，采用 CSA + bit-sliced RCA，所有秘密 AND 纳入会话最终 ABFL 验证；不转换 MAC share。技术与论文依据见 [SPDZwise README](src/libspu/mpc/spdzwise/README.md#ring-split-3-a2b)，测量见下方 Building Blocks Benchmark。
 
-当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B/B2A、精确截断、比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
+当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B/B2A、FIELD 截断、FIELD 比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
 
 实现位于 [`src/libspu/mpc/spdzwise`](src/libspu/mpc/spdzwise/)，协议参考映射和数值约定见其 [README](src/libspu/mpc/spdzwise/README.md)。
 
@@ -274,10 +275,10 @@ RSS 是承载三方的整个进程峰值，包含输入准备。结果仅代表�
 全部验证通信及检查后的导出/提交**均在计时内**。输入分享/认证、上下文及 PRSS
 初始化、明文重构和正确性核对不计时。ABY3 使用原生半诚实实现。
 
-| 协议 | 总耗时中位数（ms） | 范围（ms） | 电路（ms） | 最终验证及输出（ms） | 三方总发送（B） |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| SPDZwise RING | **273.963** | 261.656–305.249 | 23.430 | 250.763 | **361,627,200** |
-| 原生 ABY3 | **193.877** | 189.551–199.582 | 193.875 | 0.002 | **10,800,000** |
+| 协议          | 总耗时中位数（ms） |      范围（ms） | 电路（ms） | 最终验证及输出（ms） | 三方总发送（B） |
+| ------------- | -----------------: | --------------: | ---------: | -------------------: | --------------: |
+| SPDZwise RING |        **273.963** | 261.656–305.249 |     23.430 |              250.763 | **361,627,200** |
+| 原生 ABY3     |        **193.877** | 189.551–199.582 |    193.875 |                0.002 |  **10,800,000** |
 
 SPDZwise / ABY3 的总耗时比为 **1.413×**（约慢 **41.3%**），通信量比为 **33.484×**。
 SPDZwise 的最终验证及输出阶段三方发送 **352,586,808 B**；电路阶段发送 **9,040,392 B**。
@@ -296,30 +297,49 @@ SPDZwise 的最终验证及输出阶段三方发送 **352,586,808 B**；电路�
 复现：在 `src/libspu/mpc/spdzwise/benchmarks` 下执行
 `bash build.sh //:comparison_bench`，再执行 `python3 run_comparison.py NEW_OUTPUT_DIRECTORY`。
 
-#### Signed RING Truncation Benchmark
+#### Truncation Benchmark
 
-保留最后一次完整测量（2026-10-22）：100,000 个正负混合输入，`|x|<2^62`，
-截断 16 位；ABY3 使用正常注册的 `TruncAPr2`，双方均传 `SignType::Unknown`。
-三方 FactoryMem、64 个后台 worker、预热一次、正式测量七次；每轮取三方主区间
-最大值，再统计中位数。301 个回归用例通过，所有轮次的全部输出均验证通过。
+统一配置：**100,000 个正负混合 FM64 输入**，`|x|<2^62`，截断 **16 位**；
+三方 FactoryMem，64 个后台 worker（`YACL_NUM_THREADS=65`），预热 1 次、正式测量
+7 次，每轮新上下文，各组串行运行。时间取每轮三方最大值的中位数；通信量为三方总发送字节。
+**Exact = Yes 表示逐元素精确等于 `floor(x/2^16)`，包括负数。**
 
-| 协议           | 主耗时（ms） | 随机材料（ms） | 在线阶段（ms） | 计时外认证检查（ms） |
-| -------------- | -----------: | -------------: | -------------: | -------------------: |
-| SPDZwise RING  |     3431.204 |       3419.199 |         16.493 |             1201.781 |
-| ABY3 TruncAPr2 |        8.728 |   包含于算子内 |          8.728 |                    0 |
+| Protocol                                       |  Exact  |     Total Time |       Total Comm. | Verification Time |
+| ---------------------------------------------- | :-----: | -------------: | ----------------: | ----------------: |
+| SPDZwise TruncNaive（默认，2026-10-23）        | **Yes** | **358.779 ms** | **484,065,462 B** |    **299.166 ms** |
+| ABY3 exact（A2B → ARShiftB → B2A，2026-10-23） | **Yes** | **282.853 ms** |  **70,400,000 B** |          **0 ms** |
+| ABY3 TruncAPr2（2026-10-23）                   |   No    |       8.992 ms |       2,800,000 B |              0 ms |
 
-主计时从正确输入 shares 开始，包含现场随机材料生成及必要内部检查，输出
-shares 形成即停止。SPDZwise 输入已认证、输出保留 MAC；ABY3 为普通 replicated
-shares。输入认证、最终认证检查与输出重构不计入主耗时。分项独立统计，不能相加
-重建主耗时。
+`TruncNaive` 是**精确截断**：A2B → 本地符号扩展右移 → B2A，当前为 `TruncASelector`
+默认方案，支持完整 int64 范围、0–63 位截断并保留 MAC。其 A2B 和 B2A 的全部 AND
+在 B2A 打开前统一验证，每方每轮覆盖 31,310,016 个含填充位的 AND bits。
 
-SPDZwise 主耗时约为 ABY3 的 **393.13 倍**。计时内三方总发送量分别为
-1,436,027,195 B 和 2,800,000 B。该结果为本机内存通信，主耗时未包括最终认证检查；
-ABY3 保留自身的舍入修正。
+2026-10-23 的 SPDZwise **Total Time/Total Comm. 包含现场随机材料生成、全部必要
+MAC/ABFL 验证和掩码打开**；Verification Time 是其中的验证部分，不能再次加到总时间。
+输入认证、调用后的空检查、输出导出和明文重构不计时。ABY3 为半诚实协议，没有恶意验证阶段。
+分阶段中位数独立统计，不能相加重建主指标。
 
-[完整结果与原始数据](src/libspu/mpc/spdzwise/benchmarks/truncation-signed-100k-optimized-2026-10-22/RESULTS.md)、
-[算法及输入契约](src/libspu/mpc/spdzwise/README.md#signed-ring-probabilistic-truncation)、
-[复现命令](src/libspu/mpc/spdzwise/benchmarks/README.md#signed-ring-truncation)。
+结果仅代表本机内存通信及 100K 批量。
+
+`ENABLE_PRECISE_ABY3_TRUNCPR` 在当前源码中已开启，但注册的是概率舍入的
+`TruncAPr2`，仍有 LSB 舍入误差，不能标为 Exact。表中的 **ABY3 exact** 使用正常注册的
+A2B → ARShiftB(16) → B2ASelector，实现相同的精确 floor 语义；未修改 ABY3 默认
+`trunc_a`。主计时包含完整转换及内部随机性，输出返回算术 shares；范围为
+**253.501–298.052 ms**，三方进程峰值 RSS 为 **131.9 MiB**。
+本次追加实验同样核对 **800,000 个输出**，全部精确正确。
+
+2026-10-23 保留的 Naive / ABY3 实验各核对 **800,000 个输出**，Naive 全部严格等于 floor；
+九个回归目标共 **323 个用例通过**，覆盖完整 int64、所有位移、非连续输入、尾块、
+MAC 关系、后续算术及打开前故障阻断。
+
+[ABY3 精确截断完整结果及原始数据](src/libspu/mpc/spdzwise/benchmarks/truncation-aby3-exact-100k-2026-10-23/RESULTS.md)、
+[Naive / ABY3 完整结果及原始数据](src/libspu/mpc/spdzwise/benchmarks/truncation-naive-100k-2026-10-23/RESULTS.md)、
+[回归验证](src/libspu/mpc/spdzwise/benchmarks/truncation-naive-100k-2026-10-23/validation/)、
+[历史 ABY3 结果](src/libspu/mpc/spdzwise/benchmarks/truncation-signed-100k-optimized-2026-10-22/RESULTS.md)、
+[精确截断算法契约](src/libspu/mpc/spdzwise/README.md#signed-ring-exact-truncation-default)。
+复现：在 `src/libspu/mpc/spdzwise/benchmarks` 执行 `bash build.sh //:truncation_bench`，
+再执行 `python3 run_truncation.py NEW_OUTPUT_DIRECTORY`；单独复现 ABY3 精确截断时添加
+`--protocols aby3-exact`。
 
 ### PPML Tasks
 

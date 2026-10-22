@@ -1,0 +1,39 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 9 targets (4 packages loaded, 0 targets configured)
+Analyzing: 9 targets (4 packages loaded, 0 targets configured)
+
+Analyzing: 9 targets (203 packages loaded, 6749 targets configured)
+
+Analyzing: 9 targets (267 packages loaded, 17819 targets configured)
+
+INFO: Analyzed 9 targets (267 packages loaded, 17819 targets configured).
+[1,662 / 1,664] 8 / 9 tests; Compiling libspu/mpc/spdzwise/ring_truncation_test.cc; 1s processwrapper-sandbox
+[1,662 / 1,664] 8 / 9 tests; Compiling libspu/mpc/spdzwise/ring_truncation_test.cc; 11s processwrapper-sandbox
+[1,663 / 1,664] 8 / 9 tests; [Prepa] Linking libspu/mpc/spdzwise/ring_truncation_test
+[1,664 / 1,665] 8 / 9 tests; Testing //libspu/mpc/spdzwise:ring_truncation_test; 0s processwrapper-sandbox
+[1,664 / 1,665] 9 / 9 tests; Testing //libspu/mpc/spdzwise:ring_truncation_test; 2s processwrapper-sandbox
+INFO: Found 9 test targets...
+INFO: Elapsed time: 22.659s, Critical Path: 17.57s
+INFO: 4 processes: 1 internal, 3 processwrapper-sandbox.
+INFO: Build completed successfully, 4 total actions
+//libspu/mpc:protocol_session_test                              (cached) PASSED in 0.0s
+//libspu/mpc/aby3:io_test                                       (cached) PASSED in 0.0s
+//libspu/mpc/aby3:protocol_test                                 (cached) PASSED in 0.4s
+//libspu/mpc/spdzwise:boolean_test                              (cached) PASSED in 6.3s
+//libspu/mpc/spdzwise:io_test                                   (cached) PASSED in 0.0s
+//libspu/mpc/spdzwise:protocol_test                             (cached) PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_conversion_test                      (cached) PASSED in 0.5s
+//libspu/mpc/spdzwise:ring_test                                 (cached) PASSED in 0.4s
+//libspu/mpc/spdzwise:ring_truncation_test                               PASSED in 2.0s
+
+Executed 1 out of 9 tests: 9 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

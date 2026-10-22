@@ -176,7 +176,19 @@ void TruncPrRandomBit::evaluate(KernelEvalContext* ctx) const {
 }
 NdArrayRef TruncASelector::proc(KernelEvalContext* ctx, const NdArrayRef& in,
                                 size_t bits, SignType sign) const {
-  return TruncPrRandomBit().proc(ctx, in, bits, sign);
+  return TruncNaive().proc(ctx, in, bits, sign);
+}
+
+NdArrayRef TruncNaive::proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                            size_t bits, SignType sign) const {
+  return ctx->getState<SpdzWiseState>()->truncNaive(in, bits, sign);
+}
+
+void TruncNaive::evaluate(KernelEvalContext* ctx) const {
+  const auto& in = ctx->getParam<Value>(0);
+  const auto bits = ctx->getParam<size_t>(1);
+  const auto sign = ctx->getParam<SignType>(2);
+  ctx->pushOutput(Value(proc(ctx, in.data(), bits, sign), in.dtype()));
 }
 
 void TruncASelector::evaluate(KernelEvalContext* ctx) const {
@@ -188,6 +200,35 @@ void TruncASelector::evaluate(KernelEvalContext* ctx) const {
 }  // namespace spu::mpc::spdzwise::ring
 
 namespace spu::mpc::spdzwise {
+NdArrayRef SpdzWiseState::truncNaive(const NdArrayRef& x, size_t bits,
+                                   SignType sign) {
+  try {
+    requireRunning();
+    SPU_ENFORCE(isRing() && ring_, "exact truncation requires RING");
+    validateInternal(x);
+    SPU_ENFORCE(bits <= 63, "exact truncation requires bits in [0,63]");
+    SPU_ENFORCE(sign == SignType::Unknown || sign == SignType::Positive ||
+                    sign == SignType::Negative,
+                "invalid truncation sign hint");
+    if (bits == 0 || x.numel() == 0) return x;
+    auto boolean = a2b(x);
+    auto* shares = boolean.data<RepShare>();
+    // Arithmetic right shift is XOR-linear, including sign-bit replication.
+    // Keep nbits=64: narrow B2A inputs would be zero-extended.
+    pforeach(0, boolean.numel(), [&](int64_t i) {
+      for (auto& word : shares[i]) {
+        word = (word >> bits) | ((uint64_t(0) - (word >> 63)) << (64 - bits));
+      }
+    });
+    // B2A verifies pending arithmetic work and ALL ANDs, including this A2B,
+    // before opening its masked result. No intermediate check is needed.
+    return b2a(boolean);
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
 NdArrayRef SpdzWiseState::truncPrRandomBit(const NdArrayRef& x, size_t bits,
                                   SignType sign) {
   try {

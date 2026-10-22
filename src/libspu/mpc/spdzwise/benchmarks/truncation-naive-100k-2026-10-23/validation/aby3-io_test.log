@@ -1,0 +1,36 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/aby3:io_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 12 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 12 tests from Aby3IoTest/IoTest
+[ RUN      ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM32
+[       OK ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM32 (2 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM64
+[       OK ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM64 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM128
+[       OK ] Aby3IoTest/IoTest.MakePublicAndReconstruct/3xFM128 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM32
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM32 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM64
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM64 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM128
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstruct/3xFM128 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM32
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM32 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM64
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM64 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM128
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithInvalidOwnerRank/3xFM128 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM32
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM32 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM64
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM64 (0 ms)
+[ RUN      ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM128
+[       OK ] Aby3IoTest/IoTest.MakeSecretAndReconstructWithValidOwnerRank/3xFM128 (0 ms)
+[----------] 12 tests from Aby3IoTest/IoTest (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 12 tests from 1 test suite ran. (2 ms total)
+[  PASSED  ] 12 tests.

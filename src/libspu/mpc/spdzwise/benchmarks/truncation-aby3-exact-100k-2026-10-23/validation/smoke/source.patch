@@ -1,0 +1,738 @@
+diff --git a/src/libspu/mpc/kernel.h b/src/libspu/mpc/kernel.h
+index f0d5129c..f775f4e3 100644
+--- a/src/libspu/mpc/kernel.h
++++ b/src/libspu/mpc/kernel.h
+@@ -88,6 +88,8 @@ enum class TruncLsbRounding {
+   Probabilistic,
+   // For some deterministic truncation, the LSB is deterministic.
+   Nearest,
++  // Exact signed floor(x / 2^bits), including negative inputs.
++  Floor,
+ };
+ 
+ class TruncAKernel : public Kernel {
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py b/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py
+index 141a3b0e..0a805cb2 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py
+@@ -1,4 +1,4 @@
+-"""Archive signed RING truncation versus the normally registered ABY3 TruncAPr2.
++"""Archive TruncNaive, TruncPrRandomBit, native ABY3 TruncAPr2 or exact ABY3.
+ 
+ Build with `bash build.sh //:truncation_bench`, then run:
+   python3 run_truncation.py NEW_OUTPUT_DIRECTORY
+@@ -30,7 +30,10 @@ def write_json(path, value):
+     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
+ 
+ 
+-def summarize(rows, count, repetitions, wise):
++def summarize(rows, count, repetitions, protocol):
++    wise = protocol in ("spdzwise", "random-bit")
++    exact = protocol in ("spdzwise", "aby3-exact")
++    naive = protocol == "spdzwise"
+     assert len(rows) == (repetitions + 1) * 3
+     iterations = []
+     for iteration in range(repetitions + 1):
+@@ -40,21 +43,28 @@ def summarize(rows, count, repetitions, wise):
+             assert int(r["count"]) == count and int(r["bits"]) == 16
+             assert int(r["outputs_verified"]) == count
+             assert int(r["input_checks"]) == int(wise)
+-            assert int(r["final_checks"]) == int(wise)
++            assert r["protocol"] == protocol
++            assert int(r["final_checks"]) == 0
++            assert int(r["internal_checks"]) == int(wise)
++            assert int(r["boolean_checks"]) == int(naive)
++            if exact:
++                assert int(r["error_zero"]) == count
++            if naive:
++                assert float(r["internal_verify_ms"]) > 0
+             assert abs(float(r["total_ms"]) - float(r["material_ms"]) - float(r["online_ms"])) < 1e-4
+             assert sum(int(r[k]) for k in ("error_minus1", "error_zero", "error_plus1")) == count
+         if iteration:
+             iterations.append({
+                 "iteration": iteration,
+                 **{key: max(float(r[key]) for r in batch)
+-                   for key in ("total_ms", "material_ms", "online_ms", "verify_ms")},
++                   for key in ("total_ms", "material_ms", "online_ms", "verify_ms", "internal_verify_ms")},
+                 "total_sent_bytes": sum(int(r["sent_bytes"]) for r in batch),
+                 "total_verify_bytes": sum(int(r["verify_bytes"]) for r in batch),
+             })
+     phases = {key: {"median_ms": statistics.median(r[key] for r in iterations),
+                     "min_ms": min(r[key] for r in iterations),
+                     "max_ms": max(r[key] for r in iterations)}
+-              for key in ("total_ms", "material_ms", "online_ms", "verify_ms")}
++              for key in ("total_ms", "material_ms", "online_ms", "verify_ms", "internal_verify_ms")}
+     median = phases["total_ms"]["median_ms"]
+     return {
+         "iterations": iterations, "phases": phases,
+@@ -62,7 +72,7 @@ def summarize(rows, count, repetitions, wise):
+         "elements_per_second": count * 1e3 / median,
+         "bytes_per_party": sorted({int(r["sent_bytes"]) for r in rows}),
+         "total_sent_bytes": sorted({r["total_sent_bytes"] for r in iterations}),
+-        "validation": "all elements, including warmup; final authentication checks excluded from primary timing",
++        "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded",
+     }
+ 
+ 
+@@ -71,6 +81,9 @@ def main():
+     parser.add_argument("output", type=Path)
+     parser.add_argument("--count", type=int, default=100000)
+     parser.add_argument("--repetitions", type=int, default=7)
++    parser.add_argument("--protocols", nargs="+",
++                        choices=("spdzwise", "random-bit", "aby3", "aby3-exact"),
++                        default=("spdzwise", "random-bit", "aby3"))
+     args = parser.parse_args()
+     assert args.count >= 20 and args.count % 2 == 0 and args.repetitions > 0
+     out = args.output.resolve()
+@@ -80,9 +93,10 @@ def main():
+     sources = sorted(BENCH.parent.glob("*.cc")) + sorted(BENCH.parent.glob("*.h"))
+     sources += [BENCH.parent / "BUILD.bazel"]
+     sources += [BENCH / n for n in ("truncation_bench.cc", "run_truncation.py", "build.sh", "BUILD.bazel", "MODULE.bazel", "MODULE.bazel.lock", ".bazelrc")]
+-    sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "libspu/mpc/aby3/arithmetic.cc", "libspu/mpc/aby3/arithmetic.h", "libspu/mpc/aby3/protocol.cc", "libspu/mpc/common/prg_state.cc", "libspu/mpc/common/prg_state.h", "libspu/core/parallel_utils.h", "libspu/mpc/utils/simulate.h")]
++    sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "libspu/mpc/aby3/arithmetic.cc", "libspu/mpc/aby3/arithmetic.h", "libspu/mpc/aby3/protocol.cc", "libspu/mpc/common/prg_state.cc", "libspu/mpc/common/prg_state.h", "libspu/core/parallel_utils.h", "libspu/mpc/utils/simulate.h", "libspu/mpc/kernel.h", "libspu/mpc/ab_api.cc", "libspu/mpc/aby3/conversion.cc", "libspu/mpc/aby3/conversion.h", "libspu/mpc/aby3/boolean.cc")]
+     parameters = {
+         "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++        "protocols": args.protocols,
+         "count": args.count, "bits": 16, "application_ring_bits": 64,
+         "signed_input_bits": 63, "internal_authentication_bits": 128,
+         "input_range": "-2^62 < x < 2^62; balanced positive/negative pairs and zero",
+@@ -90,9 +104,14 @@ def main():
+         "warmups": 1, "repetitions": args.repetitions,
+         "YACL_NUM_THREADS": 65, "background_workers": 64,
+         "transport": "FactoryMem, three parties in one process; protocols run sequentially",
+-        "timing": "start after input authentication; include fresh random material, bitness and opening checks; stop at authenticated output; final authentication/export/reconstruction excluded",
++        "timing": "start after input authentication; include fresh material and all required arithmetic/Boolean verification before masked opening; stop at authenticated output; post-call empty checkpoint/export/reconstruction excluded",
+         "aggregation": "per iteration maximum of whole timed interval across ranks; median/min/max over measured iterations; do not sum phase maxima",
++        "spdzwise_kernel": "default TruncASelector -> TruncNaive, exact signed floor; A2B/local arithmetic shift/B2A",
++        "random_bit_kernel": "explicit TruncPrRandomBit state entry, probabilistic rounding; current pre-opening checkpoint included",
++        "phase_definitions": "material_ms: Naive B2A mask/MAC generation, RandomBit authenticated random bits; online_ms: remaining call time including checks (not preprocessing-free online time); internal_verify_ms: Naive combined MAC/ABFL check, -1 means uninstrumented for RandomBit; verify_ms: post-call empty checkpoint",
+         "aby3_kernel": "normally registered TruncAPr2, SignType::Unknown, ordinary replicated shares",
++        "aby3_exact": "native registered A2B -> ARShiftB(16) -> B2ASelector; exact signed floor; no custom protocol kernels or verification",
++        "precise_aby3_flag": "ENABLE_PRECISE_ABY3_TRUNCPR is already enabled and selects probabilistic TruncAPr2, not exact floor",
+         "bitness": "MP-SPDZ random linear dot product with fresh commit/reveal coefficients; full internal 128-bit CheckZero instead of low-word opening",
+         "mpspdz_reference": "113c4e47dd94bca9ecab029d2f0abe649bea5c52",
+         "platform": platform.platform(), "logical_cpus": os.cpu_count(),
+@@ -115,7 +134,7 @@ def main():
+             patch += diff.stdout
+     (out / "source.patch").write_bytes(patch)
+     summaries = {}
+-    for protocol in ("spdzwise", "aby3"):
++    for protocol in args.protocols:
+         command = [str(binary), protocol, str(args.count), str(args.repetitions)]
+         print("Running", " ".join(command), flush=True)
+         start = time.monotonic()
+@@ -134,35 +153,64 @@ def main():
+         stdout_text = (out / f"{protocol}.stdout").read_text()
+         pools = {int(n) for n in re.findall(r"Create a fixed thread pool with size (\d+)", stdout_text)}
+         assert pools <= {64} and (args.count < 32768 or pools == {64}), pools
+-        lines = [line for line in stdout_text.splitlines() if line.startswith(("protocol,", "spdzwise-ring-signed,", "aby3-truncapr2,"))]
++        lines = [line for line in stdout_text.splitlines() if line.startswith(("protocol,", "spdzwise,", "random-bit,", "aby3,", "aby3-exact,"))]
+         (out / f"{protocol}.csv").write_text("\n".join(lines) + "\n")
+         rows = list(csv.DictReader(lines))
+-        summaries[protocol] = summarize(rows, args.count, args.repetitions, protocol == "spdzwise")
+-    ratio = summaries["spdzwise"]["phases"]["total_ms"]["median_ms"] / summaries["aby3"]["phases"]["total_ms"]["median_ms"]
+-    summaries["spdzwise_over_aby3"] = ratio
++        summaries[protocol] = summarize(rows, args.count, args.repetitions, protocol)
++    comparisons = []
++    if "spdzwise" in summaries and "random-bit" in summaries:
++        ratio = (summaries["random-bit"]["phases"]["total_ms"]["median_ms"] /
++                 summaries["spdzwise"]["phases"]["total_ms"]["median_ms"])
++        summaries["random_bit_over_naive"] = ratio
++        comparisons.append(f"TruncPrRandomBit / TruncNaive 耗时比：**{ratio:.3f}×**。")
++    if "spdzwise" in summaries and "aby3" in summaries:
++        ratio = (summaries["spdzwise"]["phases"]["total_ms"]["median_ms"] /
++                 summaries["aby3"]["phases"]["total_ms"]["median_ms"])
++        summaries["naive_over_aby3"] = ratio
++        comparisons.append(f"TruncNaive / ABY3 TruncAPr2 耗时比：**{ratio:.3f}×**。")
+     write_json(out / "summary.json", summaries)
+-    table = ["| 协议 | 主耗时中位数 ms | 最小–最大 ms | 随机材料 ms | 在线 ms | 计时外检查 ms | 吞吐 elements/s |",
+-             "|---|---:|---:|---:|---:|---:|---:|"]
+-    for name in ("spdzwise", "aby3"):
++    labels = {"spdzwise": "SPDZwise TruncNaive (floor)",
++              "random-bit": "SPDZwise TruncPrRandomBit", "aby3": "ABY3 TruncAPr2",
++              "aby3-exact": "ABY3 exact (A2B / ARShiftB / B2A)"}
++    table = ["| 算子 | 主耗时中位数 ms | 最小–最大 ms | 随机材料 ms | 剩余算子时间 ms | 计时外空检查 ms | 三方发送 B | 峰值 RSS MiB |",
++             "|---|---:|---:|---:|---:|---:|---:|---:|"]
++    for name in args.protocols:
++        label = labels[name]
+         s = summaries[name]
+         p = s["phases"]
+         total = p["total_ms"]
+-        table.append(f"| {name} | {total['median_ms']:.3f} | {total['min_ms']:.3f}–{total['max_ms']:.3f} | {p['material_ms']['median_ms']:.3f} | {p['online_ms']['median_ms']:.3f} | {p['verify_ms']['median_ms']:.3f} | {s['elements_per_second']:.0f} |")
+-    report = f"""# Signed RING probabilistic truncation
++        rss = json.loads((out / f"{name}-resources.json").read_text())["max_rss_kib"] / 1024
++        table.append(f"| {label} | {total['median_ms']:.3f} | {total['min_ms']:.3f}–{total['max_ms']:.3f} | {p['material_ms']['median_ms']:.3f} | {p['online_ms']['median_ms']:.3f} | {p['verify_ms']['median_ms']:.3f} | {s['total_sent_bytes']} | {rss:.1f} |")
++    report = f"""# Truncation Benchmark
+ 
+-{args.count:,} 个正负混合输入，m=16，双方输入满足 |x|<2^62。三方 FactoryMem；64 个 YACL 后台 worker；预热 1 次、测量 {args.repetitions} 次。
++{args.count:,} 个正负混合输入，m=16，输入满足 |x|<2^62。三方 FactoryMem；64 个 YACL 后台 worker（YACL_NUM_THREADS=65）；预热 1 次、测量 {args.repetitions} 次；每轮新上下文，各组串行运行。
++本次运行：{", ".join(labels[p] for p in args.protocols)}。
++输入生成器、随机种子、范围和配置与此前 TruncPrRandomBit 实验一致。每轮取三方主计时区间最大值，再统计中位数及范围。
+ 
+-主计时从已准备好的输入 shares 开始，包含现场随机材料生成与必要检查，输出 shares 形成时停止。SPDZwise 输入已正确认证，输出保留 MAC；ABY3 为正常注册的 TruncAPr2、普通 replicated shares。输入认证、最终认证检查、输出重构均不计入主耗时。所有轮次全部输出均通过验证。
++主计时从准备好的输入 shares 开始，包含算子全部转换、随机材料和通信，到输出 arithmetic shares 形成时停止。
++SPDZwise 预先完成输入认证，主计时包含所有必要算术/ABFL 验证及掩码打开；输入认证、调用后的空检查、导出和重构排除。
++ABY3 使用正常 IO 和注册的原生内核，无恶意验证阶段，Verification Time 为 0。
+ 
+ {chr(10).join(table)}
+ 
+-SPDZwise / ABY3 主耗时比：**{ratio:.2f}×**。各分项独立取三方最大值，不能相加重建主耗时。ABY3 的随机材料生成属于其算子内部，表中在线时间包含完整调用，并非预处理后的时间。
++{chr(10).join(comparisons)}
+ 
+-SPDZwise 按 MP-SPDZ 的有符号偏移、随机掩码与回绕修正实现；bitness 聚合使用现有内部 128 位零检查。主时间未包含最终延迟认证检查，不应解释为完成全部恶意安全验证的端到端时间。ABY3 保留源码中的 +1 修正，未假定与 MP-SPDZ 精确舍入分布相同。
++`aby3-exact` 执行原生 A2B → ARShiftB(16) → B2ASelector，保留 64 位符号扩展并返回算术 shares；并未替换 ABY3 的默认 trunc_a。
++仓库已开启的 ENABLE_PRECISE_ABY3_TRUNCPR 仅选择概率舍入 TruncAPr2，不能视为 exact floor 开关。
++`spdzwise` 执行默认 TruncASelector → TruncNaive；`random-bit` 显式调用 truncPrRandomBit；`aby3` 使用原生 TruncAPr2 和 SignType::Unknown。
+ 
+-计时内三方总发送字节：SPDZwise {summaries['spdzwise']['total_sent_bytes']}，ABY3 {summaries['aby3']['total_sent_bytes']}。此结果为本机内存通信，不能直接推断 LAN/WAN 延迟。
++Naive 和 ABY3 exact 逐元素严格检查 floor(x/2^16)，包括负数；RandomBit 检查 floor 或 floor+1（整除时精确），ABY3 TruncAPr2 保留原生修正，误差至多 1。
++包括预热在内，本次每种算子核对 **{args.count * (args.repetitions + 1):,} 个输出**，全部通过。
+ 
+-复现：`bash build.sh //:truncation_bench`，随后 `python3 run_truncation.py NEW_OUTPUT_DIRECTORY`。完整命令与环境见 parameters.json 和资源记录；逐轮数据见 CSV；源码改动见 source.patch。
++material_ms：Naive 的 B2A 掩码/MAC 生成，RandomBit 的认证随机位生成；ABY3 未单独细分随机性。
++online_ms 为剩余算子时间，包含内部检查，不是预处理后的纯在线成本。
++internal_verify_ms：Naive 的合并 MAC/ABFL 检查（含验证随机材料），RandomBit 的 -1 表示未单独细分，ABY3 为 0。
++verify_ms 仅记录计时外空检查。各阶段独立聚合，不能相加重建总耗时。RSS 包含输入准备及三方整个进程。
++
++结果仅代表当前机器 FactoryMem 和该批量。SPDZwise 与 ABY3 安全模型不同；历史 RandomBit 的 3431.204 ms 还排除了最终认证检查，不能直接混用计时口径。
++
++复现：`bash build.sh //:truncation_bench`，随后 `python3 run_truncation.py NEW_OUTPUT_DIRECTORY --count {args.count} --repetitions {args.repetitions} --protocols {" ".join(args.protocols)}`。
++参数和源码/二进制指纹见 parameters.json，逐轮数据见 CSV，资源见 *-resources.json，源码改动见 source.patch。
+ """
+     (out / "RESULTS.md").write_text(report)
+     (out / "SHA256SUMS").write_text("".join(f"{sha256(p)}  {p.relative_to(out)}\n" for p in sorted(out.iterdir()) if p.is_file() and p.name != "SHA256SUMS"))
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc
+index 27313367..f19b9e91 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc
++++ b/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc
+@@ -20,6 +20,10 @@
+ #include "libspu/mpc/utils/simulate.h"
+ 
+ namespace spu::mpc::spdzwise {
++class SpdzWiseBenchmarkAccess {
++ public:
++  static auto times(const SpdzWiseState* s) { return s->b2a_ms_; }
++};
+ namespace {
+ using Clock = std::chrono::steady_clock;
+ double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
+@@ -75,11 +79,15 @@ NdArrayRef Inputs(int64_t count) {
+ struct Result {
+   double total_ms = 0, material_ms = 0, online_ms = 0, verify_ms = 0;
+   size_t bytes = 0, actions = 0, verify_bytes = 0, input_checks = 0,
+-         final_checks = 0;
++         final_checks = 0, internal_checks = 0, boolean_checks = 0;
++  double internal_verify_ms = 0;
+   NdArrayRef output;
+ };
+ 
+-void Run(bool wise, int64_t count, int repetitions) {
++void Run(const std::string& protocol, int64_t count, int repetitions) {
++  const bool wise = protocol == "spdzwise" || protocol == "random-bit";
++  const bool exact = protocol == "spdzwise" || protocol == "aby3-exact";
++  const bool naive = protocol == "spdzwise";
+   const auto plain = Inputs(count);
+   SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
+   auto aby_io = aby3::makeAby3Io(FM64, 3);
+@@ -90,7 +98,8 @@ void Run(bool wise, int64_t count, int repetitions) {
+       << std::fixed << std::setprecision(6)
+       << "protocol,count,bits,iteration,rank,total_ms,material_ms,online_ms,"
+          "verify_ms,sent_bytes,sent_actions,verify_bytes,input_checks,"
+-         "final_checks,outputs_verified,error_minus1,error_zero,error_plus1\n";
++         "final_checks,outputs_verified,error_minus1,error_zero,error_plus1,"
++         "internal_checks,boolean_checks,internal_verify_ms\n";
+   for (int iteration = 0; iteration <= repetitions; ++iteration) {
+     const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
+                              : aby_io->toShares(plain, VIS_SECRET, -1);
+@@ -122,26 +131,40 @@ void Run(bool wise, int64_t count, int repetitions) {
+       const auto bytes = stats->sent_bytes.load();
+       const auto actions = stats->sent_actions.load();
+       const auto start = Clock::now();
+-      auto y = trunc_a(ctx.get(), x, 16, SignType::Unknown);
++      auto y = protocol == "random-bit"
++                   ? Value(state->truncPrRandomBit(x.data(), 16,
++                                                   SignType::Unknown),
++                           x.dtype())
++                   : protocol == "aby3-exact"
++                         ? b2a(ctx.get(), arshift_b(ctx.get(), a2b(ctx.get(), x), {16}))
++                         : trunc_a(ctx.get(), x, 16, SignType::Unknown);
+       const auto stop = Clock::now();  // Output shares exist; stop immediately.
+       result.total_ms = Ms(start, stop);
+       result.bytes = stats->sent_bytes.load() - bytes;
+       result.actions = stats->sent_actions.load() - actions;
+-      result.material_ms = wise ? state->truncMaterialMs() : 0;
++      result.material_ms = naive ? SpdzWiseBenchmarkAccess::times(state)[0]
++                                : wise ? state->truncMaterialMs() : 0;
++      result.internal_verify_ms = naive ? SpdzWiseBenchmarkAccess::times(state)[2]
++                                       : wise ? -1 : 0;
+       result.online_ms = result.total_ms - result.material_ms;
+       SPU_ENFORCE(y.shape() == x.shape() &&
+                   y.storage_type() == x.storage_type());
+       if (wise) {
+-        SPU_ENFORCE(state->arithmeticChecks() == result.input_checks,
+-                    "unexpected final MAC check inside truncation timing");
++        result.internal_checks = state->arithmeticChecks() - result.input_checks;
++        result.boolean_checks = state->booleanChecks();
++        SPU_ENFORCE(result.internal_checks == 1);
++        SPU_ENFORCE(result.boolean_checks == size_t(naive));
++        SPU_ENFORCE(state->pendingBooleanBits() == 0);
+         barrier.wait();
+         const auto verify_bytes = stats->sent_bytes.load();
+         const auto verify_start = Clock::now();
+-        state->checkMac();
++        state->verify();
+         result.verify_ms = Ms(verify_start);
+         result.verify_bytes = stats->sent_bytes.load() - verify_bytes;
+-        result.final_checks = state->arithmeticChecks() - result.input_checks;
+-        SPU_ENFORCE(result.final_checks == 1);
++        result.final_checks = state->arithmeticChecks() - result.input_checks -
++                              result.internal_checks;
++        SPU_ENFORCE(result.final_checks == 0);
++        SPU_ENFORCE(state->booleanChecks() == result.boolean_checks);
+         y.setDtype(DT_I64);
+         state->prepareOutputs(ctx.get(), {"y"}, {y});
+         guard.commit();
+@@ -165,7 +188,7 @@ void Run(bool wise, int64_t count, int repetitions) {
+       SPU_ENFORCE(error >= (wise ? 0 : -1) && error <= 1,
+                   "wrong output: iteration {}, element {}, x {}, y {}",
+                   iteration, i, x, y);
+-      if (wise && x % 65536 == 0) SPU_ENFORCE(error == 0);
++      if (exact || (wise && x % 65536 == 0)) SPU_ENFORCE(error == 0);
+       ++errors[error + 1];
+     }
+     std::cerr << "iteration " << iteration << ": all " << count
+@@ -173,13 +196,14 @@ void Run(bool wise, int64_t count, int repetitions) {
+               << errors[1] << ',' << errors[2] << '\n';
+     for (size_t rank = 0; rank < 3; ++rank) {
+       const auto& r = results[rank];
+-      std::cout << (wise ? "spdzwise-ring-signed" : "aby3-truncapr2") << ','
++      std::cout << protocol << ','
+                 << count << ",16," << iteration << ',' << rank << ','
+                 << r.total_ms << ',' << r.material_ms << ',' << r.online_ms
+                 << ',' << r.verify_ms << ',' << r.bytes << ',' << r.actions
+                 << ',' << r.verify_bytes << ',' << r.input_checks << ','
+                 << r.final_checks << ',' << count << ',' << errors[0] << ','
+-                << errors[1] << ',' << errors[2] << '\n';
++                << errors[1] << ',' << errors[2] << ',' << r.internal_checks << ','
++                << r.boolean_checks << ',' << r.internal_verify_ms << '\n';
+     }
+     std::cout.flush();
+   }
+@@ -190,11 +214,12 @@ void Run(bool wise, int64_t count, int repetitions) {
+ int main(int argc, char** argv) {
+   try {
+     const std::string protocol = argc > 1 ? argv[1] : "spdzwise";
+-    SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
++    SPU_ENFORCE(protocol == "spdzwise" || protocol == "random-bit" ||
++                protocol == "aby3" || protocol == "aby3-exact");
+     const int64_t count = argc > 2 ? std::stoll(argv[2]) : 100000;
+     const int repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
+     SPU_ENFORCE(count >= 20 && count % 2 == 0 && repetitions > 0);
+-    spu::mpc::spdzwise::Run(protocol == "spdzwise", count, repetitions);
++    spu::mpc::spdzwise::Run(protocol, count, repetitions);
+     return 0;
+   } catch (const std::exception& e) {
+     std::cerr << e.what() << '\n';
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation.cc b/src/libspu/mpc/spdzwise/ring_truncation.cc
+index caa18d80..6adfc993 100644
+--- a/src/libspu/mpc/spdzwise/ring_truncation.cc
++++ b/src/libspu/mpc/spdzwise/ring_truncation.cc
+@@ -176,7 +176,19 @@ void TruncPrRandomBit::evaluate(KernelEvalContext* ctx) const {
+ }
+ NdArrayRef TruncASelector::proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                                 size_t bits, SignType sign) const {
+-  return TruncPrRandomBit().proc(ctx, in, bits, sign);
++  return TruncNaive().proc(ctx, in, bits, sign);
++}
++
++NdArrayRef TruncNaive::proc(KernelEvalContext* ctx, const NdArrayRef& in,
++                            size_t bits, SignType sign) const {
++  return ctx->getState<SpdzWiseState>()->truncNaive(in, bits, sign);
++}
++
++void TruncNaive::evaluate(KernelEvalContext* ctx) const {
++  const auto& in = ctx->getParam<Value>(0);
++  const auto bits = ctx->getParam<size_t>(1);
++  const auto sign = ctx->getParam<SignType>(2);
++  ctx->pushOutput(Value(proc(ctx, in.data(), bits, sign), in.dtype()));
+ }
+ 
+ void TruncASelector::evaluate(KernelEvalContext* ctx) const {
+@@ -188,6 +200,35 @@ void TruncASelector::evaluate(KernelEvalContext* ctx) const {
+ }  // namespace spu::mpc::spdzwise::ring
+ 
+ namespace spu::mpc::spdzwise {
++NdArrayRef SpdzWiseState::truncNaive(const NdArrayRef& x, size_t bits,
++                                   SignType sign) {
++  try {
++    requireRunning();
++    SPU_ENFORCE(isRing() && ring_, "exact truncation requires RING");
++    validateInternal(x);
++    SPU_ENFORCE(bits <= 63, "exact truncation requires bits in [0,63]");
++    SPU_ENFORCE(sign == SignType::Unknown || sign == SignType::Positive ||
++                    sign == SignType::Negative,
++                "invalid truncation sign hint");
++    if (bits == 0 || x.numel() == 0) return x;
++    auto boolean = a2b(x);
++    auto* shares = boolean.data<RepShare>();
++    // Arithmetic right shift is XOR-linear, including sign-bit replication.
++    // Keep nbits=64: narrow B2A inputs would be zero-extended.
++    pforeach(0, boolean.numel(), [&](int64_t i) {
++      for (auto& word : shares[i]) {
++        word = (word >> bits) | ((uint64_t(0) - (word >> 63)) << (64 - bits));
++      }
++    });
++    // B2A verifies pending arithmetic work and ALL ANDs, including this A2B,
++    // before opening its masked result. No intermediate check is needed.
++    return b2a(boolean);
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++
+ NdArrayRef SpdzWiseState::truncPrRandomBit(const NdArrayRef& x, size_t bits,
+                                   SignType sign) {
+   try {
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation.h b/src/libspu/mpc/spdzwise/ring_truncation.h
+index c8c1fb89..8176f75b 100644
+--- a/src/libspu/mpc/spdzwise/ring_truncation.h
++++ b/src/libspu/mpc/spdzwise/ring_truncation.h
+@@ -25,6 +25,20 @@ class TruncPrRandomBit final : public TruncAKernel {
+                   SignType sign) const override;
+ };
+ 
++// Exact signed floor(x / 2^bits), for full-width int64 inputs and bits in [0,63].
++class TruncNaive final : public TruncAKernel {
++ public:
++  static constexpr const char* kBindName() { return "trunc_a"; }
++  void evaluate(KernelEvalContext* ctx) const override;
++  Kind kind() const override { return Kind::Dynamic; }
++  bool hasMsbError() const override { return false; }
++  TruncLsbRounding lsbRounding() const override {
++    return TruncLsbRounding::Floor;
++  }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t bits,
++                  SignType sign) const override;
++};
++
+ // Public trunc_a entry point. Add future algorithm selection in proc(), using
+ // public parameters only. Selected algorithms must honor these error/rounding
+ // contracts, which SPU queries without an evaluation context.
+@@ -33,9 +47,9 @@ class TruncASelector final : public TruncAKernel {
+   static constexpr const char* kBindName() { return "trunc_a"; }
+   void evaluate(KernelEvalContext* ctx) const override;
+   Kind kind() const override { return Kind::Dynamic; }
+-  bool hasMsbError() const override { return TruncPrRandomBit().hasMsbError(); }
++  bool hasMsbError() const override { return TruncNaive().hasMsbError(); }
+   TruncLsbRounding lsbRounding() const override {
+-    return TruncPrRandomBit().lsbRounding();
++    return TruncNaive().lsbRounding();
+   }
+   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t bits,
+                   SignType sign) const override;
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation_test.cc b/src/libspu/mpc/spdzwise/ring_truncation_test.cc
+index d6f221f6..0d6dd028 100644
+--- a/src/libspu/mpc/spdzwise/ring_truncation_test.cc
++++ b/src/libspu/mpc/spdzwise/ring_truncation_test.cc
+@@ -4,6 +4,9 @@
+ 
+ #include "libspu/mpc/spdzwise/ring_truncation.h"
+ 
++#include <limits>
++#include <random>
++
+ #include "gtest/gtest.h"
+ 
+ #include "libspu/mpc/ab_api.h"
+@@ -17,6 +20,19 @@
+ #include "libspu/mpc/spdzwise/state.h"
+ #include "libspu/mpc/utils/simulate.h"
+ 
++namespace spu::mpc::spdzwise {
++class BooleanTestAccess {
++ public:
++  static void observeOpening(SpdzWiseState* s, std::function<void()> observe) {
++    auto original = s->boolean_->tag_;
++    s->boolean_->tag_ = [original, observe](std::string_view name) {
++      if (name == "b2a-open") observe();
++      return original(name);
++    };
++  }
++};
++}  // namespace spu::mpc::spdzwise
++
+ namespace spu::mpc::spdzwise::ring {
+ // Only the test binary can inspect keys/material; no runtime reveal interface.
+ class TruncationTestAccess {
+@@ -47,6 +63,7 @@ RuntimeConfig Config() {
+   return c;
+ }
+ int64_t Floor(int64_t x, size_t m) {
++  if (m == 63) return x < 0 ? -1 : 0;
+   const int64_t d = int64_t(1) << m;
+   return x / d - (x % d < 0);
+ }
+@@ -58,7 +75,8 @@ NdArrayRef Plain(const std::vector<int64_t>& values) {
+ }
+ 
+ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+-                                   bool strided = false) {
++                                   bool strided = false, bool naive = false,
++                                   SignType sign = SignType::Unknown) {
+   SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+   const auto shares = io.toShares(Plain(values), VIS_SECRET);
+   struct Result {
+@@ -74,7 +92,7 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+     if (selector) {
+       EXPECT_EQ(selector->kind(), Kernel::Kind::Dynamic);
+       EXPECT_FALSE(selector->hasMsbError());
+-      EXPECT_EQ(selector->lsbRounding(), TruncLsbRounding::Probabilistic);
++      EXPECT_EQ(selector->lsbRounding(), TruncLsbRounding::Floor);
+     }
+     auto* s = ctx.prot()->getState<SpdzWiseState>();
+     ProtocolRunGuard guard(&ctx);
+@@ -92,7 +110,8 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+     EXPECT_EQ(TruncationTestAccess::pending(s), 0);
+     const auto checks = s->arithmeticChecks();
+     const auto bytes = link->GetStats()->sent_bytes.load();
+-    auto y = trunc_a(&ctx, x, m, SignType::Unknown);
++    auto y = naive ? trunc_a(&ctx, x, m, sign)
++                   : Value(s->truncPrRandomBit(x.data(), m, sign), x.dtype());
+     EXPECT_EQ(y.storage_type(), x.storage_type());
+     EXPECT_EQ(y.dtype(), x.dtype());
+     EXPECT_EQ(y.shape(), x.shape());
+@@ -100,7 +119,13 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+     EXPECT_EQ(s->arithmeticChecks(), checks + (opened ? 1 : 0));
+     EXPECT_EQ(TruncationTestAccess::pending(s), 0);
+     if (!values.empty() && m) {
+-      EXPECT_GT(s->truncMaterialMs(), 0);
++      if (!naive) {
++        EXPECT_GT(s->truncMaterialMs(), 0);
++      }
++      if (naive) {
++        EXPECT_EQ(s->booleanChecks(), 1);
++        EXPECT_EQ(s->pendingBooleanBits(), 0);
++      }
+       EXPECT_GT(link->GetStats()->sent_bytes.load(), bytes);
+     } else {
+       EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+@@ -112,7 +137,8 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+     auto z = s->multiply(y.data(), s->publicValue(one));
+     s->prepareOutputs(&ctx, {"y"}, {Value(z, DT_I64)});
+     guard.commit();
+-    return Result{y.data(), s->exportedValue("y").data(), key};
++    // Zero-shift direct kernels may return the original non-contiguous view.
++    return Result{y.data().clone(), s->exportedValue("y").data(), key};
+   });
+   Word alpha = 0;
+   std::vector<NdArrayRef> outputs;
+@@ -135,7 +161,11 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+     EXPECT_EQ(mac, alpha * value);
+     out[i] = static_cast<int64_t>(plain.data<uint64_t>()[i]);
+     const auto floor = Floor(values[i], m);
+-    EXPECT_TRUE(out[i] == floor || (m && out[i] == floor + 1));
++    if (naive) {
++      EXPECT_EQ(out[i], floor);
++    } else {
++      EXPECT_TRUE(out[i] == floor || (m && out[i] == floor + 1));
++    }
+     if ((uint64_t(values[i]) & ((uint64_t(1) << m) - 1)) == 0) {
+       EXPECT_EQ(out[i], floor);
+     }
+@@ -143,6 +173,39 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
+   return out;
+ }
+ 
++TEST(SpdzWiseTruncation, NaiveFullWidthExactFloorAndStrides) {
++  std::vector<int64_t> values{
++      std::numeric_limits<int64_t>::min(), std::numeric_limits<int64_t>::min() + 1,
++      std::numeric_limits<int64_t>::max(), 0, 1, -1, 7, -7,
++      65535, -65535, 65536, -65536, 65537, -65537};
++  std::mt19937_64 rng(0x5452554e43);
++  // Two full bit-sliced blocks and one tail lane.
++  while (values.size() < 129) values.push_back(static_cast<int64_t>(rng()));
++  for (size_t m = 0; m <= 63; ++m) RunTruncation(values, m, true, true);
++  RunTruncation({}, 16, false, true);
++  RunTruncation({-7}, 2, false, true);
++  RunTruncation({0, 7, 65537}, 16, false, true, SignType::Positive);
++  RunTruncation({-1, -7, -65537}, 16, false, true, SignType::Negative);
++}
++
++TEST(SpdzWiseTruncation, NaiveInvalidInputsAbort) {
++  for (int fault = 0; fault < 4; ++fault) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* s = ctx.prot()->getState<SpdzWiseState>();
++      s->begin(ExecutableProto("bad-naive", {}, {}, "test"), {});
++      auto x = s->publicValue(Plain({7}).as(makeType<Pub2kTy>(FM64)));
++      if (fault == 1) x = x.as(makeType<AShrTy>("other-session"));
++      if (fault == 2) x = NdArrayRef(makeType<spdzwise::AShrTy>(s->session()), {1});
++      EXPECT_ANY_THROW(s->truncNaive(x, fault == 0 ? 64 : 16,
++          fault == 3 ? static_cast<SignType>(999) : SignType::Unknown));
++      EXPECT_TRUE(s->failed());
++      EXPECT_ANY_THROW(s->commit());
++    });
++  }
++}
++
+ TEST(SpdzWiseTruncation, ExhaustiveSignedSmallRingFormula) {
+   for (unsigned ell = 3; ell <= 7; ++ell) {
+     const unsigned k = ell - 1;
+@@ -171,70 +234,83 @@ TEST(SpdzWiseTruncation, SignedEdgesStridesAndShiftBounds) {
+ }
+ 
+ TEST(SpdzWiseTruncation, VerifiesBothDomainsBeforeEveryMaskedOpening) {
+-  utils::simulate(3, [&](const auto& link) {
+-    SPUContext ctx(Config(), link);
+-    registerArithmeticPrototype(&ctx, link);
+-    auto* state = ctx.prot()->getState<SpdzWiseState>();
+-    state->begin(ExecutableProto("trunc-checkpoint", {}, {}, "test"), {});
+-    const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
+-    auto x = state->publicValue(p);
+-    const auto b = state->publicBoolean(p);
+-    size_t openings = 0;
+-    TruncationTestAccess::observeOpening(state, [&] {
+-      ++openings;
+-      EXPECT_EQ(state->arithmeticChecks(), openings);
+-      EXPECT_EQ(state->booleanChecks(), openings);
+-      EXPECT_EQ(TruncationTestAccess::pending(state), 0);
+-      EXPECT_EQ(state->pendingBooleanBits(), 0);
++  for (bool naive : {false, true}) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      state->begin(ExecutableProto("trunc-checkpoint", {}, {}, "test"), {});
++      const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
++      auto x = state->publicValue(p);
++      const auto b = state->publicBoolean(p);
++      size_t openings = 0;
++      const auto observe = naive ? BooleanTestAccess::observeOpening
++                                : TruncationTestAccess::observeOpening;
++      observe(state, [&] {
++        ++openings;
++        EXPECT_EQ(state->arithmeticChecks(), openings);
++        EXPECT_EQ(state->booleanChecks(), openings);
++        EXPECT_EQ(TruncationTestAccess::pending(state), 0);
++        EXPECT_EQ(state->pendingBooleanBits(), 0);
++      });
++      for (size_t batch = 0; batch < 2; ++batch) {
++        x = state->multiply(x, x);
++        state->booleanBinary(b, b, true, false);
++        EXPECT_EQ(state->pendingBooleanBits(), 64);
++        x = naive ? state->truncNaive(x, 1, SignType::Unknown)
++                  : state->truncPrRandomBit(x, 1, SignType::Unknown);
++        EXPECT_EQ(openings, batch + 1);
++      }
++      state->prepareOutputs(&ctx, {}, {});
++      state->commit();
+     });
+-    for (size_t batch = 0; batch < 2; ++batch) {
+-      x = state->multiply(x, x);
+-      state->booleanBinary(b, b, true, false);
+-      EXPECT_EQ(state->pendingBooleanBits(), 64);
+-      x = state->truncPrRandomBit(x, 1, SignType::Unknown);
+-      EXPECT_EQ(openings, batch + 1);
+-    }
+-    state->prepareOutputs(&ctx, {}, {});
+-    state->commit();
+-  });
++  }
+ }
+ 
+ TEST(SpdzWiseTruncation, PendingFaultsRejectBeforeMaskedOpening) {
+-  for (size_t party = 0; party < 3; ++party) {
+-    for (int fault = 0; fault < 3; ++fault) {
+-      utils::simulate(3, [&](const auto& link) {
+-        SPUContext ctx(Config(), link);
+-        registerArithmeticPrototype(&ctx, link);
+-        auto* state = ctx.prot()->getState<SpdzWiseState>();
+-        state->begin(ExecutableProto("trunc-checkpoint-fault", {}, {}, "test"),
+-                     {});
+-        const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
+-        auto x = state->publicValue(p);
+-        x = state->multiply(x, x);
+-        if (fault < 2) {
+-          TruncationTestAccess::corruptMac(state, party, fault == 1);
+-        } else {
+-          auto b = state->publicBoolean(p);
+-          if (state->rank() == party) b.data<spdzwise::RepShare>()[0][0] ^= 1;
+-          state->booleanBinary(b, b, true, false);
+-        }
+-        bool opened = false;
+-        TruncationTestAccess::observeOpening(state, [&] { opened = true; });
+-        try {
+-          state->truncPrRandomBit(x, 1, SignType::Unknown);
+-          FAIL() << "accepted corrupt pending work";
+-        } catch (const std::exception& error) {
+-          const std::string reason = error.what();
+-          EXPECT_NE(
+-              reason.find(fault < 2 ? "SPDZWISE ring check failed"
+-                                    : "Boolean replicated copies disagree"),
+-              std::string::npos)
+-              << reason;
+-        }
+-        EXPECT_FALSE(opened);
+-        EXPECT_TRUE(state->failed());
+-        EXPECT_ANY_THROW(state->exportedValue("out"));
+-      });
++  for (bool naive : {false, true}) {
++    for (size_t party = 0; party < 3; ++party) {
++      for (int fault = 0; fault < 3; ++fault) {
++        utils::simulate(3, [&](const auto& link) {
++          SPUContext ctx(Config(), link);
++          registerArithmeticPrototype(&ctx, link);
++          auto* state = ctx.prot()->getState<SpdzWiseState>();
++          state->begin(ExecutableProto("trunc-checkpoint-fault", {}, {}, "test"),
++                       {});
++          const auto p = Plain({7}).as(makeType<Pub2kTy>(FM64));
++          auto x = state->publicValue(p);
++          x = state->multiply(x, x);
++          if (fault < 2) {
++            TruncationTestAccess::corruptMac(state, party, fault == 1);
++          } else {
++            auto b = state->publicBoolean(p);
++            if (state->rank() == party) b.data<spdzwise::RepShare>()[0][0] ^= 1;
++            state->booleanBinary(b, b, true, false);
++          }
++          bool opened = false;
++          const auto observe = naive ? BooleanTestAccess::observeOpening
++                                    : TruncationTestAccess::observeOpening;
++          observe(state, [&] { opened = true; });
++          try {
++            if (naive) {
++              state->truncNaive(x, 1, SignType::Unknown);
++            } else {
++              state->truncPrRandomBit(x, 1, SignType::Unknown);
++            }
++            FAIL() << "accepted corrupt pending work";
++          } catch (const std::exception& error) {
++            const std::string reason = error.what();
++            EXPECT_NE(
++                reason.find(fault < 2 ? "SPDZWISE ring check failed"
++                                      : "Boolean replicated copies disagree"),
++                std::string::npos)
++                << reason;
++          }
++          EXPECT_FALSE(opened);
++          EXPECT_TRUE(state->failed());
++          EXPECT_ANY_THROW(state->exportedValue("out"));
++        });
++      }
+     }
+   }
+ }
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index 68f324ef..22a78512 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -86,6 +86,7 @@ class SpdzWiseState final : public ProtocolSession {
+   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
+   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
+   NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits, SignType sign);
++  NdArrayRef truncNaive(const NdArrayRef& x, size_t bits, SignType sign);
+   double truncMaterialMs() const {
+     return ring_ ? ring_->truncMaterialMs() : 0;
+   }

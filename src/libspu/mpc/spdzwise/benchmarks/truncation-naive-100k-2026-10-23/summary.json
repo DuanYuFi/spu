@@ -1,0 +1,224 @@
+{
+  "spdzwise": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 358.778798,
+        "material_ms": 16.169156,
+        "online_ms": 343.461571,
+        "verify_ms": 0.181112,
+        "internal_verify_ms": 300.473279,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 2,
+        "total_ms": 365.002806,
+        "material_ms": 13.55393,
+        "online_ms": 352.028344,
+        "verify_ms": 0.170081,
+        "internal_verify_ms": 299.16605,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 3,
+        "total_ms": 357.656404,
+        "material_ms": 10.807268,
+        "online_ms": 347.642662,
+        "verify_ms": 0.06342,
+        "internal_verify_ms": 298.06677,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 4,
+        "total_ms": 361.05841,
+        "material_ms": 11.095937,
+        "online_ms": 349.962473,
+        "verify_ms": 0.153956,
+        "internal_verify_ms": 298.581822,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 5,
+        "total_ms": 353.194258,
+        "material_ms": 10.63278,
+        "online_ms": 342.561478,
+        "verify_ms": 0.052714,
+        "internal_verify_ms": 296.539615,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 6,
+        "total_ms": 355.772728,
+        "material_ms": 9.8324,
+        "online_ms": 346.677999,
+        "verify_ms": 0.14536,
+        "internal_verify_ms": 299.540511,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      },
+      {
+        "iteration": 7,
+        "total_ms": 370.675713,
+        "material_ms": 10.424917,
+        "online_ms": 360.250796,
+        "verify_ms": 0.185985,
+        "internal_verify_ms": 311.880105,
+        "total_sent_bytes": 484065462,
+        "total_verify_bytes": 18
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 358.778798,
+        "min_ms": 353.194258,
+        "max_ms": 370.675713
+      },
+      "material_ms": {
+        "median_ms": 10.807268,
+        "min_ms": 9.8324,
+        "max_ms": 16.169156
+      },
+      "online_ms": {
+        "median_ms": 347.642662,
+        "min_ms": 342.561478,
+        "max_ms": 360.250796
+      },
+      "verify_ms": {
+        "median_ms": 0.153956,
+        "min_ms": 0.052714,
+        "max_ms": 0.185985
+      },
+      "internal_verify_ms": {
+        "median_ms": 299.16605,
+        "min_ms": 296.539615,
+        "max_ms": 311.880105
+      }
+    },
+    "ns_per_element": 3587.78798,
+    "elements_per_second": 278723.27059861546,
+    "bytes_per_party": [
+      161355154
+    ],
+    "total_sent_bytes": [
+      484065462
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "aby3": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 10.707518,
+        "material_ms": 0.0,
+        "online_ms": 10.707518,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 2,
+        "total_ms": 9.422946,
+        "material_ms": 0.0,
+        "online_ms": 9.422946,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 3,
+        "total_ms": 8.992499,
+        "material_ms": 0.0,
+        "online_ms": 8.992499,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 4,
+        "total_ms": 10.382246,
+        "material_ms": 0.0,
+        "online_ms": 10.382246,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 5,
+        "total_ms": 7.532611,
+        "material_ms": 0.0,
+        "online_ms": 7.532611,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 6,
+        "total_ms": 8.353714,
+        "material_ms": 0.0,
+        "online_ms": 8.353714,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      },
+      {
+        "iteration": 7,
+        "total_ms": 8.855967,
+        "material_ms": 0.0,
+        "online_ms": 8.855967,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 2800000,
+        "total_verify_bytes": 0
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 8.992499,
+        "min_ms": 7.532611,
+        "max_ms": 10.707518
+      },
+      "material_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "online_ms": {
+        "median_ms": 8.992499,
+        "min_ms": 7.532611,
+        "max_ms": 10.707518
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "internal_verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "ns_per_element": 89.92499,
+    "elements_per_second": 11120379.329483382,
+    "bytes_per_party": [
+      400000,
+      1200000
+    ],
+    "total_sent_bytes": [
+      2800000
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "naive_over_aby3": 39.89756329136094
+}

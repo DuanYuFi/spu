@@ -1,0 +1,104 @@
+{
+  "spdzwise": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 12.089059,
+        "material_ms": 0.122816,
+        "online_ms": 11.974672,
+        "verify_ms": 0.042364,
+        "internal_verify_ms": 5.547142,
+        "total_sent_bytes": 6518922,
+        "total_verify_bytes": 18
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 12.089059,
+        "min_ms": 12.089059,
+        "max_ms": 12.089059
+      },
+      "material_ms": {
+        "median_ms": 0.122816,
+        "min_ms": 0.122816,
+        "max_ms": 0.122816
+      },
+      "online_ms": {
+        "median_ms": 11.974672,
+        "min_ms": 11.974672,
+        "max_ms": 11.974672
+      },
+      "verify_ms": {
+        "median_ms": 0.042364,
+        "min_ms": 0.042364,
+        "max_ms": 0.042364
+      },
+      "internal_verify_ms": {
+        "median_ms": 5.547142,
+        "min_ms": 5.547142,
+        "max_ms": 5.547142
+      }
+    },
+    "ns_per_element": 12089.059,
+    "elements_per_second": 82719.424233102,
+    "bytes_per_party": [
+      2172974
+    ],
+    "total_sent_bytes": [
+      6518922
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "aby3": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 0.217693,
+        "material_ms": 0.0,
+        "online_ms": 0.217693,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 28000,
+        "total_verify_bytes": 0
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 0.217693,
+        "min_ms": 0.217693,
+        "max_ms": 0.217693
+      },
+      "material_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "online_ms": {
+        "median_ms": 0.217693,
+        "min_ms": 0.217693,
+        "max_ms": 0.217693
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "internal_verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "ns_per_element": 217.693,
+    "elements_per_second": 4593624.967270422,
+    "bytes_per_party": [
+      4000,
+      12000
+    ],
+    "total_sent_bytes": [
+      28000
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "naive_over_aby3": 55.5326032532052
+}

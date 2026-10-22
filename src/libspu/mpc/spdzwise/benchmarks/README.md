@@ -45,13 +45,13 @@ material、circuit、check、open 的耗时和发送字节。算术认证与 ABF
 
 ## Signed RING truncation
 
-`truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的
-ABY3 `TruncAPr2`。100,000 个正负混合输入，`|x|<2^62`，`m=16`，双方均传
+`truncation_bench` 比较默认 `TruncNaive`、显式 `TruncPrRandomBit` 与正常注册的
+ABY3 `TruncAPr2`。Naive 精确向下取整，另外两条路径保留各自概率舍入。100,000 个正负混合输入，`|x|<2^62`，`m=16`，双方均传
 `SignType::Unknown`。不开发或测试 FIELD 截断。
 
 计时前准备正确输入 shares；SPDZwise 完成输入认证。主计时包含现场生成随机材料、
-bitness/打开检查和截断，输出 shares 形成即停止。最终延迟认证检查、导出、重构在
-计时外执行并验证所有输出。ABY3 使用普通 replicated shares，不增加认证。
+全部必要算术/ABFL 验证、打开检查和截断，输出 shares 形成即停止。调用后空检查、导出、重构在
+计时外执行并验证所有输出；Naive 必须逐元素严格等于 floor，不能仅检查误差 ±1。ABY3 使用普通 replicated shares，不增加认证。
 
 ```sh
 bash build.sh //:truncation_bench
@@ -62,12 +62,19 @@ python3 run_truncation.py NEW_OUTPUT_DIRECTORY
 中位数/范围。脚本同时保存分项耗时、通信量、逐轮 CSV、日志、源码补丁及指纹。
 仅供快速验证时可用 `--count 1000 --repetitions 1`。小批次不代表 100K 性能。
 
-最后一次完整 [100K 实测结果](truncation-signed-100k-optimized-2026-10-22/RESULTS.md)：
-SPDZwise 主耗时中位数 3431.204 ms，ABY3 为 8.728 ms，比例 393.13×。
-SPDZwise 随机材料阶段为 3419.199 ms，在线阶段为 16.493 ms；计时外认证检查
-为 1201.781 ms。分项分别统计，不可相加重建主耗时。计时内三方总发送量分别为
-1,436,027,195 B 和 2,800,000 B。原始 CSV、日志、参数、源码补丁及八组 301 个
-回归用例的验证记录均保存在该目录；此前中间版本实验归档已清理。
+当前 [100K 实测结果](truncation-naive-100k-2026-10-23/RESULTS.md)：TruncNaive **358.779 ms**，
+ABY3 TruncAPr2 **8.992 ms**。Naive 包含全部必要验证，合并验证为 **299.166 ms**。
+每种保留算子核对 800,000 个输出，九个回归目标共 323 用例通过。
+
+追加的 [ABY3 精确截断实验](truncation-aby3-exact-100k-2026-10-23/RESULTS.md)使用原生
+A2B → ARShiftB → B2ASelector，中位数 **282.853 ms**，三方发送
+**70,400,000 B**，verification 为 **0 ms**，800,000 个输出全部严格等于 floor。
+复现：`python3 run_truncation.py NEW_OUTPUT_DIRECTORY --protocols aby3-exact`。
+`--protocols` 也可选择 `spdzwise random-bit aby3 aby3-exact` 一次串行测量四组。
+注意源码已开启的 `ENABLE_PRECISE_ABY3_TRUNCPR` 选择概率 `TruncAPr2`，不保证 exact floor。
+
+[历史 ABY3 实测结果](truncation-signed-100k-optimized-2026-10-22/RESULTS.md)保留
+TruncAPr2 的 8.728 ms 和 2,800,000 B；旧 RandomBit 性能数据与比较记录已清理。
 
 ## Comparison MSB A2B
 

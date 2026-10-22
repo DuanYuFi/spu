@@ -83,6 +83,32 @@ remain unchanged.
 [Selection, raw samples, final source fingerprints and test evidence](benchmarks/a2b-split3-100k-2026-10-22/RESULTS.md).
 
 
+## Exact TruncNaive default — 2026-10-23
+
+`TruncASelector` now defaults to `TruncNaive`: A2B, local sign-extending right
+shift, and checked B2A. It reports `TruncLsbRounding::Floor` and no MSB error;
+`TruncPrRandomBit` remains explicitly callable with its original rounding.
+
+Nine regression targets passed **323 cases**. The 11 truncation cases include
+all shifts 0–63 over full int64 edges and seeded random values, non-contiguous
+views, partial bit-sliced blocks, singleton/empty inputs, sign hints, invalid
+parameters/session bindings, replicated MAC relations and subsequent arithmetic.
+Both algorithms reject corrupted pending arithmetic/Boolean work before masked
+opening. The preserved RandomBit tests still check probabilistic rounding and
+owner/tile handling. Eight targets ran uncached initially; the final command
+reused their passing results and rebuilt/retested the corrected truncation test.
+The test helper now materializes a zero-shift strided result before inspecting
+its replicated components, since a direct kernel may return the original view.
+
+The retained benchmark smoke records cover Naive and ABY3 at 1K inputs. Its Naive check
+requires exact floor equality, not a ±1 error bound. The main timing includes
+all required pre-opening MAC/ABFL checks; a later empty checkpoint is reported
+separately. This corrects the old benchmark's assumption that RandomBit leaves
+its MAC queue for post-call verification.
+
+[100K report and source fingerprints](benchmarks/truncation-naive-100k-2026-10-23/RESULTS.md),
+[raw test XML/logs and commands](benchmarks/truncation-naive-100k-2026-10-23/validation/).
+
 ## Truncation selector — 2026-10-22
 
 Renamed the arithmetic-bit implementation to `TruncPrRandomBit` and its state
@@ -110,16 +136,8 @@ streamed authenticated-copy hashes, and 27 transport fault executions across
 all three ranks. Numerical/probability, output MAC, subsequent authenticated
 multiplication, IO, session lifecycle and native ABY3 regressions passed.
 
-The retained final 100K/m=16 measurement used 64 background workers, one
-warmup and seven measured iterations. Both protocols validated every output
-and completed final authentication. SPDZwise median: 3431.204 ms; native ABY3
-TruncAPr2: 8.728 ms. Three-party primary traffic: 1,436,027,195 and 2,800,000 bytes.
-Fresh material and internal checks are timed; final authentication, export and
-reconstruction are outside the primary interval. Phase medians cannot be summed.
-
-Full measurements, test XML/logs, source and binary fingerprints, source.patch
-and commands are in [the final archive](benchmarks/truncation-signed-100k-optimized-2026-10-22/RESULTS.md).
-Earlier baseline and intermediate experiment archives have been removed.
+RandomBit performance measurements have been removed. Regression XML/logs and
+shared source fingerprints remain in the [archive](benchmarks/truncation-signed-100k-optimized-2026-10-22/).
 The protocol checks, 4096-input tiles and deferred-record count are preserved;
 this does not remove the remaining composition/production acceptance gates.
 

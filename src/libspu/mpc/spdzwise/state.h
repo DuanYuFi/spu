@@ -86,6 +86,7 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
   NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits, SignType sign);
+  NdArrayRef truncNaive(const NdArrayRef& x, size_t bits, SignType sign);
   double truncMaterialMs() const {
     return ring_ ? ring_->truncMaterialMs() : 0;
   }

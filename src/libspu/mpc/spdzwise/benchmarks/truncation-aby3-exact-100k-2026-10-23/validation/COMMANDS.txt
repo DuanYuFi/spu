@@ -1,0 +1,4 @@
+Working directory: /home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks
+BENCHMARK_JOBS=12 bash build.sh //:truncation_bench
+python3 run_truncation.py /tmp/trunc-aby3-exact-smoke-2026-10-23 --count 1000 --repetitions 1 --protocols spdzwise random-bit aby3 aby3-exact
+python3 run_truncation.py truncation-aby3-exact-100k-2026-10-23 --protocols aby3-exact

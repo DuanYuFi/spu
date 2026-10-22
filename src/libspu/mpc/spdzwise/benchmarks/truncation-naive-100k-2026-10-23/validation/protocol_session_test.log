@@ -1,0 +1,27 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc:protocol_session_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 7 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 7 tests from ProtocolSession
+[ RUN      ] ProtocolSession.LegacyContextHasNoHooks
+[       OK ] ProtocolSession.LegacyContextHasNoHooks (0 ms)
+[ RUN      ] ProtocolSession.ExportIsInvisibleUntilCommitAndInvalidatedOnSet
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1471/maps: errno=2
+[       OK ] ProtocolSession.ExportIsInvisibleUntilCommitAndInvalidatedOnSet (0 ms)
+[ RUN      ] ProtocolSession.CheckFailurePermanentlyDisablesExports
+[       OK ] ProtocolSession.CheckFailurePermanentlyDisablesExports (0 ms)
+[ RUN      ] ProtocolSession.MissingFinalizerIsNotSilentlySkipped
+[       OK ] ProtocolSession.MissingFinalizerIsNotSilentlySkipped (0 ms)
+[ RUN      ] ProtocolSession.EmptyOutputsStillFinalize
+[       OK ] ProtocolSession.EmptyOutputsStillFinalize (0 ms)
+[ RUN      ] ProtocolSession.InvalidOutputTransactionPoisonsSession
+[       OK ] ProtocolSession.InvalidOutputTransactionPoisonsSession (0 ms)
+[ RUN      ] ProtocolSession.ExecutionExceptionAbortsWithoutNetworkInDestructor
+[       OK ] ProtocolSession.ExecutionExceptionAbortsWithoutNetworkInDestructor (0 ms)
+[----------] 7 tests from ProtocolSession (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 7 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 7 tests.

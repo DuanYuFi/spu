@@ -41,8 +41,8 @@ preserve the domain, which is also included in execution agreement.
   registers no conversions. FIELD truncation and comparisons remain future work.
   `ring_conversion.h/.cc` implements value-only split-3 RING A2B, one-bit MSB
   A2B for comparison, and authenticated-mask B2A.
-  `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
-  through `TruncASelector`.
+  `ring_truncation.h/.cc` implements exact signed RING `TruncNaive` (the
+  `TruncASelector` default) and the retained probabilistic `TruncPrRandomBit`.
 - `state.h/.cc`: checked session lifecycle, field authentication and checks;
   owns the separate ring arithmetic state and shared Boolean state.
 
@@ -152,8 +152,8 @@ rejects malformed wire lengths; payload does not grow with the inner dimension.
 RING `a2b` converts the application value to 64-bit Boolean RSS; `b2a` converts
 1–64 Boolean bits to an authenticated arithmetic value. RING `msb_a2b`
 supports comparison via `MSB(x-y)`, returning a one-bit Boolean share.
-Exact truncation and full PPML integration remain unimplemented. Signed
-probabilistic truncation is described below.
+RING exact truncation uses `TruncNaive`; FIELD truncation and full PPML
+integration remain unimplemented. Both RING truncation algorithms are described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
 Z/(2^128). Internal authenticated elements contain two value and two MAC words
@@ -192,16 +192,37 @@ Final RING measurements are included in the project
 raw samples, parameters and validation evidence are in
 [`benchmarks/spdzwise-ring128-latest/`](benchmarks/spdzwise-ring128-latest/).
 
+### Signed RING exact truncation (default)
+
+The prototype registers `TruncASelector` as `trunc_a`; its default is
+`TruncNaive`: A2B, local arithmetic right shift, then B2A. It computes exactly
+`floor(x / 2^m)` for the signed interpretation of all 64 application bits,
+including `INT64_MIN` and `INT64_MAX`, with `0 <= m <= 63`. All valid sign
+hints use the same implementation. Zero shift and empty inputs are identities.
+The kernel preserves dtype, shape, session binding and authenticated arithmetic
+storage; it reports `hasMsbError() == false` and `TruncLsbRounding::Floor`.
+
+A2B only converts the low 64 value bits. The local shift replicates each XOR
+share's sign bit and retains a full 64-bit Boolean word, so negative results
+are not zero-extended by B2A. This linear operation requires no communication
+or secret ANDs. B2A generates its authenticated mask and verifies all pending
+arithmetic and Boolean work, including the first A2B, before opening the masked
+result. The output retains its MAC and can feed subsequent arithmetic.
+
+The two conversions use 125 + 188 = 313 ANDs per input, packed in 64 lanes;
+tail lanes participate in the same ABFL check. A single combined checkpoint
+checks both conversions, rather than finalizing between them. FIELD does not
+register this kernel. This exact floor contract replaces the default's former
+probabilistic rounding contract; callers needing probabilistic rounding must
+explicitly use `TruncPrRandomBit` / `truncPrRandomBit`.
+
 ### Signed RING probabilistic truncation
 
-The prototype registers `TruncASelector` as `trunc_a`. Its `proc()` currently
-routes to the sole implementation, `TruncPrRandomBit`; future public-parameter
-selection belongs in this selector. The implementation's state entry points
-are named `truncPrRandomBit`. Both kernels preserve the input dtype, and the
-selector retains the probabilistic-LSB/no-MSB-error contract. The random-bit
-protocol, security checks and timing boundaries are unchanged.
+`TruncPrRandomBit` remains available through its kernel and the
+`SpdzWiseState::truncPrRandomBit` entry point. It is no longer the selector's
+default, and retains its probabilistic-LSB/no-MSB-error contract.
 
-`trunc_a(x, m, SignType::Unknown)` accepts authenticated signed 63-bit inputs
+`truncPrRandomBit(x, m, SignType::Unknown)` accepts authenticated signed 63-bit inputs
 `-2^62 <= x < 2^62`. This is a caller contract, not a secret range check. Both
 sign hints use the same signed path. `m=0` is an identity; `1 <= m <= 62` is
 supported, and other shifts fail. FIELD does not register this kernel. The
@@ -271,8 +292,10 @@ export the result. Generic reveal kernels remain disabled.
 
 The signed 100K benchmark compares against the normally registered ABY3
 `TruncAPr2` on the common strict range `|x|<2^62`, with `m=16` and unknown sign.
-It includes fresh material generation and required internal checks, stops when
-output shares exist, and reports final authentication checking separately.
+The current benchmark includes fresh material generation and all required
+pre-opening checks, stops when output shares exist, and reports the subsequent
+empty checkpoint separately. Historical RandomBit performance records have
+been removed; the implementation and correctness tests remain available.
 ABY3 retains its native `+1` correction; its exact rounding distribution is not
 assumed equal to MP-SPDZ's. See [benchmark instructions](benchmarks/README.md).
 
@@ -701,7 +724,7 @@ Remaining acceptance gates, in order:
    derive the bound rather than inferring it from finite fault tests.
 2. Review the ABFL prototype and the combined opening schedule before enabling
    mixed-domain execution in the production factory. Malicious daBits for
-   dedicated bit conversion, FIELD conversions, precise truncation and F4
+   dedicated bit conversion, FIELD conversions, FIELD truncation and F4
    comparisons remain future work.
 3. Add the specified LR/tree/CNN fixtures, pinned data splits and weights,
    actual secure executions, interval/range records and float/quantized

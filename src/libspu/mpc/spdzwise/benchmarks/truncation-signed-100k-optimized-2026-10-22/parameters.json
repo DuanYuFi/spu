@@ -172,5 +172,9 @@
     "src/libspu/mpc/common/prg_state.h": "c3e899194632e6a6ec597c833e2a29e7e40af324221c8c906558aded8cc451e6",
     "src/libspu/core/parallel_utils.h": "f81eb47379776866db1c369eae448b64f4e99b338a1004e38d5ed6d7460da9f3",
     "src/libspu/mpc/utils/simulate.h": "5e0174dd8ed2b5aec8936a42ba5b9861159acddb525c2f09d2af5cd96df54259"
-  }
+  },
+  "retained_protocols": [
+    "aby3"
+  ],
+  "archive_note": "RandomBit performance data removed; original build/source fingerprints and run configuration retained as provenance for the remaining results."
 }

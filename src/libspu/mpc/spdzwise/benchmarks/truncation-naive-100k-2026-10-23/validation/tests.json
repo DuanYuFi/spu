@@ -1,0 +1,59 @@
+{
+  "targets": [
+    {
+      "target": "spdzwise/ring_truncation_test",
+      "tests": 11,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "spdzwise/ring_conversion_test",
+      "tests": 15,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "spdzwise/ring_test",
+      "tests": 15,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "spdzwise/protocol_test",
+      "tests": 13,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "spdzwise/io_test",
+      "tests": 8,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "spdzwise/boolean_test",
+      "tests": 17,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "protocol_session_test",
+      "tests": 7,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "aby3/protocol_test",
+      "tests": 225,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "target": "aby3/io_test",
+      "tests": 12,
+      "failures": 0,
+      "skipped": 0
+    }
+  ],
+  "total_tests": 323
+}

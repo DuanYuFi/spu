@@ -20,6 +20,10 @@
 #include "libspu/mpc/utils/simulate.h"
 
 namespace spu::mpc::spdzwise {
+class SpdzWiseBenchmarkAccess {
+ public:
+  static auto times(const SpdzWiseState* s) { return s->b2a_ms_; }
+};
 namespace {
 using Clock = std::chrono::steady_clock;
 double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
@@ -75,11 +79,15 @@ NdArrayRef Inputs(int64_t count) {
 struct Result {
   double total_ms = 0, material_ms = 0, online_ms = 0, verify_ms = 0;
   size_t bytes = 0, actions = 0, verify_bytes = 0, input_checks = 0,
-         final_checks = 0;
+         final_checks = 0, internal_checks = 0, boolean_checks = 0;
+  double internal_verify_ms = 0;
   NdArrayRef output;
 };
 
-void Run(bool wise, int64_t count, int repetitions) {
+void Run(const std::string& protocol, int64_t count, int repetitions) {
+  const bool wise = protocol == "spdzwise" || protocol == "random-bit";
+  const bool exact = protocol == "spdzwise" || protocol == "aby3-exact";
+  const bool naive = protocol == "spdzwise";
   const auto plain = Inputs(count);
   SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
   auto aby_io = aby3::makeAby3Io(FM64, 3);
@@ -90,7 +98,8 @@ void Run(bool wise, int64_t count, int repetitions) {
       << std::fixed << std::setprecision(6)
       << "protocol,count,bits,iteration,rank,total_ms,material_ms,online_ms,"
          "verify_ms,sent_bytes,sent_actions,verify_bytes,input_checks,"
-         "final_checks,outputs_verified,error_minus1,error_zero,error_plus1\n";
+         "final_checks,outputs_verified,error_minus1,error_zero,error_plus1,"
+         "internal_checks,boolean_checks,internal_verify_ms\n";
   for (int iteration = 0; iteration <= repetitions; ++iteration) {
     const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
                              : aby_io->toShares(plain, VIS_SECRET, -1);
@@ -122,26 +131,40 @@ void Run(bool wise, int64_t count, int repetitions) {
       const auto bytes = stats->sent_bytes.load();
       const auto actions = stats->sent_actions.load();
       const auto start = Clock::now();
-      auto y = trunc_a(ctx.get(), x, 16, SignType::Unknown);
+      auto y = protocol == "random-bit"
+                   ? Value(state->truncPrRandomBit(x.data(), 16,
+                                                   SignType::Unknown),
+                           x.dtype())
+                   : protocol == "aby3-exact"
+                         ? b2a(ctx.get(), arshift_b(ctx.get(), a2b(ctx.get(), x), {16}))
+                         : trunc_a(ctx.get(), x, 16, SignType::Unknown);
       const auto stop = Clock::now();  // Output shares exist; stop immediately.
       result.total_ms = Ms(start, stop);
       result.bytes = stats->sent_bytes.load() - bytes;
       result.actions = stats->sent_actions.load() - actions;
-      result.material_ms = wise ? state->truncMaterialMs() : 0;
+      result.material_ms = naive ? SpdzWiseBenchmarkAccess::times(state)[0]
+                                : wise ? state->truncMaterialMs() : 0;
+      result.internal_verify_ms = naive ? SpdzWiseBenchmarkAccess::times(state)[2]
+                                       : wise ? -1 : 0;
       result.online_ms = result.total_ms - result.material_ms;
       SPU_ENFORCE(y.shape() == x.shape() &&
                   y.storage_type() == x.storage_type());
       if (wise) {
-        SPU_ENFORCE(state->arithmeticChecks() == result.input_checks,
-                    "unexpected final MAC check inside truncation timing");
+        result.internal_checks = state->arithmeticChecks() - result.input_checks;
+        result.boolean_checks = state->booleanChecks();
+        SPU_ENFORCE(result.internal_checks == 1);
+        SPU_ENFORCE(result.boolean_checks == size_t(naive));
+        SPU_ENFORCE(state->pendingBooleanBits() == 0);
         barrier.wait();
         const auto verify_bytes = stats->sent_bytes.load();
         const auto verify_start = Clock::now();
-        state->checkMac();
+        state->verify();
         result.verify_ms = Ms(verify_start);
         result.verify_bytes = stats->sent_bytes.load() - verify_bytes;
-        result.final_checks = state->arithmeticChecks() - result.input_checks;
-        SPU_ENFORCE(result.final_checks == 1);
+        result.final_checks = state->arithmeticChecks() - result.input_checks -
+                              result.internal_checks;
+        SPU_ENFORCE(result.final_checks == 0);
+        SPU_ENFORCE(state->booleanChecks() == result.boolean_checks);
         y.setDtype(DT_I64);
         state->prepareOutputs(ctx.get(), {"y"}, {y});
         guard.commit();
@@ -165,7 +188,7 @@ void Run(bool wise, int64_t count, int repetitions) {
       SPU_ENFORCE(error >= (wise ? 0 : -1) && error <= 1,
                   "wrong output: iteration {}, element {}, x {}, y {}",
                   iteration, i, x, y);
-      if (wise && x % 65536 == 0) SPU_ENFORCE(error == 0);
+      if (exact || (wise && x % 65536 == 0)) SPU_ENFORCE(error == 0);
       ++errors[error + 1];
     }
     std::cerr << "iteration " << iteration << ": all " << count
@@ -173,13 +196,14 @@ void Run(bool wise, int64_t count, int repetitions) {
               << errors[1] << ',' << errors[2] << '\n';
     for (size_t rank = 0; rank < 3; ++rank) {
       const auto& r = results[rank];
-      std::cout << (wise ? "spdzwise-ring-signed" : "aby3-truncapr2") << ','
+      std::cout << protocol << ','
                 << count << ",16," << iteration << ',' << rank << ','
                 << r.total_ms << ',' << r.material_ms << ',' << r.online_ms
                 << ',' << r.verify_ms << ',' << r.bytes << ',' << r.actions
                 << ',' << r.verify_bytes << ',' << r.input_checks << ','
                 << r.final_checks << ',' << count << ',' << errors[0] << ','
-                << errors[1] << ',' << errors[2] << '\n';
+                << errors[1] << ',' << errors[2] << ',' << r.internal_checks << ','
+                << r.boolean_checks << ',' << r.internal_verify_ms << '\n';
     }
     std::cout.flush();
   }
@@ -190,11 +214,12 @@ void Run(bool wise, int64_t count, int repetitions) {
 int main(int argc, char** argv) {
   try {
     const std::string protocol = argc > 1 ? argv[1] : "spdzwise";
-    SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
+    SPU_ENFORCE(protocol == "spdzwise" || protocol == "random-bit" ||
+                protocol == "aby3" || protocol == "aby3-exact");
     const int64_t count = argc > 2 ? std::stoll(argv[2]) : 100000;
     const int repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
     SPU_ENFORCE(count >= 20 && count % 2 == 0 && repetitions > 0);
-    spu::mpc::spdzwise::Run(protocol == "spdzwise", count, repetitions);
+    spu::mpc::spdzwise::Run(protocol, count, repetitions);
     return 0;
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

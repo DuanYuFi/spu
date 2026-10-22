@@ -1,0 +1,155 @@
+{
+  "spdzwise": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 8.975972,
+        "material_ms": 0.104307,
+        "online_ms": 8.887866,
+        "verify_ms": 0.033492,
+        "internal_verify_ms": 4.449411,
+        "total_sent_bytes": 6518922,
+        "total_verify_bytes": 18
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 8.975972,
+        "min_ms": 8.975972,
+        "max_ms": 8.975972
+      },
+      "material_ms": {
+        "median_ms": 0.104307,
+        "min_ms": 0.104307,
+        "max_ms": 0.104307
+      },
+      "online_ms": {
+        "median_ms": 8.887866,
+        "min_ms": 8.887866,
+        "max_ms": 8.887866
+      },
+      "verify_ms": {
+        "median_ms": 0.033492,
+        "min_ms": 0.033492,
+        "max_ms": 0.033492
+      },
+      "internal_verify_ms": {
+        "median_ms": 4.449411,
+        "min_ms": 4.449411,
+        "max_ms": 4.449411
+      }
+    },
+    "ns_per_element": 8975.972,
+    "elements_per_second": 111408.5471746124,
+    "bytes_per_party": [
+      2172974
+    ],
+    "total_sent_bytes": [
+      6518922
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "aby3": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 0.32727,
+        "material_ms": 0.0,
+        "online_ms": 0.32727,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 28000,
+        "total_verify_bytes": 0
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 0.32727,
+        "min_ms": 0.32727,
+        "max_ms": 0.32727
+      },
+      "material_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "online_ms": {
+        "median_ms": 0.32727,
+        "min_ms": 0.32727,
+        "max_ms": 0.32727
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "internal_verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "ns_per_element": 327.27,
+    "elements_per_second": 3055581.0187307117,
+    "bytes_per_party": [
+      4000,
+      12000
+    ],
+    "total_sent_bytes": [
+      28000
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "aby3-exact": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "total_ms": 4.460795,
+        "material_ms": 0.0,
+        "online_ms": 4.460795,
+        "verify_ms": 0.0,
+        "internal_verify_ms": 0.0,
+        "total_sent_bytes": 704000,
+        "total_verify_bytes": 0
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 4.460795,
+        "min_ms": 4.460795,
+        "max_ms": 4.460795
+      },
+      "material_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "online_ms": {
+        "median_ms": 4.460795,
+        "min_ms": 4.460795,
+        "max_ms": 4.460795
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "internal_verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "ns_per_element": 4460.795,
+    "elements_per_second": 224175.2871405209,
+    "bytes_per_party": [
+      232000,
+      240000
+    ],
+    "total_sent_bytes": [
+      704000
+    ],
+    "validation": "all elements, including warmup; required MAC/ABFL verification inside primary interval; post-call empty checkpoint excluded"
+  },
+  "naive_over_aby3": 27.426809667858343
+}

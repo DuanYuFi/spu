@@ -1,0 +1,8 @@
+Working directory: /home/duanyufei/projects/Malicious-SPU/src
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc/spdzwise:ring_conversion_test //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:io_test //libspu/mpc/spdzwise:boolean_test //libspu/mpc:protocol_session_test //libspu/mpc/aby3:protocol_test //libspu/mpc/aby3:io_test --test_env=YACL_NUM_THREADS=65 --local_test_jobs=1 --jobs=12 --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+The initial run used --cache_test_results=no. Eight unchanged targets passed then; the final run reused those results and rebuilt/retested the corrected truncation test.
+
+Working directory: /home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks
+BENCHMARK_JOBS=12 bash build.sh //:truncation_bench
+python3 run_truncation.py /tmp/trunc-naive-smoke-2026-10-23 --count 1000 --repetitions 1
+python3 run_truncation.py truncation-naive-100k-2026-10-23
