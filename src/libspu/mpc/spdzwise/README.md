@@ -35,9 +35,12 @@ preserve the domain, which is also included in execution agreement.
 - `ring.h/.cc`, `ring_math.h`, `ring_type.h`, `ring_arithmetic.h`: independent
   128-bit arithmetic state, Protocol 9 checking, domain types and ring kernels.
 - `boolean.h/.cc`: shared ABFL implementation and Boolean kernel adapters.
+- `correlated_randomness.h/.cc`: RING authenticated random-bit generation,
+  private bit inputs, public challenges, bitness checks and scratch storage.
 - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
-  registers no conversions. Ring conversions and domain-specific PPML kernels
-  (truncation/comparison) remain future work.
+  registers no conversions. Ring conversions, FIELD truncation and comparisons
+  remain future work. `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
+  through `TruncASelector`.
 - `state.h/.cc`: checked session lifecycle, field authentication and checks;
   owns the separate ring arithmetic state and shared Boolean state.
 
@@ -98,7 +101,8 @@ as a runtime dependency.
 | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
 | A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
 | B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
-| Truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
+| FIELD truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
+| RING probabilistic truncation | `floatingpoint.py::TruncPrRing`, signed, k=63 | Authenticated random masks, low-64-bit opening and signed offset correction |
 
 Arithmetic multiplication now uses a shared F61 replicated semi-honest
 primitive (`replicated.h/.cc`) for both SPDZwise and the ABY3-F61 benchmark.
@@ -142,7 +146,8 @@ prototype registration. The implementation provides input authentication,
 matrix multiplication. Matrices accumulate each dot product locally before
 exchanging two 128-bit words per output cell. A fixed status exchange also
 rejects malformed wire lengths; payload does not grow with the inner dimension.
-A2B/B2A, truncation, comparison and PPML integration remain unimplemented.
+A2B/B2A, exact truncation, comparison and PPML integration remain unimplemented.
+Signed probabilistic truncation is described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
 Z/(2^128). Internal authenticated elements contain two value and two MAC words
@@ -170,6 +175,88 @@ Final RING measurements are included in the project
 [Arithmetic Benchmark](../../../../readme-malicious-ppml.md#arithmetic-benchmark);
 raw samples, parameters and validation evidence are in
 [`benchmarks/spdzwise-ring128-latest/`](benchmarks/spdzwise-ring128-latest/).
+
+### Signed RING probabilistic truncation
+
+The prototype registers `TruncASelector` as `trunc_a`. Its `proc()` currently
+routes to the sole implementation, `TruncPrRandomBit`; future public-parameter
+selection belongs in this selector. The implementation's state entry points
+are named `truncPrRandomBit`. Both kernels preserve the input dtype, and the
+selector retains the probabilistic-LSB/no-MSB-error contract. The random-bit
+protocol, security checks and timing boundaries are unchanged.
+
+`trunc_a(x, m, SignType::Unknown)` accepts authenticated signed 63-bit inputs
+`-2^62 <= x < 2^62`. This is a caller contract, not a secret range check. Both
+sign hints use the same signed path. `m=0` is an identity; `1 <= m <= 62` is
+supported, and other shifts fail. FIELD does not register this kernel. The
+input/output internal RING type, dtype, shape and session binding are retained.
+
+Reference: MP-SPDZ commit `113c4e47dd94bca9ecab029d2f0abe649bea5c52`,
+`Compiler/floatingpoint.py::TruncPrRing`, `signed=True`, `k<n_ring` (the compiler
+labels this CdH10-fixed Protocol 3.1). `sy-rep-ring-party` uses this compiler
+expansion, not the semi-honest Replicated `trunc_pr` instruction. The full-width
+`k=64` / `TruncLeakyInRing` route is not implemented.
+
+For `ell=64,k=63`, compute `x'=x+2^62`. Generate authenticated independent
+`r_L` (m bits), `r_H` (63-m bits), and `r_B` (one bit), with
+`r=r_L+2^m*r_H+2^63*r_B`. Open only `c=(x'+r) mod 2^64`; never open the
+128-bit extension. Set `q=(c mod 2^63)>>m`, `c_B=c>>63`, and return
+
+```
+[b] = [r_B] + c_B - 2*c_B*[r_B]
+[y] = q - [r_H] + 2^(63-m)*[b] - 2^(62-m)
+```
+
+Thus `y=floor((x+r_L)/2^m)` for either sign, without computing or revealing the
+input MSB. With `t=x-2^m*floor(x/2^m)`, round-up probability is `t/2^m`.
+For example `x=-7,m=2` gives -2 with probability 3/4, or -1 with probability
+1/4. The final operations are linear on all four authenticated components;
+there is no output reauthentication or separate output MAC check.
+
+Material generation follows the default arithmetic-bit route of
+`ReplicatedPrep.hpp::buffer_ring_bits_without_check` and
+`Spdz2kPrep.hpp::MaliciousRingPrep::buffer_bits`: two rotating input owners
+provide private bits, authenticate them, and combine with `u+v-2uv`.
+Private inputs use `ReplicatedInput.hpp::add_mine_prepared`: in SPU's component
+orientation, owner o shares a bit as `(s_o,s_{o+1},s_{o+2})=(r,b-r,0)`.
+The fresh pairwise r is already known to o-1; only b-r is sent to o+1. Neither
+non-owner knows the bit. The two owners' inputs are queued together, checked
+for replica consistency, and authenticated in one batched exchange. Every
+rank advances both truncation PRSS streams through both input batches,
+including unused components, to preserve alignment across owner rotation.
+Randomness is independent of keys, multiplication masks and secret check
+coefficients. Batches of 4096 application elements bound transient memory;
+all immutable input/product records remain in the session queue.
+
+Temporary input/PRSS/coefficient buffers are reused within one truncation
+call. Input authentication multiplies directly by the scalar shared key,
+without allocating a repeated-key array. Copy checks stream directly from
+authenticated storage in the same canonical value/MAC order. Combining the
+64 bits uses a 256-input parallel grain; raw local products are parallelized.
+These changes preserve the bitness checks, freeze-before-challenge ordering,
+and `3*64*N + ceil(N/4096)` deferred records per nonzero truncation call.
+
+After freezing and checking bit/MAC replicas, a fresh commit/reveal coin
+produces public 64-bit coefficients for `sum_i r_i*(1-b_i)*b_i`. The value/MAC
+dot product is queued for the normal deferred authentication check. An explicit
+adaptation to this prototype is to apply the existing Protocol 9 `CheckZero`
+to the full 128-bit bitness sum, instead of opening only its low word. Honest
+generated bits are 0/1 in the full internal ring. No bitness residual, MAC
+residual or extension is revealed. This implementation does not establish a
+new composed malicious-security bound or enable the production factory.
+
+Mask openings check low-word replicas, send only the missing 64-bit component,
+and compare reconstructed transcript hashes with all-party failure propagation.
+Any rejection poisons the session. Finalization still checks all queued records
+before external export, including when the truncation caller does not export
+the result. Generic reveal kernels remain disabled.
+
+The signed 100K benchmark compares against the normally registered ABY3
+`TruncAPr2` on the common strict range `|x|<2^62`, with `m=16` and unknown sign.
+It includes fresh material generation and required internal checks, stops when
+output shares exist, and reports final authentication checking separately.
+ABY3 retains its native `+1` correction; its exact rounding distribution is not
+assumed equal to MP-SPDZ's. See [benchmark instructions](benchmarks/README.md).
 
 ### Protocol 9 and security model
 

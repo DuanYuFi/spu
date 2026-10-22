@@ -17,6 +17,7 @@
 #include "libspu/mpc/spdzwise/boolean.h"
 #include "libspu/mpc/spdzwise/conversion.h"
 #include "libspu/mpc/spdzwise/ring_arithmetic.h"
+#include "libspu/mpc/spdzwise/ring_truncation.h"
 #include "libspu/mpc/spdzwise/state.h"
 #include "libspu/mpc/standard_shape/protocol.h"
 
@@ -97,6 +98,7 @@ void registerRingArithmeticPrototype(
   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
   registerCommonKernels(ctx);
   ring::registerArithmeticKernels(ctx->prot());
+  ctx->prot()->regKernel<ring::TruncASelector>();
   registerBooleanKernels(ctx->prot());
 }
 

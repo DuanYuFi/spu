@@ -1,0 +1,510 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/aby3:protocol_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 225 tests from 5 test suites.
+[----------] Global test environment set-up.
+[----------] 123 tests from Aby3/ApiTest
+[ RUN      ] Aby3/ApiTest.add_ss/FM32x3
+[       OK ] Aby3/ApiTest.add_ss/FM32x3 (3 ms)
+[ RUN      ] Aby3/ApiTest.add_ss/FM64x3
+[       OK ] Aby3/ApiTest.add_ss/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_ss/FM128x3
+[       OK ] Aby3/ApiTest.add_ss/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_sv/FM32x3
+[       OK ] Aby3/ApiTest.add_sv/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.add_sv/FM64x3
+[       OK ] Aby3/ApiTest.add_sv/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_sv/FM128x3
+[       OK ] Aby3/ApiTest.add_sv/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.add_sp/FM32x3
+[       OK ] Aby3/ApiTest.add_sp/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_sp/FM64x3
+[       OK ] Aby3/ApiTest.add_sp/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_sp/FM128x3
+[       OK ] Aby3/ApiTest.add_sp/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.add_vp/FM32x3
+[       OK ] Aby3/ApiTest.add_vp/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.add_vp/FM64x3
+[       OK ] Aby3/ApiTest.add_vp/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.add_vp/FM128x3
+[       OK ] Aby3/ApiTest.add_vp/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.mul_ss/FM32x3
+[       OK ] Aby3/ApiTest.mul_ss/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_ss/FM64x3
+[       OK ] Aby3/ApiTest.mul_ss/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_ss/FM128x3
+[       OK ] Aby3/ApiTest.mul_ss/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_sv/FM32x3
+[       OK ] Aby3/ApiTest.mul_sv/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_sv/FM64x3
+[       OK ] Aby3/ApiTest.mul_sv/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.mul_sv/FM128x3
+[       OK ] Aby3/ApiTest.mul_sv/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_sp/FM32x3
+[       OK ] Aby3/ApiTest.mul_sp/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_sp/FM64x3
+[       OK ] Aby3/ApiTest.mul_sp/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_sp/FM128x3
+[       OK ] Aby3/ApiTest.mul_sp/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.mul_vp/FM32x3
+[       OK ] Aby3/ApiTest.mul_vp/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.mul_vp/FM64x3
+[       OK ] Aby3/ApiTest.mul_vp/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.mul_vp/FM128x3
+[       OK ] Aby3/ApiTest.mul_vp/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.and_ss/FM32x3
+[       OK ] Aby3/ApiTest.and_ss/FM32x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.and_ss/FM64x3
+[       OK ] Aby3/ApiTest.and_ss/FM64x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.and_ss/FM128x3
+[       OK ] Aby3/ApiTest.and_ss/FM128x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.and_sv/FM32x3
+[       OK ] Aby3/ApiTest.and_sv/FM32x3 (5 ms)
+[ RUN      ] Aby3/ApiTest.and_sv/FM64x3
+[       OK ] Aby3/ApiTest.and_sv/FM64x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.and_sv/FM128x3
+[       OK ] Aby3/ApiTest.and_sv/FM128x3 (7 ms)
+[ RUN      ] Aby3/ApiTest.and_sp/FM32x3
+[       OK ] Aby3/ApiTest.and_sp/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.and_sp/FM64x3
+[       OK ] Aby3/ApiTest.and_sp/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.and_sp/FM128x3
+[       OK ] Aby3/ApiTest.and_sp/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.and_vp/FM32x3
+[       OK ] Aby3/ApiTest.and_vp/FM32x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.and_vp/FM64x3
+[       OK ] Aby3/ApiTest.and_vp/FM64x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.and_vp/FM128x3
+[       OK ] Aby3/ApiTest.and_vp/FM128x3 (8 ms)
+[ RUN      ] Aby3/ApiTest.xor_ss/FM32x3
+[       OK ] Aby3/ApiTest.xor_ss/FM32x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.xor_ss/FM64x3
+[       OK ] Aby3/ApiTest.xor_ss/FM64x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.xor_ss/FM128x3
+[       OK ] Aby3/ApiTest.xor_ss/FM128x3 (3 ms)
+[ RUN      ] Aby3/ApiTest.xor_sv/FM32x3
+[       OK ] Aby3/ApiTest.xor_sv/FM32x3 (5 ms)
+[ RUN      ] Aby3/ApiTest.xor_sv/FM64x3
+[       OK ] Aby3/ApiTest.xor_sv/FM64x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.xor_sv/FM128x3
+[       OK ] Aby3/ApiTest.xor_sv/FM128x3 (8 ms)
+[ RUN      ] Aby3/ApiTest.xor_sp/FM32x3
+[       OK ] Aby3/ApiTest.xor_sp/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.xor_sp/FM64x3
+[       OK ] Aby3/ApiTest.xor_sp/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.xor_sp/FM128x3
+[       OK ] Aby3/ApiTest.xor_sp/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.xor_vp/FM32x3
+[       OK ] Aby3/ApiTest.xor_vp/FM32x3 (5 ms)
+[ RUN      ] Aby3/ApiTest.xor_vp/FM64x3
+[       OK ] Aby3/ApiTest.xor_vp/FM64x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.xor_vp/FM128x3
+[       OK ] Aby3/ApiTest.xor_vp/FM128x3 (8 ms)
+[ RUN      ] Aby3/ApiTest.negate_s/FM32x3
+[       OK ] Aby3/ApiTest.negate_s/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_s/FM64x3
+[       OK ] Aby3/ApiTest.negate_s/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_s/FM128x3
+[       OK ] Aby3/ApiTest.negate_s/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_v/FM32x3
+[       OK ] Aby3/ApiTest.negate_v/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_v/FM64x3
+[       OK ] Aby3/ApiTest.negate_v/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_v/FM128x3
+[       OK ] Aby3/ApiTest.negate_v/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_p/FM32x3
+[       OK ] Aby3/ApiTest.negate_p/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_p/FM64x3
+[       OK ] Aby3/ApiTest.negate_p/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.negate_p/FM128x3
+[       OK ] Aby3/ApiTest.negate_p/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_s/FM32x3
+[       OK ] Aby3/ApiTest.not_s/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_s/FM64x3
+[       OK ] Aby3/ApiTest.not_s/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_s/FM128x3
+[       OK ] Aby3/ApiTest.not_s/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_v/FM32x3
+[       OK ] Aby3/ApiTest.not_v/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_v/FM64x3
+[       OK ] Aby3/ApiTest.not_v/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.not_v/FM128x3
+[       OK ] Aby3/ApiTest.not_v/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_p/FM32x3
+[       OK ] Aby3/ApiTest.not_p/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_p/FM64x3
+[       OK ] Aby3/ApiTest.not_p/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.not_p/FM128x3
+[       OK ] Aby3/ApiTest.not_p/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_v/FM32x3
+[       OK ] Aby3/ApiTest.msb_v/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_v/FM64x3
+[       OK ] Aby3/ApiTest.msb_v/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_v/FM128x3
+[       OK ] Aby3/ApiTest.msb_v/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_p/FM32x3
+[       OK ] Aby3/ApiTest.msb_p/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_p/FM64x3
+[       OK ] Aby3/ApiTest.msb_p/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.msb_p/FM128x3
+[       OK ] Aby3/ApiTest.msb_p/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.MsbS/FM32x3
+[       OK ] Aby3/ApiTest.MsbS/FM32x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.MsbS/FM64x3
+[       OK ] Aby3/ApiTest.MsbS/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.MsbS/FM128x3
+[       OK ] Aby3/ApiTest.MsbS/FM128x3 (2 ms)
+[ RUN      ] Aby3/ApiTest.lshiftS/FM32x3
+[       OK ] Aby3/ApiTest.lshiftS/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftS/FM64x3
+[       OK ] Aby3/ApiTest.lshiftS/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftS/FM128x3
+[       OK ] Aby3/ApiTest.lshiftS/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftV/FM32x3
+[       OK ] Aby3/ApiTest.lshiftV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftV/FM64x3
+[       OK ] Aby3/ApiTest.lshiftV/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.lshiftV/FM128x3
+[       OK ] Aby3/ApiTest.lshiftV/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.lshiftP/FM32x3
+[       OK ] Aby3/ApiTest.lshiftP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftP/FM64x3
+[       OK ] Aby3/ApiTest.lshiftP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.lshiftP/FM128x3
+[       OK ] Aby3/ApiTest.lshiftP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.rshiftS/FM32x3
+[       OK ] Aby3/ApiTest.rshiftS/FM32x3 (3 ms)
+[ RUN      ] Aby3/ApiTest.rshiftS/FM64x3
+[       OK ] Aby3/ApiTest.rshiftS/FM64x3 (5 ms)
+[ RUN      ] Aby3/ApiTest.rshiftS/FM128x3
+[       OK ] Aby3/ApiTest.rshiftS/FM128x3 (9 ms)
+[ RUN      ] Aby3/ApiTest.rshiftV/FM32x3
+[       OK ] Aby3/ApiTest.rshiftV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.rshiftV/FM64x3
+[       OK ] Aby3/ApiTest.rshiftV/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.rshiftV/FM128x3
+[       OK ] Aby3/ApiTest.rshiftV/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.rshiftP/FM32x3
+[       OK ] Aby3/ApiTest.rshiftP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.rshiftP/FM64x3
+[       OK ] Aby3/ApiTest.rshiftP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.rshiftP/FM128x3
+[       OK ] Aby3/ApiTest.rshiftP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.arshiftS/FM32x3
+[       OK ] Aby3/ApiTest.arshiftS/FM32x3 (3 ms)
+[ RUN      ] Aby3/ApiTest.arshiftS/FM64x3
+[       OK ] Aby3/ApiTest.arshiftS/FM64x3 (6 ms)
+[ RUN      ] Aby3/ApiTest.arshiftS/FM128x3
+[       OK ] Aby3/ApiTest.arshiftS/FM128x3 (9 ms)
+[ RUN      ] Aby3/ApiTest.arshiftV/FM32x3
+[       OK ] Aby3/ApiTest.arshiftV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.arshiftV/FM64x3
+[       OK ] Aby3/ApiTest.arshiftV/FM64x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.arshiftV/FM128x3
+[       OK ] Aby3/ApiTest.arshiftV/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.arshiftP/FM32x3
+[       OK ] Aby3/ApiTest.arshiftP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.arshiftP/FM64x3
+[       OK ] Aby3/ApiTest.arshiftP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.arshiftP/FM128x3
+[       OK ] Aby3/ApiTest.arshiftP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.TruncS/FM32x3
+[       OK ] Aby3/ApiTest.TruncS/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.TruncS/FM64x3
+[       OK ] Aby3/ApiTest.TruncS/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.TruncS/FM128x3
+[       OK ] Aby3/ApiTest.TruncS/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.MatMulSS/FM32x3
+[2026-10-21 10:02:26.244] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.244] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.244] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[       OK ] Aby3/ApiTest.MatMulSS/FM32x3 (7 ms)
+[ RUN      ] Aby3/ApiTest.MatMulSS/FM64x3
+[2026-10-21 10:02:26.251] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.251] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.252] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[       OK ] Aby3/ApiTest.MatMulSS/FM64x3 (12 ms)
+[ RUN      ] Aby3/ApiTest.MatMulSS/FM128x3
+[2026-10-21 10:02:26.263] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.264] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[2026-10-21 10:02:26.264] [info] [api_test.cc:421] Value<70x400xP*,s=400,1> Value<400x60xP*,s=60,1> Value<400x90xP*,s=90,1>
+[       OK ] Aby3/ApiTest.MatMulSS/FM128x3 (15 ms)
+[ RUN      ] Aby3/ApiTest.MmulSP/FM32x3
+[       OK ] Aby3/ApiTest.MmulSP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.MmulSP/FM64x3
+[       OK ] Aby3/ApiTest.MmulSP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.MmulSP/FM128x3
+[       OK ] Aby3/ApiTest.MmulSP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2P/FM32x3
+[       OK ] Aby3/ApiTest.P2S_S2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2P/FM64x3
+[       OK ] Aby3/ApiTest.P2S_S2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2P/FM128x3
+[       OK ] Aby3/ApiTest.P2S_S2P/FM128x3 (1 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2P/FM32x3
+[       OK ] Aby3/ApiTest.P2V_V2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2P/FM64x3
+[       OK ] Aby3/ApiTest.P2V_V2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2P/FM128x3
+[       OK ] Aby3/ApiTest.P2V_V2P/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2S_S2P/FM32x3
+[       OK ] Aby3/ApiTest.P2V_V2S_S2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2S_S2P/FM64x3
+[       OK ] Aby3/ApiTest.P2V_V2S_S2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2V_V2S_S2P/FM128x3
+[       OK ] Aby3/ApiTest.P2V_V2S_S2P/FM128x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2V_V2P/FM32x3
+[       OK ] Aby3/ApiTest.P2S_S2V_V2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2V_V2P/FM64x3
+[       OK ] Aby3/ApiTest.P2S_S2V_V2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/ApiTest.P2S_S2V_V2P/FM128x3
+[       OK ] Aby3/ApiTest.P2S_S2V_V2P/FM128x3 (0 ms)
+[----------] 123 tests from Aby3/ApiTest (252 ms total)
+
+[----------] 48 tests from Aby3/ArithmeticTest
+[ RUN      ] Aby3/ArithmeticTest.addAA/FM32x3
+[       OK ] Aby3/ArithmeticTest.addAA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.addAA/FM64x3
+[       OK ] Aby3/ArithmeticTest.addAA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.addAA/FM128x3
+[       OK ] Aby3/ArithmeticTest.addAA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.addAP/FM32x3
+[       OK ] Aby3/ArithmeticTest.addAP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.addAP/FM64x3
+[       OK ] Aby3/ArithmeticTest.addAP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.addAP/FM128x3
+[       OK ] Aby3/ArithmeticTest.addAP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAA/FM32x3
+[       OK ] Aby3/ArithmeticTest.mulAA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAA/FM64x3
+[       OK ] Aby3/ArithmeticTest.mulAA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAA/FM128x3
+[       OK ] Aby3/ArithmeticTest.mulAA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAP/FM32x3
+[       OK ] Aby3/ArithmeticTest.mulAP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAP/FM64x3
+[       OK ] Aby3/ArithmeticTest.mulAP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.mulAP/FM128x3
+[       OK ] Aby3/ArithmeticTest.mulAP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.SquareA/FM32x3
+[       OK ] Aby3/ArithmeticTest.SquareA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.SquareA/FM64x3
+[       OK ] Aby3/ArithmeticTest.SquareA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.SquareA/FM128x3
+[       OK ] Aby3/ArithmeticTest.SquareA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1B/FM32x3
+[       OK ] Aby3/ArithmeticTest.MulA1B/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1B/FM64x3
+[       OK ] Aby3/ArithmeticTest.MulA1B/FM64x3 (1 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1B/FM128x3
+[       OK ] Aby3/ArithmeticTest.MulA1B/FM128x3 (1 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulAV/FM32x3
+[       OK ] Aby3/ArithmeticTest.MulAV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulAV/FM64x3
+[       OK ] Aby3/ArithmeticTest.MulAV/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulAV/FM128x3
+[       OK ] Aby3/ArithmeticTest.MulAV/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1BV/FM32x3
+[       OK ] Aby3/ArithmeticTest.MulA1BV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1BV/FM64x3
+[       OK ] Aby3/ArithmeticTest.MulA1BV/FM64x3 (4 ms)
+[ RUN      ] Aby3/ArithmeticTest.MulA1BV/FM128x3
+[       OK ] Aby3/ArithmeticTest.MulA1BV/FM128x3 (1 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAP/FM32x3
+[       OK ] Aby3/ArithmeticTest.MatMulAP/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAP/FM64x3
+[       OK ] Aby3/ArithmeticTest.MatMulAP/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAP/FM128x3
+[       OK ] Aby3/ArithmeticTest.MatMulAP/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAA/FM32x3
+[       OK ] Aby3/ArithmeticTest.MatMulAA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAA/FM64x3
+[       OK ] Aby3/ArithmeticTest.MatMulAA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAA/FM128x3
+[       OK ] Aby3/ArithmeticTest.MatMulAA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAV/FM32x3
+[       OK ] Aby3/ArithmeticTest.MatMulAV/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAV/FM64x3
+[       OK ] Aby3/ArithmeticTest.MatMulAV/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.MatMulAV/FM128x3
+[       OK ] Aby3/ArithmeticTest.MatMulAV/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.NegateA/FM32x3
+[       OK ] Aby3/ArithmeticTest.NegateA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.NegateA/FM64x3
+[       OK ] Aby3/ArithmeticTest.NegateA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.NegateA/FM128x3
+[       OK ] Aby3/ArithmeticTest.NegateA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.LShiftA/FM32x3
+[       OK ] Aby3/ArithmeticTest.LShiftA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.LShiftA/FM64x3
+[       OK ] Aby3/ArithmeticTest.LShiftA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.LShiftA/FM128x3
+[       OK ] Aby3/ArithmeticTest.LShiftA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.TruncA/FM32x3
+[       OK ] Aby3/ArithmeticTest.TruncA/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.TruncA/FM64x3
+[       OK ] Aby3/ArithmeticTest.TruncA/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.TruncA/FM128x3
+[       OK ] Aby3/ArithmeticTest.TruncA/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.P2A/FM32x3
+[       OK ] Aby3/ArithmeticTest.P2A/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.P2A/FM64x3
+[       OK ] Aby3/ArithmeticTest.P2A/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.P2A/FM128x3
+[       OK ] Aby3/ArithmeticTest.P2A/FM128x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.A2P/FM32x3
+[       OK ] Aby3/ArithmeticTest.A2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.A2P/FM64x3
+[       OK ] Aby3/ArithmeticTest.A2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/ArithmeticTest.A2P/FM128x3
+[       OK ] Aby3/ArithmeticTest.A2P/FM128x3 (0 ms)
+[----------] 48 tests from Aby3/ArithmeticTest (30 ms total)
+
+[----------] 30 tests from Aby3/BooleanTest
+[ RUN      ] Aby3/BooleanTest.andBB/FM32x3
+[       OK ] Aby3/BooleanTest.andBB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.andBB/FM64x3
+[       OK ] Aby3/BooleanTest.andBB/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.andBB/FM128x3
+[       OK ] Aby3/BooleanTest.andBB/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.andBP/FM32x3
+[       OK ] Aby3/BooleanTest.andBP/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.andBP/FM64x3
+[       OK ] Aby3/BooleanTest.andBP/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.andBP/FM128x3
+[       OK ] Aby3/BooleanTest.andBP/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBB/FM32x3
+[       OK ] Aby3/BooleanTest.xorBB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBB/FM64x3
+[       OK ] Aby3/BooleanTest.xorBB/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBB/FM128x3
+[       OK ] Aby3/BooleanTest.xorBB/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBP/FM32x3
+[       OK ] Aby3/BooleanTest.xorBP/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBP/FM64x3
+[       OK ] Aby3/BooleanTest.xorBP/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.xorBP/FM128x3
+[       OK ] Aby3/BooleanTest.xorBP/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.lshiftB/FM32x3
+[       OK ] Aby3/BooleanTest.lshiftB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.lshiftB/FM64x3
+[       OK ] Aby3/BooleanTest.lshiftB/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.lshiftB/FM128x3
+[       OK ] Aby3/BooleanTest.lshiftB/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.rshiftB/FM32x3
+[       OK ] Aby3/BooleanTest.rshiftB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.rshiftB/FM64x3
+[       OK ] Aby3/BooleanTest.rshiftB/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.rshiftB/FM128x3
+[       OK ] Aby3/BooleanTest.rshiftB/FM128x3 (3 ms)
+[ RUN      ] Aby3/BooleanTest.arshiftB/FM32x3
+[       OK ] Aby3/BooleanTest.arshiftB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.arshiftB/FM64x3
+[       OK ] Aby3/BooleanTest.arshiftB/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.arshiftB/FM128x3
+[       OK ] Aby3/BooleanTest.arshiftB/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.P2B/FM32x3
+[       OK ] Aby3/BooleanTest.P2B/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.P2B/FM64x3
+[       OK ] Aby3/BooleanTest.P2B/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.P2B/FM128x3
+[       OK ] Aby3/BooleanTest.P2B/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.B2P/FM32x3
+[       OK ] Aby3/BooleanTest.B2P/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.B2P/FM64x3
+[       OK ] Aby3/BooleanTest.B2P/FM64x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.B2P/FM128x3
+[       OK ] Aby3/BooleanTest.B2P/FM128x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.BitrevB/FM32x3
+[       OK ] Aby3/BooleanTest.BitrevB/FM32x3 (0 ms)
+[ RUN      ] Aby3/BooleanTest.BitrevB/FM64x3
+[       OK ] Aby3/BooleanTest.BitrevB/FM64x3 (2 ms)
+[ RUN      ] Aby3/BooleanTest.BitrevB/FM128x3
+[       OK ] Aby3/BooleanTest.BitrevB/FM128x3 (15 ms)
+[----------] 30 tests from Aby3/BooleanTest (34 ms total)
+
+[----------] 15 tests from Aby3/ConversionTest
+[ RUN      ] Aby3/ConversionTest.A2B/FM32x3
+[       OK ] Aby3/ConversionTest.A2B/FM32x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.A2B/FM64x3
+[       OK ] Aby3/ConversionTest.A2B/FM64x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.A2B/FM128x3
+[       OK ] Aby3/ConversionTest.A2B/FM128x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.B2A/FM32x3
+[       OK ] Aby3/ConversionTest.B2A/FM32x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.B2A/FM64x3
+[       OK ] Aby3/ConversionTest.B2A/FM64x3 (2 ms)
+[ RUN      ] Aby3/ConversionTest.B2A/FM128x3
+[       OK ] Aby3/ConversionTest.B2A/FM128x3 (2 ms)
+[ RUN      ] Aby3/ConversionTest.MSB/FM32x3
+[       OK ] Aby3/ConversionTest.MSB/FM32x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.MSB/FM64x3
+[       OK ] Aby3/ConversionTest.MSB/FM64x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.MSB/FM128x3
+[       OK ] Aby3/ConversionTest.MSB/FM128x3 (2 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAA/FM32x3
+[       OK ] Aby3/ConversionTest.EqualAA/FM32x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAA/FM64x3
+[       OK ] Aby3/ConversionTest.EqualAA/FM64x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAA/FM128x3
+[       OK ] Aby3/ConversionTest.EqualAA/FM128x3 (5 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAP/FM32x3
+[       OK ] Aby3/ConversionTest.EqualAP/FM32x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAP/FM64x3
+[       OK ] Aby3/ConversionTest.EqualAP/FM64x3 (1 ms)
+[ RUN      ] Aby3/ConversionTest.EqualAP/FM128x3
+[       OK ] Aby3/ConversionTest.EqualAP/FM128x3 (1 ms)
+[----------] 15 tests from Aby3/ConversionTest (28 ms total)
+
+[----------] 9 tests from Aby3/TruncateTest
+[ RUN      ] Aby3/TruncateTest.Works/FM32xUnknownx18
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 1, sign Unknown, truncate 32 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 0, sign Unknown, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 2, sign Unknown, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM32xUnknownx18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM32xPositivex18
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 2, sign Positive, truncate 32 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 1, sign Positive, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.381] [info] [protocol_test.cc:167] Rank 0, sign Positive, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM32xPositivex18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM32xNegativex18
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 0, sign Negative, truncate 32 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 1, sign Negative, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 2, sign Negative, truncate 32 bits shares by 18 bits, sent 8 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM32xNegativex18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM64xUnknownx18
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 2, sign Unknown, truncate 64 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 0, sign Unknown, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.382] [info] [protocol_test.cc:167] Rank 1, sign Unknown, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM64xUnknownx18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM64xPositivex18
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 2, sign Positive, truncate 64 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 1, sign Positive, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 0, sign Positive, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM64xPositivex18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM64xNegativex18
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 2, sign Negative, truncate 64 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 0, sign Negative, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.383] [info] [protocol_test.cc:167] Rank 1, sign Negative, truncate 64 bits shares by 18 bits, sent 12 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM64xNegativex18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM128xUnknownx18
+[2026-10-21 10:02:26.384] [info] [protocol_test.cc:167] Rank 0, sign Unknown, truncate 128 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.384] [info] [protocol_test.cc:167] Rank 1, sign Unknown, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.384] [info] [protocol_test.cc:167] Rank 2, sign Unknown, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM128xUnknownx18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM128xPositivex18
+[2026-10-21 10:02:26.384] [info] [protocol_test.cc:167] Rank 1, sign Positive, truncate 128 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.385] [info] [protocol_test.cc:167] Rank 2, sign Positive, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.385] [info] [protocol_test.cc:167] Rank 0, sign Positive, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM128xPositivex18 (0 ms)
+[ RUN      ] Aby3/TruncateTest.Works/FM128xNegativex18
+[2026-10-21 10:02:26.385] [info] [protocol_test.cc:167] Rank 2, sign Negative, truncate 128 bits shares by 18 bits, sent 4 bytes per sample, 1 actions total.
+[2026-10-21 10:02:26.385] [info] [protocol_test.cc:167] Rank 0, sign Negative, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[2026-10-21 10:02:26.385] [info] [protocol_test.cc:167] Rank 1, sign Negative, truncate 128 bits shares by 18 bits, sent 20 bytes per sample, 2 actions total.
+[       OK ] Aby3/TruncateTest.Works/FM128xNegativex18 (0 ms)
+[----------] 9 tests from Aby3/TruncateTest (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 225 tests from 5 test suites ran. (351 ms total)
+[  PASSED  ] 225 tests.

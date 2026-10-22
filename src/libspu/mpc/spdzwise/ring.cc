@@ -157,6 +157,23 @@ void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
       link, values.size(), [&](size_t i) { return values[i]; }, context);
 }
 
+void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
+                 const NdArrayRef& values, std::string_view context,
+                 bool include_macs) {
+  const NdArrayView<AuthShare> data(values);
+  if (include_macs) {
+    CheckCopiesImpl(
+        link, 2 * values.numel(),
+        [&](size_t i) {
+          return i % 2 == 0 ? Values(data[i / 2]) : Macs(data[i / 2]);
+        },
+        context);
+  } else {
+    CheckCopiesImpl(link, values.numel(),
+                    [&](size_t i) { return Values(data[i]); }, context);
+  }
+}
+
 void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
                const RepShare& value, std::string_view context) {
   // Reference: Mark Abspoel, Anders Dalskov, Daniel Escudero, Ariel Nof,
@@ -255,7 +272,7 @@ std::vector<RepShare> ArithmeticState::multiplyRaw(
     const std::vector<RepShare>& x, const std::vector<RepShare>& y) {
   SPU_ENFORCE(x.size() == y.size(), "ring multiplication size mismatch");
   std::vector<Word> local(x.size());
-  for (size_t i = 0; i < x.size(); ++i) local[i] = LocalProduct(x[i], y[i]);
+  pforeach(0, x.size(), [&](int64_t i) { local[i] = LocalProduct(x[i], y[i]); });
   return reshare(std::move(local), "ring-multiply");
 }
 

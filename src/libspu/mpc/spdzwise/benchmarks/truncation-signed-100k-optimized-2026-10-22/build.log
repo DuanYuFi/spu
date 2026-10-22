@@ -1,0 +1,1408 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 2 targets (2 packages loaded, 0 targets configured)
+Analyzing: 2 targets (2 packages loaded, 0 targets configured)
+
+Analyzing: 2 targets (213 packages loaded, 9721 targets configured)
+
+INFO: Analyzed 2 targets (265 packages loaded, 17708 targets configured).
+[72 / 1,452] [Prepa] Executing genrule @@brpc~//:config_h
+INFO: From Executing genrule @@brpc~//:config_h:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@llvm-raw~~llvm~llvm-project//llvm:generate_vcs_revision:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@llvm-raw~~llvm~llvm-project//llvm:generate_static_extension_registry:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@gflags~//:gflags_completions_h:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@gflags~//:gflags_declare_h:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@gflags~//:gflags_h:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Executing genrule @@gflags~//:gflags_google_h:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[385 / 1,591] Compiling src/format.cc; 0s processwrapper-sandbox ... (13 actions, 11 running)
+INFO: From Executing genrule @@zlib~//:copy_public_headers [for tool]:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[424 / 1,591] Compiling src/format.cc; 1s processwrapper-sandbox ... (12 actions, 11 running)
+[446 / 1,591] Compiling src/format.cc; 2s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Executing genrule @@zlib~//:copy_public_headers:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[479 / 1,591] Compiling absl/time/internal/cctz/src/time_zone_info.cc [for tool]; 1s processwrapper-sandbox ... (12 actions, 11 running)
+[522 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 1s processwrapper-sandbox ... (12 actions, 11 running)
+[546 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 2s processwrapper-sandbox ... (12 actions, 11 running)
+[566 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 3s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/APFixedPoint.cpp:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFixedPoint.cpp: In static member function 'static llvm::FixedPointSemantics llvm::FixedPointSemantics::getFromOpaqueInt(uint32_t)':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFixedPoint.cpp:38:14: warning: 'void* memcpy(void*, const void*, size_t)' copying an object of non-trivial type 'class llvm::FixedPointSemantics' from an array of 'uint32_t' {aka 'unsigned int'} [-Wclass-memaccess]
+   38 |   std::memcpy(&F, &I, sizeof(F));
+      |   ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+In file included from external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFixedPoint.cpp:14:
+external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/APFixedPoint.h:35:7: note: 'class llvm::FixedPointSemantics' declared here
+   35 | class FixedPointSemantics {
+      |       ^~~~~~~~~~~~~~~~~~~
+[585 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 4s processwrapper-sandbox ... (13 actions, 12 running)
+[600 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 5s processwrapper-sandbox ... (13 actions, 12 running)
+[615 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 6s processwrapper-sandbox ... (13 actions, 12 running)
+[627 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 7s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/APFloat.cpp:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFloat.cpp: In member function 'llvm::Expected<llvm::APFloatBase::opStatus> llvm::detail::IEEEFloat::convertFromDecimalString(llvm::StringRef, llvm::detail::roundingMode)':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFloat.cpp:3143:36: warning: 'D.llvm::decimalInfo::firstSigDigit' may be used uninitialized [-Wmaybe-uninitialized]
+ 3143 |   if (D.firstSigDigit == str.end() || decDigitValue(*D.firstSigDigit) >= 10U) {
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFloat.cpp:3111:15: note: 'D.llvm::decimalInfo::firstSigDigit' was declared here
+ 3111 |   decimalInfo D;
+      |               ^
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFloat.cpp:3181:58: warning: 'D.llvm::decimalInfo::lastSigDigit' may be used uninitialized [-Wmaybe-uninitialized]
+ 3181 |     partCount = static_cast<unsigned int>(D.lastSigDigit - D.firstSigDigit) + 1;
+      |                                           ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/APFloat.cpp:3111:15: note: 'D.llvm::decimalInfo::lastSigDigit' was declared here
+ 3111 |   decimalInfo D;
+      |               ^
+[641 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 8s processwrapper-sandbox ... (13 actions, 12 running)
+[663 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 9s processwrapper-sandbox ... (12 actions, 11 running)
+[678 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 10s processwrapper-sandbox ... (12 actions, 11 running)
+[692 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 11s processwrapper-sandbox ... (12 actions, 11 running)
+[704 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 12s processwrapper-sandbox ... (12 actions, 11 running)
+[712 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 13s processwrapper-sandbox ... (12 actions, 11 running)
+[722 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 14s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/YAMLParser.cpp:
+In member function 'void llvm::yaml::Scanner::setError(const llvm::Twine&, llvm::StringRef::iterator)',
+    inlined from 'bool llvm::yaml::Scanner::findBlockScalarIndent(unsigned int&, unsigned int, unsigned int&, bool&)' at external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/YAMLParser.cpp:1656:17:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/YAMLParser.cpp:266:5: warning: 'LongestAllSpaceLine' may be used uninitialized [-Wmaybe-uninitialized]
+  266 |     if (Position >= End)
+      |     ^~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/YAMLParser.cpp: In member function 'bool llvm::yaml::Scanner::findBlockScalarIndent(unsigned int&, unsigned int, unsigned int&, bool&)':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/YAMLParser.cpp:1643:23: note: 'LongestAllSpaceLine' was declared here
+ 1643 |   StringRef::iterator LongestAllSpaceLine;
+      |                       ^~~~~~~~~~~~~~~~~~~
+[734 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 15s processwrapper-sandbox ... (12 actions, 11 running)
+[749 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 16s processwrapper-sandbox ... (12 actions, 11 running)
+[760 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 17s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/VirtualOutputBackends.cpp:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualOutputBackends.cpp: In member function 'virtual llvm::Error {anonymous}::OnDiskOutputFile::keep()':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualOutputBackends.cpp:483:7: warning: 'Owned' may be used uninitialized [-Wmaybe-uninitialized]
+  483 |       if (Owned) {
+      |       ^~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualOutputBackends.cpp:475:12: note: 'Owned' was declared here
+  475 |       bool Owned;
+      |            ^~~~~
+[772 / 1,591] BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]; 18s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From BootstrapGNUMake external/rules_foreign_cc~/toolchains/private/make [for tool]:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[790 / 1,591] Compiling absl/crc/internal/crc_cord_state.cc; 0s processwrapper-sandbox ... (12 actions, 11 running)
+[806 / 1,591] Compiling llvm/lib/Support/JSON.cpp; 1s processwrapper-sandbox ... (12 actions, 11 running)
+[818 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 2s processwrapper-sandbox ... (12 actions, 11 running)
+[829 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 3s processwrapper-sandbox ... (12 actions, 11 running)
+[839 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 4s processwrapper-sandbox ... (13 actions, 12 running)
+[854 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 5s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/VirtualFileSystem.cpp:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualFileSystem.cpp: In member function 'std::unique_ptr<llvm::vfs::RedirectingFileSystem::Entry> llvm::vfs::RedirectingFileSystemParser::parseEntry(llvm::yaml::Node*, llvm::vfs::RedirectingFileSystem*, bool)':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualFileSystem.cpp:1954:14: warning: 'Kind' may be used uninitialized [-Wmaybe-uninitialized]
+ 1954 |     if (Kind == RedirectingFileSystem::EK_DirectoryRemap &&
+      |         ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/VirtualFileSystem.cpp:1840:38: note: 'Kind' was declared here
+ 1840 |     RedirectingFileSystem::EntryKind Kind;
+      |                                      ^~~~
+[868 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 6s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/Mustache.cpp:
+In file included from /usr/include/c++/13/algorithm:60,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/SmallVector.h:19,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/Twine.h:12,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/Support/Error.h:17,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/Support/Mustache.h:72,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp:8:
+In static member function 'static _Up* std::__copy_move<_IsMove, true, std::random_access_iterator_tag>::__copy_m(_Tp*, _Tp*, _Up*) [with _Tp = llvm::mustache::Token; _Up = llvm::mustache::Token; bool _IsMove = true]',
+    inlined from '_OI std::__copy_move_a2(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:506:30,
+    inlined from '_OI std::__copy_move_a1(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:533:42,
+    inlined from '_OI std::__copy_move_a(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:540:31,
+    inlined from '_OI std::move(_II, _II, _OI) [with _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:665:38,
+    inlined from 'llvm::SmallVectorImpl<T>& llvm::SmallVectorImpl<T>::operator=(llvm::SmallVectorImpl<T>&&) [with T = llvm::mustache::Token]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/SmallVector.h:1070:25,
+    inlined from 'llvm::SmallVector<T, N>& llvm::SmallVector<T, N>::operator=(llvm::SmallVector<T, N>&&) [with T = llvm::mustache::Token; unsigned int N = 1]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/SmallVector.h:1258:36,
+    inlined from 'llvm::mustache::ASTNode* llvm::mustache::Parser::parse()' at external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp:633:37:
+/usr/include/c++/13/bits/stl_algobase.h:437:30: warning: 'void* __builtin_memmove(void*, const void*, long unsigned int)' forming offset 80 is out of the bounds [0, 80] of object '<anonymous>' with type 'llvm::SmallVector<llvm::mustache::Token>' [-Warray-bounds=]
+  437 |             __builtin_memmove(__result, __first, sizeof(_Tp) * _Num);
+      |             ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp: In member function 'llvm::mustache::ASTNode* llvm::mustache::Parser::parse()':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp:633:20: note: '<anonymous>' declared here
+  633 |   Tokens = tokenize(TemplateStr, Ctx);
+      |            ~~~~~~~~^~~~~~~~~~~~~~~~~~
+In static member function 'static _Up* std::__copy_move<_IsMove, true, std::random_access_iterator_tag>::__copy_m(_Tp*, _Tp*, _Up*) [with _Tp = llvm::mustache::Token; _Up = llvm::mustache::Token; bool _IsMove = true]',
+    inlined from '_OI std::__copy_move_a2(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:506:30,
+    inlined from '_OI std::__copy_move_a1(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:533:42,
+    inlined from '_OI std::__copy_move_a(_II, _II, _OI) [with bool _IsMove = true; _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:540:31,
+    inlined from '_OI std::move(_II, _II, _OI) [with _II = llvm::mustache::Token*; _OI = llvm::mustache::Token*]' at /usr/include/c++/13/bits/stl_algobase.h:665:38,
+    inlined from 'llvm::SmallVectorImpl<T>& llvm::SmallVectorImpl<T>::operator=(llvm::SmallVectorImpl<T>&&) [with T = llvm::mustache::Token]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/SmallVector.h:1093:14,
+    inlined from 'llvm::SmallVector<T, N>& llvm::SmallVector<T, N>::operator=(llvm::SmallVector<T, N>&&) [with T = llvm::mustache::Token; unsigned int N = 1]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/SmallVector.h:1258:36,
+    inlined from 'llvm::mustache::ASTNode* llvm::mustache::Parser::parse()' at external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp:633:37:
+/usr/include/c++/13/bits/stl_algobase.h:437:30: warning: 'void* __builtin_memmove(void*, const void*, long unsigned int)' forming offset 80 is out of the bounds [0, 80] of object '<anonymous>' with type 'llvm::SmallVector<llvm::mustache::Token>' [-Warray-bounds=]
+  437 |             __builtin_memmove(__result, __first, sizeof(_Tp) * _Num);
+      |             ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp: In member function 'llvm::mustache::ASTNode* llvm::mustache::Parser::parse()':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Mustache.cpp:633:20: note: '<anonymous>' declared here
+  633 |   Tokens = tokenize(TemplateStr, Ctx);
+      |            ~~~~~~~~^~~~~~~~~~~~~~~~~~
+[880 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[893 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 9s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/Process.cpp:
+In file included from external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Process.cpp:122:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Unix/Process.inc: In static member function 'static size_t llvm::sys::Process::GetMallocUsage()':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Unix/Process.inc:96:18: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+   96 |   mi = ::mallinfo();
+      |        ~~~~~~~~~~^~
+In file included from external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/Unix/Process.inc:26:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+INFO: From Compiling llvm/lib/Support/UnicodeCaseFold.cpp:
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/UnicodeCaseFold.cpp:8:1: warning: multi-line comment [-Wcomment]
+    8 | //   utils/unicode-case-fold.py \
+      | ^
+[908 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 10s processwrapper-sandbox ... (12 actions, 11 running)
+[921 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 11s processwrapper-sandbox ... (12 actions, 11 running)
+[931 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 12s processwrapper-sandbox ... (12 actions, 11 running)
+[942 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 13s processwrapper-sandbox ... (12 actions, 11 running)
+[950 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 14s processwrapper-sandbox ... (12 actions, 11 running)
+[959 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 15s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling llvm/lib/Support/SpecialCaseList.cpp:
+In file included from external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/Support/SpecialCaseList.h:16,
+                 from external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/SpecialCaseList.cpp:16:
+In member function 'std::pair<llvm::StringMapIterBase<ValueTy, false>, bool> llvm::StringMap<ValueTy, AllocatorTy>::try_emplace_with_hash(llvm::StringRef, uint32_t, ArgsTy&& ...) [with ArgsTy = {}; ValueTy = llvm::StringMap<llvm::SpecialCaseList::Matcher>; AllocatorTy = llvm::MallocAllocator]',
+    inlined from 'std::pair<llvm::StringMapIterBase<ValueTy, false>, bool> llvm::StringMap<ValueTy, AllocatorTy>::try_emplace(llvm::StringRef, ArgsTy&& ...) [with ArgsTy = {}; ValueTy = llvm::StringMap<llvm::SpecialCaseList::Matcher>; AllocatorTy = llvm::MallocAllocator]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/StringMap.h:382:33,
+    inlined from 'ValueTy& llvm::StringMap<ValueTy, AllocatorTy>::operator[](llvm::StringRef) [with ValueTy = llvm::StringMap<llvm::SpecialCaseList::Matcher>; AllocatorTy = llvm::MallocAllocator]' at external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/StringMap.h:277:58,
+    inlined from 'bool llvm::SpecialCaseList::parse(unsigned int, const llvm::MemoryBuffer*, std::string&)' at external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/SpecialCaseList.cpp:237:50:
+external/llvm-raw~~llvm~llvm-project/llvm/include/llvm/ADT/StringMap.h:390:35: warning: 'CurrentSection' may be used uninitialized [-Wmaybe-uninitialized]
+  390 |     StringMapEntryBase *&Bucket = TheTable[BucketNo];
+      |                                   ^~~~~~~~
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/SpecialCaseList.cpp: In member function 'bool llvm::SpecialCaseList::parse(unsigned int, const llvm::MemoryBuffer*, std::string&)':
+external/llvm-raw~~llvm~llvm-project/llvm/lib/Support/SpecialCaseList.cpp:193:12: note: 'CurrentSection' was declared here
+  193 |   Section *CurrentSection;
+      |            ^~~~~~~~~~~~~~
+[965 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 16s processwrapper-sandbox ... (13 actions, 12 running)
+[976 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 17s processwrapper-sandbox ... (12 actions, 11 running)
+[980 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 18s processwrapper-sandbox ... (12 actions, 11 running)
+[992 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 20s processwrapper-sandbox ... (12 actions, 11 running)
+[1,002 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 21s processwrapper-sandbox ... (13 actions, 12 running)
+[1,011 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 22s processwrapper-sandbox ... (12 actions, 11 running)
+[1,015 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 23s processwrapper-sandbox ... (12 actions, 11 running)
+[1,019 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 25s processwrapper-sandbox ... (12 actions, 11 running)
+[1,025 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 26s processwrapper-sandbox ... (12 actions, 11 running)
+[1,031 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 27s processwrapper-sandbox ... (12 actions, 11 running)
+[1,034 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 28s processwrapper-sandbox ... (13 actions, 12 running)
+[1,038 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 29s processwrapper-sandbox ... (13 actions, 12 running)
+[1,041 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 30s processwrapper-sandbox ... (12 actions, 11 running)
+[1,045 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 32s processwrapper-sandbox ... (12 actions, 11 running)
+[1,047 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 33s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/text_format.cc [for tool]:
+external/protobuf~/src/google/protobuf/text_format.cc: In member function 'bool google::protobuf::TextFormat::Parser::ParserImpl::ConsumeField(google::protobuf::Message*)':
+external/protobuf~/src/google/protobuf/text_format.cc:663:54: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  663 |       if (consumed_semicolon && field->options().weak() &&
+      |                                 ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/text_format.cc:46:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,052 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 34s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/text_format.cc:
+external/protobuf~/src/google/protobuf/text_format.cc: In member function 'bool google::protobuf::TextFormat::Parser::ParserImpl::ConsumeField(google::protobuf::Message*)':
+external/protobuf~/src/google/protobuf/text_format.cc:663:54: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  663 |       if (consumed_semicolon && field->options().weak() &&
+      |                                 ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/text_format.cc:46:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/generated_message_tctable_gen.cc [for tool]:
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In function 'bool google::protobuf::internal::{anonymous}::HasWeakFields(const google::protobuf::Descriptor*)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:705:45: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  705 |     if (descriptor->field(i)->options().weak()) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/generated_message_tctable_gen.h:21,
+                 from external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:8:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In function 'bool google::protobuf::internal::IsFieldTypeEligibleForFastParsing(const google::protobuf::FieldDescriptor*)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:744:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  744 |       field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In lambda function:
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:800:54: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  800 |            !field->is_map() && !field->options().weak() &&
+      |                                 ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In static member function 'static std::vector<google::protobuf::internal::TailCallTableInfo::FieldEntryInfo> google::protobuf::internal::TailCallTableInfo::BuildFieldEntries(const google::protobuf::Descriptor*, const MessageOptions&, absl::lts_20250814::Span<const FieldOptions>, std::vector<AuxEntry>&)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:840:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  840 |       } else if (field->options().weak()) {
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,058 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 36s processwrapper-sandbox ... (12 actions, 11 running)
+[1,060 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 37s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/generated_message_tctable_gen.cc:
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In function 'bool google::protobuf::internal::{anonymous}::HasWeakFields(const google::protobuf::Descriptor*)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:705:45: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  705 |     if (descriptor->field(i)->options().weak()) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/generated_message_tctable_gen.h:21,
+                 from external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:8:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In function 'bool google::protobuf::internal::IsFieldTypeEligibleForFastParsing(const google::protobuf::FieldDescriptor*)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:744:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  744 |       field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In lambda function:
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:800:54: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  800 |            !field->is_map() && !field->options().weak() &&
+      |                                 ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc: In static member function 'static std::vector<google::protobuf::internal::TailCallTableInfo::FieldEntryInfo> google::protobuf::internal::TailCallTableInfo::BuildFieldEntries(const google::protobuf::Descriptor*, const MessageOptions&, absl::lts_20250814::Span<const FieldOptions>, std::vector<AuxEntry>&)':
+external/protobuf~/src/google/protobuf/generated_message_tctable_gen.cc:840:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  840 |       } else if (field->options().weak()) {
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/dynamic_message.cc [for tool]:
+external/protobuf~/src/google/protobuf/dynamic_message.cc: In member function 'void google::protobuf::DynamicMessage::CrossLinkPrototypes()':
+external/protobuf~/src/google/protobuf/dynamic_message.cc:772:31: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  772 |         !field->options().weak() && !InRealOneof(field) &&
+      |          ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/dynamic_message.cc:60:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,064 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 38s processwrapper-sandbox ... (12 actions, 11 running)
+[1,064 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 39s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/helpers.cc [for tool]:
+In file included from external/protobuf~/src/google/protobuf/compiler/cpp/helpers.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/helpers.cc: In member function 'google::protobuf::compiler::cpp::MessageAnalysis google::protobuf::compiler::cpp::MessageSCCAnalyzer::GetSCCAnalysis(const google::protobuf::compiler::SCC*)':
+external/protobuf~/src/google/protobuf/compiler/cpp/helpers.cc:1824:32: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 1824 |       if (field->options().weak()) {
+      |           ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,066 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 40s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/dynamic_message.cc:
+external/protobuf~/src/google/protobuf/dynamic_message.cc: In member function 'void google::protobuf::DynamicMessage::CrossLinkPrototypes()':
+external/protobuf~/src/google/protobuf/dynamic_message.cc:772:31: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  772 |         !field->options().weak() && !InRealOneof(field) &&
+      |          ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/dynamic_message.cc:60:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/descriptor.cc:
+external/protobuf~/src/google/protobuf/descriptor.cc: In member function 'void google::protobuf::FieldDescriptor::DebugString(int, std::string*, const google::protobuf::DebugStringOptions&) const':
+external/protobuf~/src/google/protobuf/descriptor.cc:3948:65: warning: 'bool google::protobuf::FieldDescriptor::has_optional_keyword() const' is deprecated: Use has_presence() instead. [-Wdeprecated-declarations]
+ 3948 |       (!is_required() && !is_repeated() && !has_optional_keyword())) {
+      |                                             ~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/descriptor.cc:12:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.h:1133:8: note: declared here
+ 1133 |   bool has_optional_keyword() const;
+      |        ^~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/descriptor.cc: In member function 'void google::protobuf::DescriptorBuilder::CrossLinkField(google::protobuf::FieldDescriptor*, const google::protobuf::FieldDescriptorProto&)':
+external/protobuf~/src/google/protobuf/descriptor.cc:7967:65: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 7967 |     bool is_weak = !pool_->enforce_weak_ && proto.options().weak();
+      |                                             ~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/cpp_features.pb.h:33,
+                 from external/protobuf~/src/google/protobuf/descriptor.cc:72:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/descriptor.cc: In function 'google::protobuf::internal::cpp::HasbitMode google::protobuf::internal::cpp::GetFieldHasbitModeWithoutProfile(const google::protobuf::FieldDescriptor*)':
+external/protobuf~/src/google/protobuf/descriptor.cc:10686:62: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+10686 |   if (field->real_containing_oneof() || field->options().weak() ||
+      |                                         ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,070 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 41s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/generated_message_reflection.cc [for tool]:
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'const google::protobuf::Message* google::protobuf::Reflection::GetDefaultMessageInstance(const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:2444:55: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 2444 |   if (!field->is_extension() && !field->options().weak() &&
+      |                                  ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/generated_message_reflection.cc:40:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+In file included from external/abseil-cpp~/absl/log/internal/check_impl.h:20,
+                 from external/abseil-cpp~/absl/log/absl_check.h:38,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/generated_message_reflection.h:25,
+                 from external/protobuf~/src/google/protobuf/generated_message_reflection.cc:12:
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'bool google::protobuf::Reflection::HasFieldSingular(const google::protobuf::Message&, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3148:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3148 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3148:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3148 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::SetHasBit(google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3177:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3177 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3177:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3177 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::ClearHasBit(google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3186:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3186 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3186:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3186 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::NaiveSwapHasBit(google::protobuf::Message*, google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3195:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3195 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3195:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3195 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h: In instantiation of 'static void google::protobuf::internal::ReflectionVisit::VisitFields(MessageT&, CallbackFn&&, google::protobuf::internal::FieldMask) [with MessageT = google::protobuf::Message; CallbackFn = google::protobuf::internal::ReflectionVisit::VisitMessageFields<google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)> >(google::protobuf::Message&, google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>&&)::<lambda(auto:42)>]':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:445:31:   required from 'static void google::protobuf::internal::ReflectionVisit::VisitMessageFields(google::protobuf::Message&, CallbackFn&&) [with CallbackFn = google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>]'
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:500:38:   required from 'void google::protobuf::internal::VisitMutableMessageFields(google::protobuf::Message&, CallbackFn&&) [with CallbackFn = google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>]'
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:1381:40:   required from here
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:5: note: in expansion of macro 'ABSL_DCHECK'
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |     ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:5: note: in expansion of macro 'ABSL_DCHECK'
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |     ^~~~~~~~~~~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,075 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 42s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/generated_message_reflection.cc:
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'const google::protobuf::Message* google::protobuf::Reflection::GetDefaultMessageInstance(const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:2444:55: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 2444 |   if (!field->is_extension() && !field->options().weak() &&
+      |                                  ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/generated_message_reflection.cc:40:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+In file included from external/abseil-cpp~/absl/log/internal/check_impl.h:20,
+                 from external/abseil-cpp~/absl/log/absl_check.h:38,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/generated_message_reflection.h:25,
+                 from external/protobuf~/src/google/protobuf/generated_message_reflection.cc:12:
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'bool google::protobuf::Reflection::HasFieldSingular(const google::protobuf::Message&, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3148:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3148 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3148:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3148 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::SetHasBit(google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3177:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3177 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3177:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3177 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::ClearHasBit(google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3186:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3186 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3186:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3186 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc: In member function 'void google::protobuf::Reflection::NaiveSwapHasBit(google::protobuf::Message*, google::protobuf::Message*, const google::protobuf::FieldDescriptor*) const':
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3195:37: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 3195 |   ABSL_DCHECK(!field->options().weak());
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:3195:3: note: in expansion of macro 'ABSL_DCHECK'
+ 3195 |   ABSL_DCHECK(!field->options().weak());
+      |   ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h: In instantiation of 'static void google::protobuf::internal::ReflectionVisit::VisitFields(MessageT&, CallbackFn&&, google::protobuf::internal::FieldMask) [with MessageT = google::protobuf::Message; CallbackFn = google::protobuf::internal::ReflectionVisit::VisitMessageFields<google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)> >(google::protobuf::Message&, google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>&&)::<lambda(auto:42)>]':
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:445:31:   required from 'static void google::protobuf::internal::ReflectionVisit::VisitMessageFields(google::protobuf::Message&, CallbackFn&&) [with CallbackFn = google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>]'
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:500:38:   required from 'void google::protobuf::internal::VisitMutableMessageFields(google::protobuf::Message&, CallbackFn&&) [with CallbackFn = google::protobuf::Reflection::MaybePoisonAfterClear(google::protobuf::Message&) const::<lambda(google::protobuf::Message&)>]'
+external/protobuf~/src/google/protobuf/generated_message_reflection.cc:1381:40:   required from here
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:5: note: in expansion of macro 'ABSL_DCHECK'
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |     ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:39: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |                  ~~~~~~~~~~~~~~~~~~~~~^~
+external/abseil-cpp~/absl/log/internal/conditions.h:68:7: note: in definition of macro 'ABSL_LOG_INTERNAL_STATELESS_CONDITION'
+   68 |     !(condition) ? (void)0 : ::absl::log_internal::Voidify() &&
+      |       ^~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:26:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CONDITION_FATAL'
+   26 |   ABSL_LOG_INTERNAL_CONDITION_FATAL(STATELESS,                        \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:27:37: note: in expansion of macro 'ABSL_PREDICT_FALSE'
+   27 |                                     ABSL_PREDICT_FALSE(!(condition))) \
+      |                                     ^~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/internal/check_impl.h:43:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_CHECK_IMPL'
+   43 |   ABSL_LOG_INTERNAL_CHECK_IMPL(true || (condition), "true")
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/abseil-cpp~/absl/log/absl_check.h:47:3: note: in expansion of macro 'ABSL_LOG_INTERNAL_DCHECK_IMPL'
+   47 |   ABSL_LOG_INTERNAL_DCHECK_IMPL((condition), #condition)
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/reflection_visit_fields.h:108:5: note: in expansion of macro 'ABSL_DCHECK'
+  108 |     ABSL_DCHECK(!field->options().weak()) << "weak fields are not supported";
+      |     ^~~~~~~~~~~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,077 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 44s processwrapper-sandbox ... (12 actions, 11 running)
+[1,082 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 45s processwrapper-sandbox ... (12 actions, 11 running)
+[1,085 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 46s processwrapper-sandbox ... (12 actions, 11 running)
+[1,087 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 47s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/service.cc [for tool]:
+In file included from external/protobuf~/src/google/protobuf/compiler/cpp/service.cc:17:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/tracker.cc [for tool]:
+In file included from external/protobuf~/src/google/protobuf/compiler/cpp/tracker.cc:20:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,090 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 48s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/message_layout_helper.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/message_layout_helper.h:20,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/message_layout_helper.cc:1:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,091 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 50s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/parse_function_generator.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/parse_function_generator.h:18,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/parse_function_generator.cc:8:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,092 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 51s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/generator.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/extension.h:19,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/file.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/generator.cc:31:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/generator.h:24,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/generator.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/enum.cc [for tool]:
+In file included from external/protobuf~/src/google/protobuf/compiler/cpp/enum.cc:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/generator.h:24,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/enum.cc:28:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/primitive_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/primitive_field.cc:21:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,096 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 53s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/string_view_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/string_view_field.cc:19:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/string_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/string_field.cc:20:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,098 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 54s processwrapper-sandbox ... (11 actions running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/message_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/message_field.cc:21:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,099 / 1,591] BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]; 55s processwrapper-sandbox ... (10 actions running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/map_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/map_field.cc:19:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_chunk.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field_chunk.h:10,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_chunk.cc:1:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/enum_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/enum_field.cc:20:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/compiler/cpp/field_generators/cord_field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field_generators/cord_field.cc:23:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From BootstrapPkgConfig external/rules_foreign_cc~/toolchains/private/pkgconfig [for tool]:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,104 / 1,591] Compiling src/google/protobuf/descriptor.cc [for tool]; 19s processwrapper-sandbox ... (6 actions, 5 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/file.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/extension.h:19,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/file.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/file.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Foreign Cc - CMake: Building libtommath:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+INFO: From Compiling src/google/protobuf/compiler/cpp/extension.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/extension.h:19,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/extension.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+INFO: From Compiling src/google/protobuf/descriptor.cc [for tool]:
+external/protobuf~/src/google/protobuf/descriptor.cc: In member function 'void google::protobuf::FieldDescriptor::DebugString(int, std::string*, const google::protobuf::DebugStringOptions&) const':
+external/protobuf~/src/google/protobuf/descriptor.cc:3948:65: warning: 'bool google::protobuf::FieldDescriptor::has_optional_keyword() const' is deprecated: Use has_presence() instead. [-Wdeprecated-declarations]
+ 3948 |       (!is_required() && !is_repeated() && !has_optional_keyword())) {
+      |                                             ~~~~~~~~~~~~~~~~~~~~^~
+In file included from external/protobuf~/src/google/protobuf/descriptor.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.h:1133:8: note: declared here
+ 1133 |   bool has_optional_keyword() const;
+      |        ^~~~~~~~~~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/descriptor.cc: In member function 'void google::protobuf::DescriptorBuilder::CrossLinkField(google::protobuf::FieldDescriptor*, const google::protobuf::FieldDescriptorProto&)':
+external/protobuf~/src/google/protobuf/descriptor.cc:7967:65: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 7967 |     bool is_weak = !pool_->enforce_weak_ && proto.options().weak();
+      |                                             ~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/cpp_features.pb.h:33,
+                 from external/protobuf~/src/google/protobuf/descriptor.cc:72:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/descriptor.cc: In function 'google::protobuf::internal::cpp::HasbitMode google::protobuf::internal::cpp::GetFieldHasbitModeWithoutProfile(const google::protobuf::FieldDescriptor*)':
+external/protobuf~/src/google/protobuf/descriptor.cc:10686:62: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+10686 |   if (field->real_containing_oneof() || field->options().weak() ||
+      |                                         ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,108 / 1,591] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 12s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/field.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/field.h:26,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/field.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,111 / 1,591] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 13s processwrapper-sandbox ... (12 actions, 11 running)
+[1,114 / 1,591] Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]; 15s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/google/protobuf/compiler/cpp/message.cc [for tool]:
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/extension.h:19,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/cpp/google/protobuf/compiler/cpp/message.h:25,
+                 from external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:12:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h: In function 'bool google::protobuf::compiler::cpp::IsWeak(const google::protobuf::FieldDescriptor*, const Options&)':
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:347:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  347 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/_virtual_includes/code_generator/google/protobuf/compiler/code_generator.h:27,
+                 from bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/compiler/cpp/_virtual_includes/names_internal/google/protobuf/compiler/cpp/helpers.h:29:
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In function 'void google::protobuf::compiler::cpp::{anonymous}::PrintPresenceCheck(const google::protobuf::FieldDescriptor*, const std::vector<int>&, google::protobuf::io::Printer*, int*, const google::protobuf::compiler::cpp::Options&)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:164:29: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  164 |   if (!field->options().weak()) {
+      |        ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::GenerateFieldAccessorDeclarations(google::protobuf::io::Printer*)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:750:66: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+  750 |     if (!field->real_containing_oneof() && !field->options().weak()) {
+      |                                             ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::GenerateSingularFieldHasBits(const google::protobuf::FieldDescriptor*, google::protobuf::io::Printer*)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:1115:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 1115 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::MaybeEmitUpdateCachedHasbits(const google::protobuf::FieldDescriptor*, google::protobuf::io::Printer*, int&) const':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:1366:59: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 1366 |   if (!HasHasbit(field, options_) || field->options().weak()) return;
+      |                                      ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In lambda function:
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:2156:64: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 2156 |             if (!field->is_repeated() && !field->options().weak() &&
+      |                                           ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'size_t google::protobuf::compiler::cpp::MessageGenerator::GenerateOffsets(google::protobuf::io::Printer*)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:2693:30: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 2693 |     if (field->options().weak()) {
+      |         ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::GenerateClassSpecificMergeImpl(google::protobuf::io::Printer*)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:4401:41: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 4401 |         } else if (field->options().weak() ||
+      |                    ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::GenerateSerializeOneField(google::protobuf::io::Printer*, const google::protobuf::FieldDescriptor*, int)':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:4646:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 4646 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In lambda function:
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:4951:43: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 4951 |                  if (field->options().weak()) {
+      |                      ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In member function 'void google::protobuf::compiler::cpp::MessageGenerator::EmitCheckAndSerializeField(const google::protobuf::FieldDescriptor*, google::protobuf::io::Printer*) const':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:5495:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 5495 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc: In instantiation of 'void google::protobuf::compiler::cpp::MessageGenerator::EmitCheckAndUpdateByteSizeForField(const google::protobuf::FieldDescriptor*, google::protobuf::io::Printer*) const [with bool kIsV2 = false]':
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:1388:62:   required from here
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:1334:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 1334 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+external/protobuf~/src/google/protobuf/compiler/cpp/message.cc:1334:28: warning: 'bool google::protobuf::FieldOptions::weak() const' is deprecated [-Wdeprecated-declarations]
+ 1334 |   if (field->options().weak()) {
+      |       ~~~~~~~~~~~~~~~~~~~~~^~
+bazel-out/k8-opt-exec-ST-d57f47055a04/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.pb.h:18678:13: note: declared here
+18678 | inline bool FieldOptions::weak() const {
+      |             ^~~~~~~~~~~~
+[1,120 / 1,591] Foreign Cc - Configure: Building openssl; 5s processwrapper-sandbox ... (13 actions, 12 running)
+[1,123 / 1,591] Foreign Cc - Configure: Building openssl; 6s processwrapper-sandbox ... (12 actions, 11 running)
+[1,140 / 1,591] Foreign Cc - Configure: Building openssl; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,151 / 1,591] Foreign Cc - Configure: Building openssl; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,183 / 1,591] Foreign Cc - Configure: Building openssl; 9s processwrapper-sandbox ... (12 actions, 11 running)
+[1,187 / 1,591] Foreign Cc - Configure: Building openssl; 10s processwrapper-sandbox ... (13 actions, 12 running)
+[1,190 / 1,591] Foreign Cc - Configure: Building openssl; 11s processwrapper-sandbox ... (12 actions, 11 running)
+[1,196 / 1,591] Foreign Cc - Configure: Building openssl; 13s processwrapper-sandbox ... (13 actions, 12 running)
+[1,201 / 1,591] Foreign Cc - Configure: Building openssl; 14s processwrapper-sandbox ... (13 actions, 12 running)
+[1,205 / 1,591] Foreign Cc - Configure: Building openssl; 15s processwrapper-sandbox ... (12 actions, 11 running)
+[1,212 / 1,591] Foreign Cc - Configure: Building openssl; 16s processwrapper-sandbox ... (12 actions, 11 running)
+[1,220 / 1,591] Foreign Cc - Configure: Building openssl; 18s processwrapper-sandbox ... (6 actions running)
+[1,222 / 1,591] Foreign Cc - Configure: Building openssl; 19s processwrapper-sandbox ... (4 actions running)
+[1,224 / 1,591] Foreign Cc - Configure: Building openssl; 21s processwrapper-sandbox ... (2 actions running)
+[1,225 / 1,591] Foreign Cc - Configure: Building openssl; 23s processwrapper-sandbox
+[1,225 / 1,591] Foreign Cc - Configure: Building openssl; 34s processwrapper-sandbox
+INFO: From Foreign Cc - Configure: Building openssl:
+/home/duanyufei/.bashrc: line 6: /.local/bin/env: No such file or directory
+[1,226 / 1,591] [Scann] Compiling src/butil/file_util.cc
+[1,229 / 1,591] Compiling src/json2pb/protobuf_type_resolver.cpp; 1s processwrapper-sandbox ... (12 actions, 11 running)
+[1,233 / 1,591] Compiling yacl/crypto/block_cipher/symmetric_crypto.cc; 2s processwrapper-sandbox ... (12 actions, 11 running)
+[1,236 / 1,591] Compiling yacl/crypto/block_cipher/symmetric_crypto.cc; 3s processwrapper-sandbox ... (12 actions, 11 running)
+[1,238 / 1,591] Compiling yacl/crypto/block_cipher/symmetric_crypto.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+[1,249 / 1,591] Compiling src/json2pb/json_to_pb.cpp; 3s processwrapper-sandbox ... (12 actions running)
+INFO: From Compiling src/json2pb/json_to_pb.cpp:
+external/brpc~/src/json2pb/json_to_pb.cpp: In function 'bool json2pb::value_invalid(const google::protobuf::FieldDescriptor*, const char*, const butil::rapidjson::Value&, std::string*)':
+external/brpc~/src/json2pb/json_to_pb.cpp:120:39: warning: 'bool google::protobuf::FieldDescriptor::is_optional() const' is deprecated [-Wdeprecated-declarations]
+  120 |     bool optional = field->is_optional();
+      |                     ~~~~~~~~~~~~~~~~~~^~
+In file included from external/brpc~/src/json2pb/json_to_pb.cpp:26:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_layering_check_legacy/google/protobuf/descriptor.h:2948:13: note: declared here
+ 2948 | inline bool FieldDescriptor::is_optional() const {
+      |             ^~~~~~~~~~~~~~~
+[1,265 / 1,591] Compiling src/mcpack2pb/serializer.cpp; 2s processwrapper-sandbox ... (12 actions, 11 running)
+[1,276 / 1,591] Compiling src/brpc/ts.cpp; 3s processwrapper-sandbox ... (12 actions, 11 running)
+[1,290 / 1,591] Compiling yacl/crypto/rand/drbg/native_factory.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/bthread/task_group.cpp:
+external/brpc~/src/bthread/task_group.cpp: In member function 'void bthread::AtomicInteger128::store(Value)':
+external/brpc~/src/bthread/task_group.cpp:108:6: note: the ABI for passing parameters with 64-byte alignment has changed in GCC 4.6
+  108 | void AtomicInteger128::store(Value value) {
+      |      ^~~~~~~~~~~~~~~~
+[1,304 / 1,591] Compiling yacl/crypto/rand/drbg/native_factory.cc; 5s processwrapper-sandbox ... (12 actions, 11 running)
+[1,317 / 1,591] Compiling yacl/crypto/rand/rand.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+[1,326 / 1,591] Compiling yacl/crypto/rand/rand.cc; 5s processwrapper-sandbox ... (13 actions, 12 running)
+[1,339 / 1,591] Compiling yacl/crypto/rand/rand.cc; 6s processwrapper-sandbox ... (12 actions, 11 running)
+[1,350 / 1,591] Compiling yacl/link/transport/channel.cc; 3s processwrapper-sandbox ... (12 actions, 11 running)
+[1,358 / 1,591] Compiling yacl/link/transport/channel.cc; 5s processwrapper-sandbox ... (12 actions, 11 running)
+[1,372 / 1,591] Compiling yacl/link/transport/channel.cc; 6s processwrapper-sandbox ... (12 actions, 11 running)
+[1,390 / 1,591] Compiling yacl/link/transport/channel.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,407 / 1,591] Compiling yacl/link/transport/channel.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,409 / 1,591] Compiling libspu/mpc/utils/permute.cc; 6s processwrapper-sandbox ... (13 actions, 12 running)
+[1,411 / 1,591] Compiling libspu/mpc/utils/permute.cc; 7s processwrapper-sandbox ... (13 actions, 12 running)
+[1,414 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+[1,417 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 5s processwrapper-sandbox ... (12 actions, 11 running)
+[1,418 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 6s processwrapper-sandbox ... (12 actions, 11 running)
+[1,422 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 7s processwrapper-sandbox ... (13 actions, 12 running)
+[1,426 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,430 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 10s processwrapper-sandbox ... (12 actions, 11 running)
+[1,432 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 11s processwrapper-sandbox ... (13 actions, 12 running)
+[1,433 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 12s processwrapper-sandbox ... (13 actions, 12 running)
+[1,435 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 13s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/socket.cpp:
+In file included from external/brpc~/src/bthread/types.h:26,
+                 from external/brpc~/src/bthread/unstable.h:27,
+                 from external/brpc~/src/brpc/socket.cpp:30:
+external/brpc~/src/brpc/socket.cpp: In member function 'void brpc::Socket::GetStat(brpc::SocketStat*) const':
+external/brpc~/src/brpc/socket.cpp:2964:28: warning: 'offsetof' within non-standard-layout type 'brpc::Socket' is conditionally-supported [-Winvalid-offsetof]
+ 2964 |     BAIDU_CASSERT(offsetof(Socket, _preferred_index) >= 64, different_cacheline);
+      |                            ^
+[1,440 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 15s processwrapper-sandbox ... (12 actions, 11 running)
+[1,442 / 1,591] Compiling libspu/mpc/utils/ring_ops.cc; 16s processwrapper-sandbox ... (13 actions, 12 running)
+[1,446 / 1,591] Compiling yacl/link/algorithm/allgather.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,450 / 1,591] Compiling libspu/mpc/common/prg_state.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+[1,451 / 1,591] Compiling libspu/mpc/common/prg_state.cc; 5s processwrapper-sandbox ... (13 actions, 12 running)
+[1,454 / 1,591] Compiling libspu/mpc/common/prg_state.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,457 / 1,591] Compiling libspu/mpc/common/prg_state.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/server.cpp:
+In file included from external/brpc~/src/bthread/types.h:26,
+                 from external/brpc~/src/bthread/unstable.h:27,
+                 from external/brpc~/src/brpc/server.cpp:26:
+external/brpc~/src/brpc/server.cpp: In constructor 'brpc::Server::Server(brpc::ProfilerLinker)':
+external/brpc~/src/brpc/server.cpp:443:28: warning: 'offsetof' within non-standard-layout type 'brpc::Server' is conditionally-supported [-Winvalid-offsetof]
+  443 |     BAIDU_CASSERT(offsetof(Server, _concurrency) % 64 == 0,
+      |                            ^
+[1,462 / 1,591] Compiling libspu/mpc/common/communicator.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,466 / 1,591] Compiling libspu/mpc/aby3/ot.cc; 8s processwrapper-sandbox ... (13 actions, 12 running)
+[1,470 / 1,591] Compiling yacl/link/factory_brpc_blackbox.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/controller.cpp:
+external/brpc~/src/brpc/controller.cpp: In member function 'void brpc::Controller::AppendServerIdentiy()':
+external/brpc~/src/brpc/controller.cpp:410:12: warning: 'unsigned char* MD5(const unsigned char*, size_t, unsigned char*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  410 |         MD5((const unsigned char*)ipbuf, len, digest);
+      |         ~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from external/brpc~/src/brpc/controller.cpp:20:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:52:38: note: declared here
+   52 | OSSL_DEPRECATEDIN_3_0 unsigned char *MD5(const unsigned char *d, size_t n,
+      |                                      ^~~
+[1,477 / 1,591] Compiling src/brpc/details/health_check.cpp; 3s processwrapper-sandbox ... (12 actions, 11 running)
+[1,480 / 1,591] Compiling libspu/core/context.cc; 4s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/esp_message.cpp:
+In file included from external/brpc~/src/brpc/esp_message.cpp:18:
+external/brpc~/src/brpc/esp_message.h: In member function 'int brpc::EspMessage::GetCachedSize() const':
+external/brpc~/src/brpc/esp_message.h:44:64: warning: 'int google::protobuf::MessageLite::ByteSize() const' is deprecated: Please use ByteSizeLong() instead [-Wdeprecated-declarations]
+   44 |     int GetCachedSize() const PB_425_OVERRIDE { return ByteSize(); }
+      |                                                        ~~~~~~~~^~
+In file included from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/generated_enum_util.h:20,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/extension_set.h:37,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.h:56,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/generated_message_reflection.h:26,
+                 from external/brpc~/src/brpc/nonreflectable_message.h:21,
+                 from external/brpc~/src/brpc/esp_message.h:22:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/message_lite.h:839:59: note: declared here
+  839 |   [[deprecated("Please use ByteSizeLong() instead")]] int ByteSize() const {
+      |                                                           ^~~~~~~~
+[1,484 / 1,591] Compiling libspu/core/context.cc; 5s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/details/ssl_helper.cpp:
+external/brpc~/src/brpc/details/ssl_helper.cpp: In function 'SSL_CTX* brpc::CreateServerSSLContext(const std::string&, const std::string&, const ServerSSLOptions&, const std::string*, std::vector<std::__cxx11::basic_string<char> >*)':
+external/brpc~/src/brpc/details/ssl_helper.cpp:551:32: warning: 'void SSL_CTX_set_tmp_dh_callback(SSL_CTX*, DH* (*)(SSL*, int, int))' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  551 |     SSL_CTX_set_tmp_dh_callback(ssl_ctx.get(), SSLGetDHCallback);
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from external/brpc~/src/brpc/details/ssl_helper.cpp:24:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/ssl.h:2275:6: note: declared here
+ 2275 | void SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx,
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:556:48: warning: 'EC_KEY* EC_KEY_new_by_curve_name(int)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  556 |     if (!i || ((ecdh = EC_KEY_new_by_curve_name(i)) == NULL)) {
+      |                        ~~~~~~~~~~~~~~~~~~~~~~~~^~~
+In file included from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/x509.h:33,
+                 from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/ssl.h:32:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/ec.h:1017:31: note: declared here
+ 1017 | OSSL_DEPRECATEDIN_3_0 EC_KEY *EC_KEY_new_by_curve_name(int nid);
+      |                               ^~~~~~~~~~~~~~~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:563:16: warning: 'void EC_KEY_free(EC_KEY*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  563 |     EC_KEY_free(ecdh);
+      |     ~~~~~~~~~~~^~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/ec.h:1022:28: note: declared here
+ 1022 | OSSL_DEPRECATEDIN_3_0 void EC_KEY_free(EC_KEY *key);
+      |                            ^~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp: In function 'DH* brpc::SSLGetDH1024()':
+external/brpc~/src/brpc/details/ssl_helper.cpp:725:20: warning: 'DH* DH_new()' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  725 |     DH *dh = DH_new();
+      |              ~~~~~~^~
+In file included from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dsa.h:31,
+                 from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/x509.h:37:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:210:27: note: declared here
+  210 | OSSL_DEPRECATEDIN_3_0 DH *DH_new(void);
+      |                           ^~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:731:16: warning: 'int DH_set0_pqg(DH*, BIGNUM*, BIGNUM*, BIGNUM*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  731 |     DH_set0_pqg(dh, p, NULL, g);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:266:27: note: declared here
+  266 | OSSL_DEPRECATEDIN_3_0 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+      |                           ^~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp: In function 'DH* brpc::SSLGetDH2048()':
+external/brpc~/src/brpc/details/ssl_helper.cpp:748:20: warning: 'DH* DH_new()' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  748 |     DH* dh = DH_new();
+      |              ~~~~~~^~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:210:27: note: declared here
+  210 | OSSL_DEPRECATEDIN_3_0 DH *DH_new(void);
+      |                           ^~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:754:16: warning: 'int DH_set0_pqg(DH*, BIGNUM*, BIGNUM*, BIGNUM*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  754 |     DH_set0_pqg(dh, p, NULL, g);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:266:27: note: declared here
+  266 | OSSL_DEPRECATEDIN_3_0 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+      |                           ^~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp: In function 'DH* brpc::SSLGetDH4096()':
+external/brpc~/src/brpc/details/ssl_helper.cpp:771:20: warning: 'DH* DH_new()' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  771 |     DH *dh = DH_new();
+      |              ~~~~~~^~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:210:27: note: declared here
+  210 | OSSL_DEPRECATEDIN_3_0 DH *DH_new(void);
+      |                           ^~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:777:16: warning: 'int DH_set0_pqg(DH*, BIGNUM*, BIGNUM*, BIGNUM*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  777 |     DH_set0_pqg(dh, p, NULL, g);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:266:27: note: declared here
+  266 | OSSL_DEPRECATEDIN_3_0 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+      |                           ^~~~~~~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp: In function 'DH* brpc::SSLGetDH8192()':
+external/brpc~/src/brpc/details/ssl_helper.cpp:794:20: warning: 'DH* DH_new()' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  794 |     DH *dh = DH_new();
+      |              ~~~~~~^~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:210:27: note: declared here
+  210 | OSSL_DEPRECATEDIN_3_0 DH *DH_new(void);
+      |                           ^~~~~~
+external/brpc~/src/brpc/details/ssl_helper.cpp:800:16: warning: 'int DH_set0_pqg(DH*, BIGNUM*, BIGNUM*, BIGNUM*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  800 |     DH_set0_pqg(dh, p, NULL, g);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:266:27: note: declared here
+  266 | OSSL_DEPRECATEDIN_3_0 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+      |                           ^~~~~~~~~~~
+[1,487 / 1,591] Compiling libspu/core/context.cc; 7s processwrapper-sandbox ... (13 actions, 12 running)
+[1,491 / 1,591] Compiling libspu/mpc/ab_api.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,494 / 1,591] Compiling libspu/mpc/ab_api.cc; 9s processwrapper-sandbox ... (12 actions, 11 running)
+[1,497 / 1,591] Compiling libspu/mpc/ab_api.cc; 10s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/brpc/policy/dh.cpp:
+external/brpc~/src/brpc/policy/dh.cpp: In member function 'void brpc::policy::DHWrapper::clear()':
+external/brpc~/src/brpc/policy/dh.cpp:29:16: warning: 'void DH_free(DH*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   29 |         DH_free(_pdh);
+      |         ~~~~~~~^~~~~~
+In file included from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dsa.h:31,
+                 from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/x509.h:37,
+                 from bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/ssl.h:32,
+                 from external/brpc~/src/butil/ssl_compat.h:21,
+                 from external/brpc~/src/brpc/policy/dh.cpp:20:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:211:28: note: declared here
+  211 | OSSL_DEPRECATEDIN_3_0 void DH_free(DH *dh);
+      |                            ^~~~~~~
+external/brpc~/src/brpc/policy/dh.cpp: In member function 'int brpc::policy::DHWrapper::initialize(bool)':
+external/brpc~/src/brpc/policy/dh.cpp:41:24: warning: 'void DH_get0_key(const DH*, const BIGNUM**, const BIGNUM**)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   41 |             DH_get0_key(_pdh, &pub_key, NULL);
+      |             ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:267:28: note: declared here
+  267 | OSSL_DEPRECATEDIN_3_0 void DH_get0_key(const DH *dh, const BIGNUM **pub_key,
+      |                            ^~~~~~~~~~~
+external/brpc~/src/brpc/policy/dh.cpp: In member function 'int brpc::policy::DHWrapper::copy_public_key(char*, int*) const':
+external/brpc~/src/brpc/policy/dh.cpp:56:16: warning: 'void DH_get0_key(const DH*, const BIGNUM**, const BIGNUM**)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   56 |     DH_get0_key(_pdh, &pub_key, NULL);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:267:28: note: declared here
+  267 | OSSL_DEPRECATEDIN_3_0 void DH_get0_key(const DH *dh, const BIGNUM **pub_key,
+      |                            ^~~~~~~~~~~
+external/brpc~/src/brpc/policy/dh.cpp: In member function 'int brpc::policy::DHWrapper::copy_shared_key(const void*, int, void*, int*) const':
+external/brpc~/src/brpc/policy/dh.cpp:83:34: warning: 'int DH_compute_key(unsigned char*, const BIGNUM*, DH*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   83 |     int key_size = DH_compute_key((unsigned char*)skey, ppk, _pdh);
+      |                    ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:235:27: note: declared here
+  235 | OSSL_DEPRECATEDIN_3_0 int DH_compute_key(unsigned char *key,
+      |                           ^~~~~~~~~~~~~~
+external/brpc~/src/brpc/policy/dh.cpp: In member function 'int brpc::policy::DHWrapper::do_initialize()':
+external/brpc~/src/brpc/policy/dh.cpp:106:18: warning: 'DH* DH_new()' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  106 |     _pdh = DH_new();
+      |            ~~~~~~^~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:210:27: note: declared here
+  210 | OSSL_DEPRECATEDIN_3_0 DH *DH_new(void);
+      |                           ^~~~~~
+external/brpc~/src/brpc/policy/dh.cpp:112:16: warning: 'int DH_set0_pqg(DH*, BIGNUM*, BIGNUM*, BIGNUM*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  112 |     DH_set0_pqg(_pdh, p, NULL, g);
+      |     ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:266:27: note: declared here
+  266 | OSSL_DEPRECATEDIN_3_0 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+      |                           ^~~~~~~~~~~
+external/brpc~/src/brpc/policy/dh.cpp:115:25: warning: 'int DH_generate_key(DH*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+  115 |     if (!DH_generate_key(_pdh)) {
+      |          ~~~~~~~~~~~~~~~^~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/dh.h:234:27: note: declared here
+  234 | OSSL_DEPRECATEDIN_3_0 int DH_generate_key(DH *dh);
+      |                           ^~~~~~~~~~~~~~~
+[1,506 / 1,591] Compiling libspu/mpc/ab_api.cc; 11s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/parallel_channel.cpp:
+In file included from /usr/include/stdio.h:34,
+                 from /usr/include/c++/13/cstdio:42,
+                 from /usr/include/c++/13/ext/string_conversions.h:45,
+                 from /usr/include/c++/13/bits/basic_string.h:4109,
+                 from /usr/include/c++/13/string:54,
+                 from external/brpc~/src/butil/string_printf.h:21,
+                 from external/brpc~/src/butil/macros.h:18,
+                 from external/brpc~/src/bthread/types.h:26,
+                 from external/brpc~/src/bthread/bthread.h:27,
+                 from external/brpc~/src/brpc/parallel_channel.cpp:19:
+external/brpc~/src/brpc/parallel_channel.cpp: In static member function 'static brpc::ParallelChannelDone* brpc::ParallelChannelDone::Create(int, int, int, const brpc::SubCall*, int, brpc::Controller*, google::protobuf::Closure*)':
+external/brpc~/src/brpc/parallel_channel.cpp:100:36: warning: 'offsetof' within non-standard-layout type 'brpc::ParallelChannelDone' is conditionally-supported [-Winvalid-offsetof]
+  100 |         size_t req_size = offsetof(ParallelChannelDone, _sub_done) +
+      |                                    ^
+[1,510 / 1,591] Compiling libspu/mpc/api.cc; 11s processwrapper-sandbox ... (12 actions, 11 running)
+[1,513 / 1,591] Compiling libspu/mpc/standard_shape/kernels.cc; 6s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/policy/hasher.cpp:
+external/brpc~/src/brpc/policy/hasher.cpp: In function 'void brpc::policy::MD5HashSignature(const void*, size_t, unsigned char*)':
+external/brpc~/src/brpc/policy/hasher.cpp:30:13: warning: 'int MD5_Init(MD5_CTX*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   30 |     MD5_Init(&my_md5);
+      |     ~~~~~~~~^~~~~~~~~
+In file included from external/brpc~/src/brpc/policy/hasher.cpp:20:
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:49:27: note: declared here
+   49 | OSSL_DEPRECATEDIN_3_0 int MD5_Init(MD5_CTX *c);
+      |                           ^~~~~~~~
+external/brpc~/src/brpc/policy/hasher.cpp:31:15: warning: 'int MD5_Update(MD5_CTX*, const void*, size_t)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   31 |     MD5_Update(&my_md5, key, len);
+      |     ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:50:27: note: declared here
+   50 | OSSL_DEPRECATEDIN_3_0 int MD5_Update(MD5_CTX *c, const void *data, size_t len);
+      |                           ^~~~~~~~~~
+external/brpc~/src/brpc/policy/hasher.cpp:32:14: warning: 'int MD5_Final(unsigned char*, MD5_CTX*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   32 |     MD5_Final(results, &my_md5);
+      |     ~~~~~~~~~^~~~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:51:27: note: declared here
+   51 | OSSL_DEPRECATEDIN_3_0 int MD5_Final(unsigned char *md, MD5_CTX *c);
+      |                           ^~~~~~~~~
+external/brpc~/src/brpc/policy/hasher.cpp: In function 'uint32_t brpc::policy::MD5Hash32V(const butil::StringPiece*, size_t)':
+external/brpc~/src/brpc/policy/hasher.cpp:46:13: warning: 'int MD5_Init(MD5_CTX*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   46 |     MD5_Init(&ctx);
+      |     ~~~~~~~~^~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:49:27: note: declared here
+   49 | OSSL_DEPRECATEDIN_3_0 int MD5_Init(MD5_CTX *c);
+      |                           ^~~~~~~~
+external/brpc~/src/brpc/policy/hasher.cpp:48:19: warning: 'int MD5_Update(MD5_CTX*, const void*, size_t)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   48 |         MD5_Update(&ctx, (const unsigned char *)keys[i].data(),
+      |         ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   49 |                    keys[i].size());
+      |                    ~~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:50:27: note: declared here
+   50 | OSSL_DEPRECATEDIN_3_0 int MD5_Update(MD5_CTX *c, const void *data, size_t len);
+      |                           ^~~~~~~~~~
+external/brpc~/src/brpc/policy/hasher.cpp:52:14: warning: 'int MD5_Final(unsigned char*, MD5_CTX*)' is deprecated: Since OpenSSL 3.0 [-Wdeprecated-declarations]
+   52 |     MD5_Final(results, &ctx);
+      |     ~~~~~~~~~^~~~~~~~~~~~~~~
+bazel-out/k8-opt/bin/external/openssl~/openssl/include/openssl/md5.h:51:27: note: declared here
+   51 | OSSL_DEPRECATEDIN_3_0 int MD5_Final(unsigned char *md, MD5_CTX *c);
+      |                           ^~~~~~~~~
+[1,517 / 1,591] Compiling libspu/mpc/standard_shape/kernels.cc; 7s processwrapper-sandbox ... (13 actions, 12 running)
+[1,522 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 5s processwrapper-sandbox ... (12 actions, 11 running)
+[1,526 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 6s processwrapper-sandbox ... (12 actions, 11 running)
+[1,530 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,532 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 9s processwrapper-sandbox ... (12 actions, 11 running)
+INFO: From Compiling src/brpc/policy/http2_rpc_protocol.cpp:
+In file included from /usr/include/x86_64-linux-gnu/bits/socket.h:27,
+                 from /usr/include/x86_64-linux-gnu/sys/socket.h:33,
+                 from /usr/include/netinet/in.h:23,
+                 from external/brpc~/src/butil/endpoint.h:25,
+                 from external/brpc~/src/brpc/details/http_message.h:27,
+                 from external/brpc~/src/brpc/policy/http_rpc_protocol.h:22,
+                 from external/brpc~/src/brpc/policy/http2_rpc_protocol.h:22,
+                 from external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp:19:
+external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp: In static member function 'static brpc::policy::H2UnsentRequest* brpc::policy::H2UnsentRequest::New(brpc::Controller*)':
+external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp:1396:37: warning: 'offsetof' within non-standard-layout type 'brpc::policy::H2UnsentRequest' is conditionally-supported [-Winvalid-offsetof]
+ 1396 |     const size_t memsize = offsetof(H2UnsentRequest, _list) +
+      |                                     ^
+external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp: In static member function 'static brpc::policy::H2UnsentResponse* brpc::policy::H2UnsentResponse::New(brpc::Controller*, int, bool)':
+external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp:1658:37: warning: 'offsetof' within non-standard-layout type 'brpc::policy::H2UnsentResponse' is conditionally-supported [-Winvalid-offsetof]
+ 1658 |     const size_t memsize = offsetof(H2UnsentResponse, _list) +
+      |                                     ^
+In file included from /usr/include/c++/13/bits/shared_ptr_atomic.h:33,
+                 from /usr/include/c++/13/memory:81,
+                 from external/brpc~/src/brpc/details/http_message.h:22:
+In member function 'std::__atomic_base<_IntTp>::__int_type std::__atomic_base<_IntTp>::fetch_add(__int_type, std::memory_order) [with _ITp = int]',
+    inlined from 'int brpc::policy::H2UnsentRequest::AddRefManually()' at external/brpc~/src/brpc/policy/http2_rpc_protocol.h:142:29,
+    inlined from 'void brpc::policy::PackH2Request(butil::IOBuf*, brpc::SocketMessage**, uint64_t, const google::protobuf::MethodDescriptor*, brpc::Controller*, const butil::IOBuf&, const brpc::Authenticator*)' at external/brpc~/src/brpc/policy/http2_rpc_protocol.cpp:1804:27:
+/usr/include/c++/13/bits/atomic_base.h:635:34: warning: 'unsigned int __atomic_fetch_add_4(volatile void*, unsigned int, int)' writing 4 bytes into a region of size 0 overflows the destination [-Wstringop-overflow=]
+  635 |       { return __atomic_fetch_add(&_M_i, __i, int(__m)); }
+      |                ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
+In function 'void brpc::policy::PackH2Request(butil::IOBuf*, brpc::SocketMessage**, uint64_t, const google::protobuf::MethodDescriptor*, brpc::Controller*, const butil::IOBuf&, const brpc::Authenticator*)':
+cc1plus: note: destination object is likely at address zero
+[1,534 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 10s processwrapper-sandbox ... (13 actions, 12 running)
+[1,541 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 11s processwrapper-sandbox ... (12 actions, 11 running)
+[1,543 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 13s processwrapper-sandbox ... (13 actions, 12 running)
+[1,546 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 14s processwrapper-sandbox ... (13 actions, 12 running)
+INFO: From Compiling src/brpc/policy/redis_protocol.cpp:
+external/brpc~/src/brpc/policy/redis_protocol.cpp: In function 'void brpc::policy::ProcessRedisResponse(brpc::InputMessageBase*)':
+external/brpc~/src/brpc/policy/redis_protocol.cpp:244:55: warning: 'int google::protobuf::MessageLite::ByteSize() const' is deprecated: Please use ByteSizeLong() instead [-Wdeprecated-declarations]
+  244 |         span->set_response_size(msg->response.ByteSize());
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~^~
+In file included from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/generated_enum_util.h:20,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/extension_set.h:37,
+                 from bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf/google/protobuf/descriptor.h:56,
+                 from external/brpc~/src/brpc/policy/redis_protocol.cpp:20:
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/message_lite.h:839:59: note: declared here
+  839 |   [[deprecated("Please use ByteSizeLong() instead")]] int ByteSize() const {
+      |                                                           ^~~~~~~~
+external/brpc~/src/brpc/policy/redis_protocol.cpp: In function 'void brpc::policy::SerializeRedisRequest(butil::IOBuf*, brpc::Controller*, const google::protobuf::Message*)':
+external/brpc~/src/brpc/policy/redis_protocol.cpp:286:21: warning: 'int google::protobuf::MessageLite::ByteSize() const' is deprecated: Please use ByteSizeLong() instead [-Wdeprecated-declarations]
+  286 |     if (rr->ByteSize() == 0) {
+      |         ~~~~~~~~~~~~^~
+bazel-out/k8-opt/bin/external/protobuf~/src/google/protobuf/_virtual_includes/protobuf_lite/google/protobuf/message_lite.h:839:59: note: declared here
+  839 |   [[deprecated("Please use ByteSizeLong() instead")]] int ByteSize() const {
+      |                                                           ^~~~~~~~
+[1,551 / 1,591] Compiling libspu/mpc/common/pv2k.cc; 15s processwrapper-sandbox ... (12 actions, 11 running)
+[1,558 / 1,591] Compiling libspu/mpc/spdzwise/io.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,560 / 1,591] Compiling libspu/mpc/spdzwise/io.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,564 / 1,591] Compiling libspu/mpc/spdzwise/replicated.cc; 7s processwrapper-sandbox ... (12 actions, 11 running)
+[1,569 / 1,591] Compiling libspu/mpc/spdzwise/replicated.cc; 8s processwrapper-sandbox ... (12 actions, 11 running)
+[1,573 / 1,591] Compiling src/brpc/policy/rtmp_protocol.cpp; 7s processwrapper-sandbox ... (13 actions, 12 running)
+[1,574 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 5s processwrapper-sandbox ... (13 actions, 12 running)
+[1,575 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 10s processwrapper-sandbox ... (12 actions, 11 running)
+[1,578 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 12s processwrapper-sandbox ... (11 actions running)
+[1,579 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 14s processwrapper-sandbox ... (10 actions running)
+[1,581 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 15s processwrapper-sandbox ... (8 actions running)
+[1,582 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 18s processwrapper-sandbox ... (7 actions running)
+[1,585 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 23s processwrapper-sandbox ... (4 actions running)
+[1,586 / 1,591] Compiling libspu/mpc/aby3/arithmetic.cc; 24s processwrapper-sandbox ... (3 actions running)
+[1,587 / 1,591] Compiling libspu/mpc/aby3/conversion.cc; 28s processwrapper-sandbox ... (2 actions running)
+[1,588 / 1,591] Compiling libspu/mpc/aby3/boolean.cc; 32s processwrapper-sandbox
+[1,589 / 1,591] [Prepa] Linking circuit_bench
+INFO: Found 2 targets...
+INFO: Elapsed time: 261.696s, Critical Path: 180.11s
+INFO: 1213 processes: 6 internal, 1207 processwrapper-sandbox.
+INFO: Build completed successfully, 1213 total actions

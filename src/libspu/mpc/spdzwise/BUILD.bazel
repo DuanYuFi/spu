@@ -26,16 +26,20 @@ spu_cc_library(
         "arithmetic.cc",
         "boolean.cc",
         "conversion.cc",
+        "correlated_randomness.cc",
         "state.cc",
         "ring.cc",
+        "ring_truncation.cc",
     ],
     hdrs = [
         "arithmetic.h",
         "boolean.h",
         "conversion.h",
+        "correlated_randomness.h",
         "state.h",
         "ring.h",
         "ring_arithmetic.h",
+        "ring_truncation.h",
     ],
     deps = [
         ":replicated",
@@ -123,6 +127,20 @@ spu_cc_test(
         ":state",
         "//libspu/mpc:api",
         "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_test(
+    name = "ring_truncation_test",
+    srcs = ["ring_truncation_test.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":state",
+        "//libspu/mpc:api",
+        "//libspu/mpc/aby3:protocol",
+        "//libspu/mpc/aby3:io",
         "//libspu/mpc/utils:simulate",
     ],
 )

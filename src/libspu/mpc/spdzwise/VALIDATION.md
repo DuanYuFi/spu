@@ -1,5 +1,45 @@
 # Development validation record
 
+## Truncation selector — 2026-10-22
+
+Renamed the arithmetic-bit implementation to `TruncPrRandomBit` and its state
+methods to `truncPrRandomBit`. The registered `trunc_a` kernel is now
+`TruncASelector`, which currently routes to that sole implementation. The
+algorithm, checks, dtype preservation and timing logic are unchanged.
+
+Four uncached regression targets passed 40 cases with `YACL_NUM_THREADS=65`:
+`ring_truncation_test` (7), `ring_test` (15), `protocol_test` (11) and
+`protocol_session_test` (7). The truncation tests assert the registered selector
+and its rounding/error metadata while exercising the existing numerical,
+probability, dtype/shape and authentication checks through `trunc_a`.
+The benchmark rebuilt successfully with its selector type assertion, and a
+1,000-input smoke run (one warmup plus one measured iteration) validated all
+outputs and final authentication. No new 100K performance claim is made;
+the retained 100K archive below keeps its original source fingerprints.
+
+
+## Signed RING truncation optimization — 2026-10-22
+
+The final optimization build passed all eight regression targets, 301 cases
+without failures, errors, skips or disabled tests. This adds owner rotation
+through a partial tile, immutable authentication queue counts, canonical
+streamed authenticated-copy hashes, and 27 transport fault executions across
+all three ranks. Numerical/probability, output MAC, subsequent authenticated
+multiplication, IO, session lifecycle and native ABY3 regressions passed.
+
+The retained final 100K/m=16 measurement used 64 background workers, one
+warmup and seven measured iterations. Both protocols validated every output
+and completed final authentication. SPDZwise median: 3431.204 ms; native ABY3
+TruncAPr2: 8.728 ms. Three-party primary traffic: 1,436,027,195 and 2,800,000 bytes.
+Fresh material and internal checks are timed; final authentication, export and
+reconstruction are outside the primary interval. Phase medians cannot be summed.
+
+Full measurements, test XML/logs, source and binary fingerprints, source.patch
+and commands are in [the final archive](benchmarks/truncation-signed-100k-optimized-2026-10-22/RESULTS.md).
+Earlier baseline and intermediate experiment archives have been removed.
+The protocol checks, 4096-input tiles and deferred-record count are preserved;
+this does not remove the remaining composition/production acceptance gates.
+
 ## RING / Protocol 9 implementation — 2026-10-21
 
 Configuration stays FM64; internal arithmetic is unsigned Z/(2^128).

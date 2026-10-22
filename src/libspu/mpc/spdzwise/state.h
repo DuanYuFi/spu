@@ -26,6 +26,7 @@ class SpdzWiseState final : public ProtocolSession {
   // Normal imports retain their mandatory immediate check.
   friend class SpdzWiseBenchmarkAccess;
   friend class BooleanTestAccess;
+  friend class ring::TruncationTestAccess;
   std::unique_ptr<BooleanState> boolean_;
   std::unique_ptr<ring::ArithmeticState> ring_;
   bool isRing() const {
@@ -77,6 +78,10 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef negate(const NdArrayRef& x) const;
   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
+  NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits, SignType sign);
+  double truncMaterialMs() const {
+    return ring_ ? ring_->truncMaterialMs() : 0;
+  }
   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
   void check();

@@ -1,0 +1,1361 @@
+diff --git a/src/libspu/mpc/spdzwise/BUILD.bazel b/src/libspu/mpc/spdzwise/BUILD.bazel
+index 5c979284..6f4924bc 100644
+--- a/src/libspu/mpc/spdzwise/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/BUILD.bazel
+@@ -28,6 +28,7 @@ spu_cc_library(
+         "conversion.cc",
+         "state.cc",
+         "ring.cc",
++        "ring_truncation.cc",
+     ],
+     hdrs = [
+         "arithmetic.h",
+@@ -36,6 +37,7 @@ spu_cc_library(
+         "state.h",
+         "ring.h",
+         "ring_arithmetic.h",
++        "ring_truncation.h",
+     ],
+     deps = [
+         ":replicated",
+@@ -127,6 +129,20 @@ spu_cc_test(
+     ],
+ )
+ 
++spu_cc_test(
++    name = "ring_truncation_test",
++    srcs = ["ring_truncation_test.cc"],
++    deps = [
++        ":io",
++        ":protocol",
++        ":state",
++        "//libspu/mpc:api",
++        "//libspu/mpc/aby3:protocol",
++        "//libspu/mpc/aby3:io",
++        "//libspu/mpc/utils:simulate",
++    ],
++)
++
+ spu_cc_test(
+     name = "ring_test",
+     srcs = ["ring_test.cc"],
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+index 2b7393ce..d77750ce 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
++++ b/src/libspu/mpc/spdzwise/benchmarks/BUILD.bazel
+@@ -1,5 +1,20 @@
+ load("@spulib//bazel:spu.bzl", "spu_cc_binary")
+ 
++spu_cc_binary(
++    name = "truncation_bench",
++    srcs = ["truncation_bench.cc"],
++    deps = [
++        "@spulib//libspu/mpc:api",
++        "@spulib//libspu/mpc/aby3:protocol",
++        "@spulib//libspu/mpc/aby3:io",
++        "@spulib//libspu/mpc/common:pv2k",
++        "@spulib//libspu/mpc/spdzwise:io",
++        "@spulib//libspu/mpc/spdzwise:protocol",
++        "@spulib//libspu/mpc/spdzwise:state",
++        "@spulib//libspu/mpc/utils:simulate",
++    ],
++)
++
+ spu_cc_binary(
+     name = "ring_circuit_bench",
+     srcs = ["ring_circuit_bench.cc"],
+diff --git a/src/libspu/mpc/spdzwise/protocol.cc b/src/libspu/mpc/spdzwise/protocol.cc
+index e1b5eded..318db3fa 100644
+--- a/src/libspu/mpc/spdzwise/protocol.cc
++++ b/src/libspu/mpc/spdzwise/protocol.cc
+@@ -17,6 +17,7 @@
+ #include "libspu/mpc/spdzwise/boolean.h"
+ #include "libspu/mpc/spdzwise/conversion.h"
+ #include "libspu/mpc/spdzwise/ring_arithmetic.h"
++#include "libspu/mpc/spdzwise/ring_truncation.h"
+ #include "libspu/mpc/spdzwise/state.h"
+ #include "libspu/mpc/standard_shape/protocol.h"
+ 
+@@ -97,6 +98,7 @@ void registerRingArithmeticPrototype(
+   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+   registerCommonKernels(ctx);
+   ring::registerArithmeticKernels(ctx->prot());
++  ctx->prot()->regKernel<ring::TruncPr>();
+   registerBooleanKernels(ctx->prot());
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/ring.cc b/src/libspu/mpc/spdzwise/ring.cc
+index 01f4d006..3a622bfc 100644
+--- a/src/libspu/mpc/spdzwise/ring.cc
++++ b/src/libspu/mpc/spdzwise/ring.cc
+@@ -157,6 +157,23 @@ void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
+       link, values.size(), [&](size_t i) { return values[i]; }, context);
+ }
+ 
++void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
++                 const NdArrayRef& values, std::string_view context,
++                 bool include_macs) {
++  const NdArrayView<AuthShare> data(values);
++  if (include_macs) {
++    CheckCopiesImpl(
++        link, 2 * values.numel(),
++        [&](size_t i) {
++          return i % 2 == 0 ? Values(data[i / 2]) : Macs(data[i / 2]);
++        },
++        context);
++  } else {
++    CheckCopiesImpl(link, values.numel(),
++                    [&](size_t i) { return Values(data[i]); }, context);
++  }
++}
++
+ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
+                const RepShare& value, std::string_view context) {
+   // Reference: Mark Abspoel, Anders Dalskov, Daniel Escudero, Ariel Nof,
+@@ -255,7 +272,7 @@ std::vector<RepShare> ArithmeticState::multiplyRaw(
+     const std::vector<RepShare>& x, const std::vector<RepShare>& y) {
+   SPU_ENFORCE(x.size() == y.size(), "ring multiplication size mismatch");
+   std::vector<Word> local(x.size());
+-  for (size_t i = 0; i < x.size(); ++i) local[i] = LocalProduct(x[i], y[i]);
++  pforeach(0, x.size(), [&](int64_t i) { local[i] = LocalProduct(x[i], y[i]); });
+   return reshare(std::move(local), "ring-multiply");
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/ring.h b/src/libspu/mpc/spdzwise/ring.h
+index 55bb60d2..5335a15e 100644
+--- a/src/libspu/mpc/spdzwise/ring.h
++++ b/src/libspu/mpc/spdzwise/ring.h
+@@ -17,6 +17,7 @@
+ #include "libspu/mpc/spdzwise/ring_type.h"
+ 
+ namespace spu::mpc::spdzwise::ring {
++class TruncationTestAccess;
+ 
+ // Wire words are exactly 16 bytes, little endian, independent of host layout.
+ std::string Encode(const std::vector<Word>& words);
+@@ -25,16 +26,31 @@ std::vector<Word> Decode(std::string_view bytes, size_t count);
+ // context must bind session, execution and a fresh batch/message identity.
+ void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
+                  const std::vector<RepShare>& values, std::string_view context);
++// Hash directly from authenticated storage, in value/MAC interleaved order.
++void CheckCopies(const std::shared_ptr<yacl::link::Context>& link,
++                 const NdArrayRef& values, std::string_view context,
++                 bool include_macs);
+ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
+                const RepShare& value, std::string_view context);
+ 
+ class ArithmeticState {
++  friend class TruncationTestAccess;
+   std::shared_ptr<yacl::link::Context> link_;
+   std::string session_;
+   std::function<std::string(std::string_view)> tag_;
+   std::unique_ptr<PrgState> key_prg_, mask_prg_, check_prg_;
+   RepShare key_{};
+   std::vector<AuthShare> pending_;
++  std::unique_ptr<PrgState> trunc_prg_;
++  size_t trunc_input_owner_ = 0;
++  double trunc_material_ms_ = 0;
++  struct TruncationBuffers;
++  NdArrayRef privateRandomBits(size_t count, size_t owner,
++                               TruncationBuffers& buffers);
++  NdArrayRef randomTruncBits(size_t count, TruncationBuffers& buffers);
++  void checkTruncBits(const NdArrayRef& bits,
++                      std::vector<uint64_t>& coefficients);
++  std::vector<uint64_t> openTruncMask(const std::vector<RepShare>& values);
+ 
+   void exchange(const std::vector<Word>& local, std::vector<Word>& next,
+                 std::string_view operation);
+@@ -56,6 +72,9 @@ class ArithmeticState {
+   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
+   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
+   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
++  // Signed 63-bit input contract: -2^62 <= x < 2^62. No sign disclosure.
++  NdArrayRef truncPr(const NdArrayRef& x, size_t bits);
++  double truncMaterialMs() const { return trunc_material_ms_; }
+   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
+   bool check();
+   bool empty() const { return pending_.empty(); }
+diff --git a/src/libspu/mpc/spdzwise/ring_test.cc b/src/libspu/mpc/spdzwise/ring_test.cc
+index 0e96ce47..8a740ea0 100644
+--- a/src/libspu/mpc/spdzwise/ring_test.cc
++++ b/src/libspu/mpc/spdzwise/ring_test.cc
+@@ -412,6 +412,39 @@ std::shared_ptr<yacl::link::Context> Decorate(
+   return link;
+ }
+ 
++TEST(SpdzWiseRing, DirectAuthCopyHashesMatchMaterializedCopies) {
++  utils::simulate(3, [&](const auto& base) {
++    std::vector<std::string> digests;
++    auto link = Decorate(base, [&](size_t, yacl::Buffer bytes) {
++      if (bytes.size() == 32) digests.emplace_back(std::string_view(bytes));
++      return bytes;
++    });
++    for (int64_t n : {0, 1, 4097}) {
++      NdArrayRef storage(makeType<AShrTy>("hash-test"), {n, 2});
++      for (int64_t i = 0; i < n; ++i) {
++        const Word v = Word(i) << 100;
++        storage.data<AuthShare>()[2 * i] = {
++            v + base->Rank(), v + base->NextRank(),
++            Word(-1) - v - base->Rank(), Word(-1) - v - base->NextRank()};
++      }
++      const auto strided = storage.slice({0, 0}, {n, 1}, {1, 1}).reshape({n});
++      for (bool macs : {false, true}) {
++        std::vector<RepShare> materialized;
++        const NdArrayView<AuthShare> data(strided);
++        for (int64_t i = 0; i < n; ++i) {
++          materialized.push_back({data[i][0], data[i][1]});
++          if (macs) materialized.push_back({data[i][2], data[i][3]});
++        }
++        digests.clear();
++        CheckCopies(link, materialized, "identical-transcript");
++        CheckCopies(link, strided, "identical-transcript", macs);
++        ASSERT_EQ(digests.size(), 2);
++        EXPECT_EQ(digests[0], digests[1]);
++      }
++    }
++  });
++}
++
+ TEST(SpdzWiseRing, StreamedCopyHashesMatchCanonicalTranscript) {
+   utils::simulate(3, [&](const auto& base) {
+     std::string expected;
+@@ -453,6 +486,68 @@ TEST(SpdzWiseRing, StreamedCopyHashesMatchCanonicalTranscript) {
+   });
+ }
+ 
++TEST(SpdzWiseRing, TruncationWireFaultsAbortAllRanks) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (const std::string fault :
++         {"random-input", "second-input", "short-input", "input-mac",
++          "second-input-mac", "mac", "copies", "open", "short-open"}) {
++      utils::simulate(3, [&](const auto& base) {
++        SCOPED_TRACE(fault + "/party=" + std::to_string(party));
++        bool active = false, injected = false;
++        size_t products = 0;
++        auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
++          if (!active || injected || base->Rank() != party) return bytes;
++          // Context tags are trace-only in YACL. At the channel boundary,
++          // distinguish the input-MAC and XOR-product payloads by wire order.
++          const bool product = destination == base->PrevRank() &&
++                               bytes.size() == 3 * 64 * 32;
++          if (product) ++products;
++          const bool input = (fault == "random-input" ||
++                              fault == "second-input" || fault == "short-input") &&
++                             destination == base->NextRank() &&
++                             bytes.size() == 3 * 64 * 16;
++          const bool input_mac = (fault == "input-mac" || fault == "second-input-mac") &&
++                                 product && products == 1;
++          const bool mac = fault == "mac" && product && products == 2;
++          const bool copies = fault == "copies" && products == 2 &&
++                              destination == base->PrevRank() && bytes.size() == 32;
++          const bool opened = (fault == "open" || fault == "short-open") &&
++                              destination == base->NextRank() &&
++                              bytes.size() == 3 * 8;
++          if (input || input_mac || mac || copies || opened) {
++            injected = true;
++            if (fault == "short-open" || fault == "short-input")
++              return yacl::Buffer(bytes.data(), bytes.size() - 1);
++            const size_t byte = fault == "second-input-mac" ? 3 * 64 * 16 :
++                                mac ? 16 : 0;
++            bytes.data<char>()[byte] ^= 1;
++          }
++          return bytes;
++        });
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* s = ctx.prot()->getState<SpdzWiseState>();
++        s->begin(ExecutableProto("trunc-fault", {}, {}, "test"), {});
++        auto x = s->publicValue(Plain({3}).as(makeType<Pub2kTy>(FM64)));
++        // Rotate until the attacked rank owns the selected half of the batch.
++        const size_t rotation = fault == "second-input" ? (party + 2) % 3 : party;
++        for (size_t i = 0; i < rotation; ++i)
++          s->truncPr(x, 16, SignType::Unknown);
++        active = true;
++        ExpectCheckFailure([&] {
++          s->truncPr(x, 16, SignType::Unknown);
++          s->finalize();
++        });
++        EXPECT_TRUE(s->failed());
++        EXPECT_ANY_THROW(s->commit());
++        if (base->Rank() == party) {
++          EXPECT_TRUE(injected);
++        }
++      });
++    }
++  }
++}
++
+ TEST(SpdzWiseRing, ParallelStridedArithmeticAndAggregation) {
+   SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+   // Cross the parallel grain and hash chunk boundaries with noncompact inputs.
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index ed308283..b505a4f8 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -26,6 +26,7 @@ class SpdzWiseState final : public ProtocolSession {
+   // Normal imports retain their mandatory immediate check.
+   friend class SpdzWiseBenchmarkAccess;
+   friend class BooleanTestAccess;
++  friend class ring::TruncationTestAccess;
+   std::unique_ptr<BooleanState> boolean_;
+   std::unique_ptr<ring::ArithmeticState> ring_;
+   bool isRing() const {
+@@ -77,6 +78,10 @@ class SpdzWiseState final : public ProtocolSession {
+   NdArrayRef negate(const NdArrayRef& x) const;
+   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
+   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
++  NdArrayRef truncPr(const NdArrayRef& x, size_t bits, SignType sign);
++  double truncMaterialMs() const {
++    return ring_ ? ring_->truncMaterialMs() : 0;
++  }
+   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);
+   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
+   void check();
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation.cc b/src/libspu/mpc/spdzwise/ring_truncation.cc
+new file mode 100644
+index 00000000..91dc76f6
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_truncation.cc
+@@ -0,0 +1,374 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// https://www.apache.org/licenses/LICENSE-2.0
++//
++// Adapted from MP-SPDZ Compiler/floatingpoint.py::TruncPrRing and
++// Protocols/{ReplicatedPrep,Spdz2kPrep}.hpp (see MP-SPDZ-LICENSE.txt).
++
++#include "libspu/mpc/spdzwise/ring_truncation.h"
++
++#include <chrono>
++#include <cstring>
++#include <limits>
++
++#include "yacl/crypto/hash/blake3.h"
++#include "yacl/link/algorithm/allgather.h"
++
++#include "libspu/core/parallel_utils.h"
++#include "libspu/mpc/spdzwise/state.h"
++
++namespace spu::mpc::spdzwise::ring {
++namespace {
++using Clock = std::chrono::steady_clock;
++
++void RequireAll(const std::shared_ptr<yacl::link::Context>& link, bool ok,
++                const std::string& context) {
++  for (size_t round = 0; round < 2; ++round) {
++    const std::string status(1, ok ? '1' : '0');
++    const auto all =
++        yacl::link::AllGather(link, yacl::ByteContainerView(status),
++                              context + "/status/" + std::to_string(round));
++    for (const auto& item : all) ok &= std::string_view(item) == "1";
++  }
++  SPU_ENFORCE(ok, "SPDZWISE ring check failed (truncation)");
++}
++
++std::string Hash(std::string_view context, std::string_view bytes) {
++  yacl::crypto::Blake3Hash hash;
++  hash.Update("SPDZWISE-RING-TRUNC-v1/" + std::to_string(context.size()) + ":" +
++              std::string(context));
++  hash.Update(bytes);
++  const auto digest = hash.CumulativeHash();
++  return {reinterpret_cast<const char*>(digest.data()), digest.size()};
++}
++
++// Unlike a setup-time public PRG, this coin is unpredictable until the input
++// records have been frozen. Commit/reveal and transcript agreement also bind
++// a malicious sender that equivocates between recipients.
++Word PublicCoin(const std::shared_ptr<yacl::link::Context>& link,
++                const std::string& context) {
++  const auto bytes = Encode({yacl::crypto::SecureRandSeed()});
++  const auto commit = Hash(context + "/" + std::to_string(link->Rank()), bytes);
++  const auto commits = yacl::link::AllGather(
++      link, yacl::ByteContainerView(commit), context + "/commit");
++  const auto reveals = yacl::link::AllGather(
++      link, yacl::ByteContainerView(bytes), context + "/reveal");
++  bool ok = true;
++  std::string transcript;
++  for (size_t rank = 0; rank < 3; ++rank) {
++    const std::string_view reveal(reveals[rank]);
++    ok &= reveal.size() == 16 &&
++          std::string_view(commits[rank]) ==
++              Hash(context + "/" + std::to_string(rank), reveal);
++    transcript.append(reveal);
++  }
++  const auto digest = Hash(context + "/transcript", transcript);
++  const auto digests = yacl::link::AllGather(
++      link, yacl::ByteContainerView(digest), context + "/agree");
++  for (const auto& item : digests) ok &= std::string_view(item) == digest;
++  RequireAll(link, ok, context);
++  Word seed = 0;
++  for (const auto& reveal : reveals)
++    seed ^= Decode(std::string_view(reveal), 1)[0];
++  return seed;
++}
++
++AuthShare Public(Word x, size_t rank, const RepShare& key) {
++  return {rank == 0 ? x : 0, rank == 2 ? x : 0, key[0] * x, key[1] * x};
++}
++}  // namespace
++
++// Scratch belongs to one truncation call. Reuse storage across tiles, but fill
++// every live entry with fresh randomness before use. No PRG runs on workers.
++struct ArithmeticState::TruncationBuffers {
++  std::vector<Word> first, second;
++  std::vector<uint64_t> private_words, coefficients;
++  NdArrayRef inputs;
++
++  TruncationBuffers(const Type& type, int64_t max_bits)
++      : first(2 * max_bits), second(2 * max_bits),
++        private_words((max_bits + 63) / 64),
++        inputs(type, {2 * max_bits}) {}
++};
++
++NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
++                                              TruncationBuffers& buffers) {
++  auto& [first, second, private_words, coefficients, storage] = buffers;
++  const size_t total = 2 * count;
++  first.resize(total);
++  second.resize(total);
++  private_words.resize((count + 63) / 64);
++  auto out = storage.slice({0}, {static_cast<int64_t>(total)}, {1});
++  auto* data = out.data<AuthShare>();
++  const size_t rank = link_->Rank();
++  if (rank == owner || rank == (owner + 1) % 3)
++    trunc_prg_->fillPriv(absl::MakeSpan(private_words));
++  trunc_prg_->fillPrssPair(first.data(), second.data(), total,
++                           PrgState::GenPrssCtrl::Both);
++
++  // MP-SPDZ replicated private input, batched for the two rotating owners.
++  // Owner o sets (s_o,s_{o+1},s_{o+2})=(r,b-r,0). The pairwise r is already
++  // known to o-1; only b-r must be sent to o+1. Neither non-owner knows b.
++  // Both PRSS streams consume the full batch at every rank, including unused
++  // components, so subsequent calls remain aligned through owner rotation.
++  pforeach(0, total, [&](int64_t i) {
++    const size_t input_owner = (owner + size_t(i) / count) % 3;
++    if (rank == input_owner) {
++      const size_t bit = size_t(i) % count;
++      const Word value = (private_words[bit / 64] >> (bit % 64)) & 1;
++      data[i] = {first[i], value - first[i], 0, 0};
++      first[i] = data[i][1];
++    } else if (link_->NextRank() == input_owner) {
++      data[i] = {0, second[i], 0, 0};
++    } else {
++      data[i] = {};
++    }
++  });
++  const auto context = tag_("trunc-private-input");
++  // Queue both independent inputs before receiving either one.
++  for (size_t input = 0; input < 2; ++input) {
++    if (rank != (owner + input) % 3) continue;
++    const auto tag = context + "/" + std::to_string(input);
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++    link_->SendAsync(link_->NextRank(),
++                     yacl::ByteContainerView(first.data() + input * count,
++                                             count * sizeof(Word)), tag);
++#else
++    const auto bytes = Encode(std::vector<Word>(
++        first.begin() + input * count, first.begin() + (input + 1) * count));
++    link_->SendAsync(link_->NextRank(), yacl::ByteContainerView(bytes), tag);
++#endif
++  }
++  bool valid = true;
++  for (size_t input = 0; input < 2; ++input) {
++    const size_t input_owner = (owner + input) % 3;
++    if (link_->PrevRank() != input_owner) continue;
++    const auto received = link_->Recv(
++        input_owner, context + "/" + std::to_string(input));
++    const bool length_ok = size_t(received.size()) == count * sizeof(Word);
++    valid &= length_ok;
++    if (!length_ok) continue;
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++    std::memcpy(second.data(), received.data(), count * sizeof(Word));
++#else
++    const auto decoded = Decode(std::string_view(received), count);
++    std::copy(decoded.begin(), decoded.end(), second.begin());
++#endif
++    pforeach(0, count, [&](int64_t i) {
++      data[input * count + i][0] = second[i];
++    });
++  }
++  RequireAll(link_, valid, context + "/wire");
++  // Freeze/check both inputs before authenticating; both input MAC records
++  // remain immutable until the same deferred session check as before.
++  CheckCopies(link_, out, tag_("trunc-input-copies"), false);
++  mask_prg_->fillPrssPair(first.data(), second.data(), total,
++                          PrgState::GenPrssCtrl::Both);
++  pforeach(0, total, [&](int64_t i) {
++    first[i] += LocalProduct({data[i][0], data[i][1]}, key_) - second[i];
++  });
++  exchange(first, second, "trunc-input-mac");
++  pforeach(0, total, [&](int64_t i) {
++    data[i][2] = first[i];
++    data[i][3] = second[i];
++  });
++  remember(out);
++  return out;
++}
++
++void ArithmeticState::checkTruncBits(
++    const NdArrayRef& bits, std::vector<uint64_t>& coefficients) {
++  const NdArrayView<AuthShare> b(bits);
++  const auto context = tag_("trunc-bitness");
++  CheckCopies(link_, bits, context + "/freeze", true);
++  const auto seed = PublicCoin(link_, session_ + "/" + context);
++  coefficients.resize(bits.numel());
++  yacl::crypto::FillPRand(PrgState::kAesType, seed, 0, 0,
++                          absl::MakeSpan(coefficients));
++  const auto one = Public(1, link_->Rank(), key_);
++  // MP-SPDZ's randomized dot product sum_i r_i * (1-b_i) * b_i.
++  // Accumulate both the value and MAC products, then remember the result.
++  const auto sums = yacl::parallel_reduce<std::array<Word, 2>>(
++      0, bits.numel(), kMinTaskSize,
++      [&](int64_t begin, int64_t end) {
++        std::array<Word, 2> sum{};
++        for (auto i = begin; i < end; ++i) {
++          const RepShare rhs{b[i][0] * coefficients[i],
++                             b[i][1] * coefficients[i]};
++          sum[0] += LocalProduct({one[0] - b[i][0], one[1] - b[i][1]}, rhs);
++          sum[1] += LocalProduct({one[2] - b[i][2], one[3] - b[i][3]}, rhs);
++        }
++        return sum;
++      },
++      [](const auto& a, const auto& b) {
++        return std::array<Word, 2>{a[0] + b[0], a[1] + b[1]};
++      });
++  const auto dot = reshare({sums[0], sums[1]}, "trunc-bitness-dot");
++  pending_.push_back({dot[0][0], dot[0][1], dot[1][0], dot[1][1]});
++  // Honest generated bits are bits in the full internal ring. Use the existing
++  // full-128-bit zero test (stronger than checking only the low application
++  // word), without ever opening the extension or the MAC residual.
++  CheckZero(link_, dot[0], context + "/zero");
++}
++
++NdArrayRef ArithmeticState::randomTruncBits(size_t count,
++                                            TruncationBuffers& buffers) {
++  const auto inputs = privateRandomBits(count, trunc_input_owner_, buffers);
++  const auto n = static_cast<int64_t>(count);
++  auto a = inputs.slice({0}, {n}, {1});
++  const auto b = inputs.slice({n}, {2 * n}, {1});
++  trunc_input_owner_ = (trunc_input_owner_ + 1) % 3;
++  const auto ab = multiply(a, b);
++  auto* out = a.data<AuthShare>();
++  const auto* bv = b.data<AuthShare>();
++  const auto* product = ab.data<AuthShare>();
++  pforeach(0, count, [&](int64_t i) {
++    for (size_t c = 0; c < 4; ++c) out[i][c] += bv[i][c] - 2 * product[i][c];
++  });
++  checkTruncBits(a, buffers.coefficients);
++  return a;
++}
++
++std::vector<uint64_t> ArithmeticState::openTruncMask(
++    const std::vector<RepShare>& values) {
++  const auto context = tag_("trunc-open");
++  std::vector<RepShare> low(values.size());
++  std::string sent(values.size() * 8, '\0');
++  for (size_t i = 0; i < values.size(); ++i) {
++    low[i] = {uint64_t(values[i][0]), uint64_t(values[i][1])};
++    for (size_t byte = 0; byte < 8; ++byte)
++      sent[8 * i + byte] = char(low[i][0] >> (8 * byte));
++  }
++  CheckCopies(link_, low, context + "/copies");
++  // Pi already has components i and i+1; receive the missing i+2 from i-1.
++  link_->SendAsync(link_->NextRank(), yacl::ByteContainerView(sent), context);
++  const auto received = link_->Recv(link_->PrevRank(), context);
++  RequireAll(link_, size_t(received.size()) == sent.size(), context + "/wire");
++  std::vector<uint64_t> opened(values.size());
++  for (size_t i = 0; i < values.size(); ++i) {
++    uint64_t missing = 0;
++    for (size_t byte = 0; byte < 8; ++byte)
++      missing |= uint64_t(uint8_t(received.data<char>()[8 * i + byte]))
++                 << (8 * byte);
++    opened[i] = uint64_t(low[i][0]) + uint64_t(low[i][1]) + missing;
++    for (size_t byte = 0; byte < 8; ++byte)
++      sent[8 * i + byte] = char(opened[i] >> (8 * byte));
++  }
++  const auto digest = Hash(session_ + "/" + context, sent);
++  const auto all = yacl::link::AllGather(link_, yacl::ByteContainerView(digest),
++                                         context + "/agree");
++  bool ok = true;
++  for (const auto& item : all) ok &= std::string_view(item) == digest;
++  RequireAll(link_, ok, context + "/agree");
++  return opened;
++}
++
++NdArrayRef ArithmeticState::truncPr(const NdArrayRef& x, size_t bits) {
++  validateInternal(x);
++  SPU_ENFORCE(bits <= 62, "signed 63-bit truncation requires bits in [0,62]");
++  trunc_material_ms_ = 0;
++  if (bits == 0 || x.numel() == 0) return x;
++  SPU_ENFORCE(
++      size_t(x.numel()) <= size_t(std::numeric_limits<int64_t>::max()) / 64,
++      "truncation batch is too large");
++  const auto material_start = Clock::now();
++  if (!trunc_prg_) trunc_prg_ = std::make_unique<PrgState>(link_);
++  // Bound transient memory while preserving one fresh mask per element.
++  // Deferred records remain owned by the session until finalization.
++  constexpr int64_t kTile = 4096;
++  const size_t tiles = (size_t(x.numel()) + kTile - 1) / kTile;
++  const size_t available = pending_.max_size() - pending_.size();
++  SPU_ENFORCE(
++      tiles <= available && size_t(x.numel()) <= (available - tiles) / (3 * 64),
++      "truncation authentication queue is too large");
++  const size_t records = 3 * 64 * size_t(x.numel()) + tiles;
++  pending_.reserve(pending_.size() + records);
++  const NdArrayView<AuthShare> input(x);
++  NdArrayRef out(x.eltype(), x.shape());
++  auto* result = out.data<AuthShare>();
++  std::vector<AuthShare> masks(x.numel()), upper(x.numel()), msb(x.numel());
++  {
++    // Include scratch destruction in the material phase as well as in the
++    // primary interval; online timing starts with only the assembled masks.
++    TruncationBuffers buffers(x.eltype(), 64 * std::min(kTile, x.numel()));
++    for (int64_t offset = 0; offset < x.numel(); offset += kTile) {
++      const auto count = std::min(kTile, x.numel() - offset);
++      const auto random = randomTruncBits(64 * count, buffers);
++      const auto* rb = random.data<AuthShare>();
++      // One input combines 64 authenticated bits: use a grain in input units,
++      // not the generic 50K-element grain used for cheap scalar operations.
++      yacl::parallel_for(0, count, 256, [&](int64_t begin, int64_t end) {
++        for (auto i = begin; i < end; ++i) {
++          AuthShare mask{}, high{};
++          for (size_t j = 0; j < 64; ++j) {
++            for (size_t c = 0; c < 4; ++c)
++              mask[c] += rb[64 * i + j][c] << j;
++          }
++          for (size_t j = bits; j < 63; ++j) {
++            for (size_t c = 0; c < 4; ++c)
++              high[c] += rb[64 * i + j][c] << (j - bits);
++          }
++          masks[offset + i] = mask;
++          upper[offset + i] = high;
++          msb[offset + i] = rb[64 * i + 63];
++        }
++      });
++    }
++  }
++  trunc_material_ms_ =
++      std::chrono::duration<double, std::milli>(Clock::now() - material_start)
++          .count();
++  const auto offset = Public(Word(1) << 62, link_->Rank(), key_);
++  std::vector<RepShare> masked(x.numel());
++  pforeach(0, x.numel(), [&](int64_t i) {
++    masked[i] = {input[i][0] + offset[0] + masks[i][0],
++                 input[i][1] + offset[1] + masks[i][1]};
++  });
++  const auto opened = openTruncMask(masked);
++  pforeach(0, x.numel(), [&](int64_t i) {
++    const Word cb = opened[i] >> 63;
++    const Word q = (opened[i] & ((uint64_t(1) << 63) - 1)) >> bits;
++    const Word factor = Word(1) << (63 - bits);
++    // Compute constants in the internal ring, including a genuine 128-bit
++    // additive inverse for the signed correction; never shift a MAC/share.
++    const auto constant =
++        Public(q + cb * factor - (Word(1) << (62 - bits)), link_->Rank(), key_);
++    for (size_t c = 0; c < 4; ++c)
++      result[i][c] =
++          constant[c] - upper[i][c] + (Word(1) - 2 * cb) * factor * msb[i][c];
++  });
++  return out;
++}
++
++NdArrayRef TruncPr::proc(KernelEvalContext* ctx, const NdArrayRef& in,
++                         size_t bits, SignType sign) const {
++  return ctx->getState<SpdzWiseState>()->truncPr(in, bits, sign);
++}
++
++void TruncPr::evaluate(KernelEvalContext* ctx) const {
++  const auto& in = ctx->getParam<Value>(0);
++  const auto bits = ctx->getParam<size_t>(1);
++  const auto sign = ctx->getParam<SignType>(2);
++  ctx->pushOutput(Value(proc(ctx, in.data(), bits, sign), in.dtype()));
++}
++}  // namespace spu::mpc::spdzwise::ring
++
++namespace spu::mpc::spdzwise {
++NdArrayRef SpdzWiseState::truncPr(const NdArrayRef& x, size_t bits,
++                                  SignType sign) {
++  try {
++    requireRunning();
++    SPU_ENFORCE(isRing() && ring_, "probabilistic truncation requires RING");
++    // All hints use the same signed protocol; no secret sign is computed.
++    SPU_ENFORCE(sign == SignType::Unknown || sign == SignType::Positive ||
++                    sign == SignType::Negative,
++                "invalid truncation sign hint");
++    return ring_->truncPr(x, bits);
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++}  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation_test.cc b/src/libspu/mpc/spdzwise/ring_truncation_test.cc
+new file mode 100644
+index 00000000..002791a5
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_truncation_test.cc
+@@ -0,0 +1,240 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#include "libspu/mpc/spdzwise/ring_truncation.h"
++
++#include "gtest/gtest.h"
++
++#include "libspu/mpc/ab_api.h"
++#include "libspu/mpc/aby3/arithmetic.h"
++#include "libspu/mpc/aby3/io.h"
++#include "libspu/mpc/aby3/protocol.h"
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/common/pv2k.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise::ring {
++// Only the test binary can inspect keys/material; no runtime reveal interface.
++class TruncationTestAccess {
++ public:
++  static RepShare key(SpdzWiseState* s) { return s->ring_->key_; }
++  static size_t pending(SpdzWiseState* s) { return s->ring_->pending_.size(); }
++  static void checkBits(ArithmeticState& s, const NdArrayRef& b) {
++    std::vector<uint64_t> coefficients;
++    s.checkTruncBits(b, coefficients);
++  }
++};
++namespace {
++RuntimeConfig Config() {
++  RuntimeConfig c(SPDZWISE, FM64);
++  c.spdzwise_config.domain = SpdzWiseConfig::RING;
++  return c;
++}
++int64_t Floor(int64_t x, size_t m) {
++  const int64_t d = int64_t(1) << m;
++  return x / d - (x % d < 0);
++}
++NdArrayRef Plain(const std::vector<int64_t>& values) {
++  NdArrayRef out(makeType<RingTy>(FM64), {int64_t(values.size())});
++  for (size_t i = 0; i < values.size(); ++i)
++    out.data<uint64_t>()[i] = values[i];
++  return out;
++}
++
++std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
++                                   bool strided = false) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const auto shares = io.toShares(Plain(values), VIS_SECRET);
++  struct Result {
++    NdArrayRef internal, external;
++    RepShare key;
++  };
++  const auto results = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* s = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    Value input(shares[link->Rank()], DT_I64);
++    s->begin(ExecutableProto("trunc-test", {"x"}, {"y"}, "test"), {input});
++    auto x = import_s(&ctx, input);
++    if (strided && x.numel()) {
++      auto wide = NdArrayRef(x.storage_type(), {x.numel(), 2});
++      for (int64_t i = 0; i < x.numel(); ++i)
++        wide.data<AuthShare>()[2 * i] = x.data().data<AuthShare>()[i];
++      x = Value(wide.slice({0, 0}, {x.numel(), 1}, {1, 1}).reshape(x.shape()),
++                DT_I64);
++      EXPECT_FALSE(x.data().isCompact());
++    }
++    EXPECT_EQ(TruncationTestAccess::pending(s), 0);
++    const auto checks = s->arithmeticChecks();
++    const auto bytes = link->GetStats()->sent_bytes.load();
++    auto y = trunc_a(&ctx, x, m, SignType::Unknown);
++    EXPECT_EQ(y.storage_type(), x.storage_type());
++    EXPECT_EQ(y.dtype(), x.dtype());
++    EXPECT_EQ(y.shape(), x.shape());
++    EXPECT_EQ(s->arithmeticChecks(), checks);  // No output MAC check.
++    if (!values.empty() && m) {
++      EXPECT_GT(TruncationTestAccess::pending(s), 0);
++      EXPECT_GT(s->truncMaterialMs(), 0);
++      EXPECT_GT(link->GetStats()->sent_bytes.load(), bytes);
++    } else {
++      EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
++    }
++    if (!values.empty() && m) {
++      const size_t tiles = (values.size() + 4095) / 4096;
++      EXPECT_EQ(TruncationTestAccess::pending(s), 3 * 64 * values.size() + tiles);
++    }
++    const auto key = TruncationTestAccess::key(s);
++    // A subsequent authenticated multiplication must accept the output.
++    auto one = Plain(std::vector<int64_t>(values.size(), 1))
++                   .as(makeType<Pub2kTy>(FM64));
++    auto z = s->multiply(y.data(), s->publicValue(one));
++    s->prepareOutputs(&ctx, {"y"}, {Value(z, DT_I64)});
++    guard.commit();
++    return Result{y.data(), s->exportedValue("y").data(), key};
++  });
++  Word alpha = 0;
++  std::vector<NdArrayRef> outputs;
++  for (const auto& r : results) {
++    alpha += r.key[0];
++    outputs.push_back(r.external);
++  }
++  const auto plain = io.fromShares(outputs);
++  std::vector<int64_t> out(values.size());
++  for (size_t i = 0; i < values.size(); ++i) {
++    Word value = 0, mac = 0;
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& s = results[rank].internal.data<AuthShare>()[i];
++      const auto& next = results[(rank + 1) % 3].internal.data<AuthShare>()[i];
++      EXPECT_EQ(s[1], next[0]);
++      EXPECT_EQ(s[3], next[2]);
++      value += s[0];
++      mac += s[2];
++    }
++    EXPECT_EQ(mac, alpha * value);
++    out[i] = static_cast<int64_t>(plain.data<uint64_t>()[i]);
++    const auto floor = Floor(values[i], m);
++    EXPECT_TRUE(out[i] == floor || (m && out[i] == floor + 1));
++    if ((uint64_t(values[i]) & ((uint64_t(1) << m) - 1)) == 0) {
++      EXPECT_EQ(out[i], floor);
++    }
++  }
++  return out;
++}
++
++TEST(SpdzWiseTruncation, ExhaustiveSignedSmallRingFormula) {
++  for (unsigned ell = 3; ell <= 7; ++ell) {
++    const unsigned k = ell - 1;
++    for (unsigned m = 1; m < k; ++m) {
++      for (int x = -(1 << (k - 1)); x < (1 << (k - 1)); ++x) {
++        for (unsigned r = 0; r < (1U << ell); ++r) {
++          const unsigned c = (x + (1 << (k - 1)) + r) & ((1U << ell) - 1);
++          const int upper = (r >> m) & ((1U << (k - m)) - 1);
++          const int b = (r >> k) ^ (c >> k);
++          const int y = int((c & ((1U << k) - 1)) >> m) - upper +
++                        (b << (k - m)) - (1 << (k - m - 1));
++          ASSERT_EQ(y, Floor(x + int(r & ((1U << m) - 1)), m));
++        }
++      }
++    }
++  }
++}
++
++TEST(SpdzWiseTruncation, SignedEdgesStridesAndShiftBounds) {
++  const int64_t bound = int64_t(1) << 62;
++  const std::vector<int64_t> values = {
++      0,     1,      -1,    7,      -7,     65535,      -65535,
++      65536, -65536, 65537, -65537, -bound, -bound + 1, bound - 1};
++  for (size_t m : {0U, 1U, 2U, 16U, 62U}) RunTruncation(values, m, true);
++  RunTruncation({}, 16);
++}
++
++TEST(SpdzWiseTruncation, RotatingOwnersAndPartialTile) {
++  // Three full tiles rotate through all owners; the final partial tile reuses
++  // the same scratch allocations at a different length.
++  std::vector<int64_t> values(3 * 4096 + 1);
++  for (size_t i = 0; i < values.size(); ++i)
++    values[i] = i % 2 ? -int64_t(i * 65537) : int64_t(i * 65537);
++  RunTruncation(values, 16, true);
++}
++
++TEST(SpdzWiseTruncation, SignedRoundingFrequency) {
++  // 8192 independent masks: a generous >8-sigma tolerance, avoiding flaky
++  // tests while detecting wrong sign handling and deterministic rounding.
++  std::vector<int64_t> values(8192);
++  for (size_t i = 0; i < values.size(); ++i) values[i] = i % 2 ? -7 : 7;
++  const auto output = RunTruncation(values, 2);
++  size_t negative_up = 0, positive_up = 0;
++  for (size_t i = 0; i < values.size(); ++i) {
++    if (i % 2)
++      negative_up += output[i] == -1;
++    else
++      positive_up += output[i] == 2;
++  }
++  EXPECT_NEAR(double(negative_up) / 4096, 0.25, 0.06);
++  EXPECT_NEAR(double(positive_up) / 4096, 0.75, 0.06);
++}
++
++TEST(SpdzWiseTruncation, BadParametersAndBindingsPoisonSession) {
++  for (int fault = 0; fault < 3; ++fault) {
++    utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* s = ctx.prot()->getState<SpdzWiseState>();
++      s->begin(ExecutableProto("bad-trunc", {}, {}, "test"), {});
++      auto x = s->publicValue(Plain({7}).as(makeType<Pub2kTy>(FM64)));
++      if (fault == 1) x = x.as(makeType<AShrTy>("other-session"));
++      if (fault == 2)
++        x = NdArrayRef(makeType<spdzwise::AShrTy>(s->session()), {1});
++      EXPECT_ANY_THROW(s->truncPr(x, fault == 0 ? 63 : 16, SignType::Unknown));
++      EXPECT_TRUE(s->failed());
++      EXPECT_ANY_THROW(s->commit());
++    });
++  }
++  utils::simulate(3, [&](const auto& link) {
++    RuntimeConfig config(SPDZWISE, FM64);
++    SPUContext ctx(config, link);
++    registerArithmeticPrototype(&ctx, link);
++    EXPECT_FALSE(ctx.prot()->hasKernel("trunc_a"));
++  });
++}
++
++TEST(SpdzWiseTruncation, BitnessRejectsNonBitsIncludingHighValuation) {
++  for (uint64_t bad : {uint64_t(2), (uint64_t(1) << 63) + 1}) {
++    utils::simulate(3, [&](const auto& link) {
++      size_t message = 0;
++      ArithmeticState s(link, "bit-test", [&](std::string_view op) {
++        return std::to_string(message++) + "/" + std::string(op);
++      });
++      auto b = Plain({static_cast<int64_t>(bad)}).as(makeType<Pub2kTy>(FM64));
++      EXPECT_ANY_THROW(TruncationTestAccess::checkBits(s, s.publicValue(b)));
++    });
++  }
++}
++
++TEST(SpdzWiseTruncation, NativeAby3RegisteredTruncAPr2MixedSigns) {
++  auto io = aby3::makeAby3Io(FM64, 3);
++  const int64_t bound = int64_t(1) << 62;
++  const std::vector<int64_t> values{0,     1,      -1,         7,        -7,
++                                    65536, -65536, -bound + 1, bound - 1};
++  const auto shares = io->toShares(Plain(values), VIS_SECRET, -1);
++  const auto output = utils::simulate(3, [&](const auto& link) {
++    auto ctx = makeAby3Protocol(RuntimeConfig(ABY3, FM64), link);
++    EXPECT_NE(dynamic_cast<aby3::TruncAPr2*>(ctx->prot()->getKernel("trunc_a")),
++              nullptr);
++    return trunc_a(ctx.get(), Value(shares[link->Rank()], DT_I64), 16,
++                   SignType::Unknown)
++        .data();
++  });
++  const auto plain = io->fromShares(output);
++  for (size_t i = 0; i < values.size(); ++i) {
++    const auto y = static_cast<int64_t>(plain.data<uint64_t>()[i]);
++    EXPECT_LE(std::abs(y - Floor(values[i], 16)), 1);
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_truncation.h b/src/libspu/mpc/spdzwise/ring_truncation.h
+new file mode 100644
+index 00000000..8fcb4739
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/ring_truncation.h
+@@ -0,0 +1,28 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#pragma once
++
++#include "libspu/mpc/kernel.h"
++
++namespace spu::mpc::spdzwise::ring {
++
++// MP-SPDZ TruncPrRing(signed=True, k=63) over the application ring Z/2^64.
++// Caller guarantees -2^62 <= x < 2^62; this is not a full-width truncation.
++class TruncPr final : public TruncAKernel {
++ public:
++  static constexpr const char* kBindName() { return "trunc_a"; }
++  void evaluate(KernelEvalContext* ctx) const override;
++  Kind kind() const override { return Kind::Dynamic; }
++  bool hasMsbError() const override { return false; }
++  TruncLsbRounding lsbRounding() const override {
++    return TruncLsbRounding::Probabilistic;
++  }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t bits,
++                  SignType sign) const override;
++};
++
++}  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc
+new file mode 100644
+index 00000000..925de99f
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/truncation_bench.cc
+@@ -0,0 +1,203 @@
++// Copyright 2026 The SPU Authors. All Rights Reserved.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// https://www.apache.org/licenses/LICENSE-2.0
++
++#include <chrono>
++#include <condition_variable>
++#include <iomanip>
++#include <iostream>
++#include <mutex>
++
++#include "libspu/mpc/ab_api.h"
++#include "libspu/mpc/aby3/arithmetic.h"
++#include "libspu/mpc/aby3/io.h"
++#include "libspu/mpc/aby3/protocol.h"
++#include "libspu/mpc/api.h"
++#include "libspu/mpc/spdzwise/io.h"
++#include "libspu/mpc/spdzwise/protocol.h"
++#include "libspu/mpc/spdzwise/ring_truncation.h"
++#include "libspu/mpc/spdzwise/state.h"
++#include "libspu/mpc/utils/simulate.h"
++
++namespace spu::mpc::spdzwise {
++namespace {
++using Clock = std::chrono::steady_clock;
++double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
++  return std::chrono::duration<double, std::milli>(end - start).count();
++}
++class Barrier {
++  std::mutex mutex_;
++  std::condition_variable cv_;
++  size_t arrived_ = 0, generation_ = 0;
++
++ public:
++  void wait() {
++    std::unique_lock<std::mutex> lock(mutex_);
++    const auto generation = generation_;
++    if (++arrived_ == 3) {
++      arrived_ = 0;
++      ++generation_;
++      cv_.notify_all();
++    } else {
++      cv_.wait(lock, [&] { return generation_ != generation; });
++    }
++  }
++};
++
++uint64_t SplitMix(uint64_t& state) {
++  uint64_t z = (state += 0x9e3779b97f4a7c15ULL);
++  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
++  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
++  return z ^ (z >> 31);
++}
++NdArrayRef Inputs(int64_t count) {
++  NdArrayRef out(makeType<RingTy>(FM64), {count});
++  constexpr uint64_t bound = uint64_t(1) << 62;
++  const std::array<uint64_t, 9> edges{0,
++                                      1,
++                                      7,
++                                      65535,
++                                      65536,
++                                      65537,
++                                      bound - 1,
++                                      bound - 65536,
++                                      uint64_t(1) << 40};
++  uint64_t seed = 0x5350445a5452554eULL;
++  for (int64_t i = 0; i < count; i += 2) {
++    const uint64_t magnitude = size_t(i / 2) < edges.size()
++                                   ? edges[i / 2]
++                                   : 1 + SplitMix(seed) % (bound - 1);
++    out.data<uint64_t>()[i] = magnitude;
++    out.data<uint64_t>()[i + 1] = uint64_t(0) - magnitude;
++  }
++  return out;
++}
++struct Result {
++  double total_ms = 0, material_ms = 0, online_ms = 0, verify_ms = 0;
++  size_t bytes = 0, actions = 0, verify_bytes = 0, input_checks = 0,
++         final_checks = 0;
++  NdArrayRef output;
++};
++
++void Run(bool wise, int64_t count, int repetitions) {
++  const auto plain = Inputs(count);
++  SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
++  auto aby_io = aby3::makeAby3Io(FM64, 3);
++  RuntimeConfig config(wise ? SPDZWISE : ABY3, FM64);
++  config.spdzwise_config.domain = SpdzWiseConfig::RING;
++  config.fxp_fraction_bits = 16;
++  std::cout
++      << std::fixed << std::setprecision(6)
++      << "protocol,count,bits,iteration,rank,total_ms,material_ms,online_ms,"
++         "verify_ms,sent_bytes,sent_actions,verify_bytes,input_checks,"
++         "final_checks,outputs_verified,error_minus1,error_zero,error_plus1\n";
++  for (int iteration = 0; iteration <= repetitions; ++iteration) {
++    const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
++                             : aby_io->toShares(plain, VIS_SECRET, -1);
++    Barrier barrier;
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      std::unique_ptr<SPUContext> ctx =
++          wise ? std::make_unique<SPUContext>(config, link)
++               : makeAby3Protocol(config, link);
++      if (wise) registerArithmeticPrototype(ctx.get(), link);
++      auto* state = wise ? ctx->prot()->getState<SpdzWiseState>() : nullptr;
++      ProtocolRunGuard guard(ctx.get());
++      Value x(inputs[link->Rank()], DT_I64);
++      Result result;
++      if (wise) {
++        SPU_ENFORCE(
++            dynamic_cast<ring::TruncPr*>(ctx->prot()->getKernel("trunc_a")));
++        state->begin(ExecutableProto("truncation-bench", {"x"}, {"y"}, "test"),
++                     {x});
++        x = import_s(ctx.get(), x);
++        result.input_checks = state->arithmeticChecks();
++        SPU_ENFORCE(result.input_checks == 1);
++      } else {
++        SPU_ENFORCE(
++            dynamic_cast<aby3::TruncAPr2*>(ctx->prot()->getKernel("trunc_a")),
++            "benchmark requires the normally registered ABY3 TruncAPr2");
++      }
++      const auto stats = link->GetStats();
++      barrier.wait();
++      const auto bytes = stats->sent_bytes.load();
++      const auto actions = stats->sent_actions.load();
++      const auto start = Clock::now();
++      auto y = trunc_a(ctx.get(), x, 16, SignType::Unknown);
++      const auto stop = Clock::now();  // Output shares exist; stop immediately.
++      result.total_ms = Ms(start, stop);
++      result.bytes = stats->sent_bytes.load() - bytes;
++      result.actions = stats->sent_actions.load() - actions;
++      result.material_ms = wise ? state->truncMaterialMs() : 0;
++      result.online_ms = result.total_ms - result.material_ms;
++      SPU_ENFORCE(y.shape() == x.shape() &&
++                  y.storage_type() == x.storage_type());
++      if (wise) {
++        SPU_ENFORCE(state->arithmeticChecks() == result.input_checks,
++                    "unexpected final MAC check inside truncation timing");
++        barrier.wait();
++        const auto verify_bytes = stats->sent_bytes.load();
++        const auto verify_start = Clock::now();
++        state->check();
++        result.verify_ms = Ms(verify_start);
++        result.verify_bytes = stats->sent_bytes.load() - verify_bytes;
++        result.final_checks = state->arithmeticChecks() - result.input_checks;
++        SPU_ENFORCE(result.final_checks == 1);
++        y.setDtype(DT_I64);
++        state->prepareOutputs(ctx.get(), {"y"}, {y});
++        guard.commit();
++        result.output = state->exportedValue("y").data();
++      } else {
++        result.output = y.data();
++        guard.commit();
++      }
++      return result;
++    });
++    std::vector<NdArrayRef> output;
++    for (const auto& r : results) output.push_back(r.output);
++    const auto reconstructed =
++        wise ? wise_io.fromShares(output) : aby_io->fromShares(output);
++    std::array<size_t, 3> errors{};
++    for (int64_t i = 0; i < count; ++i) {
++      const auto x = static_cast<int64_t>(plain.data<uint64_t>()[i]);
++      const auto y = static_cast<int64_t>(reconstructed.data<uint64_t>()[i]);
++      const auto floor = x / 65536 - (x % 65536 < 0);
++      const auto error = y - floor;
++      SPU_ENFORCE(error >= (wise ? 0 : -1) && error <= 1,
++                  "wrong output: iteration {}, element {}, x {}, y {}",
++                  iteration, i, x, y);
++      if (wise && x % 65536 == 0) SPU_ENFORCE(error == 0);
++      ++errors[error + 1];
++    }
++    std::cerr << "iteration " << iteration << ": all " << count
++              << " outputs verified; errors (-1,0,+1)=" << errors[0] << ','
++              << errors[1] << ',' << errors[2] << '\n';
++    for (size_t rank = 0; rank < 3; ++rank) {
++      const auto& r = results[rank];
++      std::cout << (wise ? "spdzwise-ring-signed" : "aby3-truncapr2") << ','
++                << count << ",16," << iteration << ',' << rank << ','
++                << r.total_ms << ',' << r.material_ms << ',' << r.online_ms
++                << ',' << r.verify_ms << ',' << r.bytes << ',' << r.actions
++                << ',' << r.verify_bytes << ',' << r.input_checks << ','
++                << r.final_checks << ',' << count << ',' << errors[0] << ','
++                << errors[1] << ',' << errors[2] << '\n';
++    }
++    std::cout.flush();
++  }
++}
++}  // namespace
++}  // namespace spu::mpc::spdzwise
++
++int main(int argc, char** argv) {
++  try {
++    const std::string protocol = argc > 1 ? argv[1] : "spdzwise";
++    SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
++    const int64_t count = argc > 2 ? std::stoll(argv[2]) : 100000;
++    const int repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
++    SPU_ENFORCE(count >= 20 && count % 2 == 0 && repetitions > 0);
++    spu::mpc::spdzwise::Run(protocol == "spdzwise", count, repetitions);
++    return 0;
++  } catch (const std::exception& e) {
++    std::cerr << e.what() << '\n';
++    return 1;
++  }
++}
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py b/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py
+new file mode 100644
+index 00000000..141a3b0e
+--- /dev/null
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_truncation.py
+@@ -0,0 +1,173 @@
++"""Archive signed RING truncation versus the normally registered ABY3 TruncAPr2.
++
++Build with `bash build.sh //:truncation_bench`, then run:
++  python3 run_truncation.py NEW_OUTPUT_DIRECTORY
++"""
++
++import argparse
++import csv
++import hashlib
++import json
++import os
++import platform
++import re
++import statistics
++import subprocess
++import time
++from datetime import datetime
++from pathlib import Path
++from zoneinfo import ZoneInfo
++
++BENCH = Path(__file__).resolve().parent
++ROOT = BENCH.parents[4]
++
++
++def sha256(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def write_json(path, value):
++    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
++
++
++def summarize(rows, count, repetitions, wise):
++    assert len(rows) == (repetitions + 1) * 3
++    iterations = []
++    for iteration in range(repetitions + 1):
++        batch = [r for r in rows if int(r["iteration"]) == iteration]
++        assert len(batch) == 3 and {int(r["rank"]) for r in batch} == {0, 1, 2}
++        for r in batch:
++            assert int(r["count"]) == count and int(r["bits"]) == 16
++            assert int(r["outputs_verified"]) == count
++            assert int(r["input_checks"]) == int(wise)
++            assert int(r["final_checks"]) == int(wise)
++            assert abs(float(r["total_ms"]) - float(r["material_ms"]) - float(r["online_ms"])) < 1e-4
++            assert sum(int(r[k]) for k in ("error_minus1", "error_zero", "error_plus1")) == count
++        if iteration:
++            iterations.append({
++                "iteration": iteration,
++                **{key: max(float(r[key]) for r in batch)
++                   for key in ("total_ms", "material_ms", "online_ms", "verify_ms")},
++                "total_sent_bytes": sum(int(r["sent_bytes"]) for r in batch),
++                "total_verify_bytes": sum(int(r["verify_bytes"]) for r in batch),
++            })
++    phases = {key: {"median_ms": statistics.median(r[key] for r in iterations),
++                    "min_ms": min(r[key] for r in iterations),
++                    "max_ms": max(r[key] for r in iterations)}
++              for key in ("total_ms", "material_ms", "online_ms", "verify_ms")}
++    median = phases["total_ms"]["median_ms"]
++    return {
++        "iterations": iterations, "phases": phases,
++        "ns_per_element": median * 1e6 / count,
++        "elements_per_second": count * 1e3 / median,
++        "bytes_per_party": sorted({int(r["sent_bytes"]) for r in rows}),
++        "total_sent_bytes": sorted({r["total_sent_bytes"] for r in iterations}),
++        "validation": "all elements, including warmup; final authentication checks excluded from primary timing",
++    }
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--count", type=int, default=100000)
++    parser.add_argument("--repetitions", type=int, default=7)
++    args = parser.parse_args()
++    assert args.count >= 20 and args.count % 2 == 0 and args.repetitions > 0
++    out = args.output.resolve()
++    out.mkdir(parents=True, exist_ok=False)
++    binary = BENCH / "bazel-bin/truncation_bench"
++    env = dict(os.environ, YACL_NUM_THREADS="65")
++    sources = sorted(BENCH.parent.glob("*.cc")) + sorted(BENCH.parent.glob("*.h"))
++    sources += [BENCH.parent / "BUILD.bazel"]
++    sources += [BENCH / n for n in ("truncation_bench.cc", "run_truncation.py", "build.sh", "BUILD.bazel", "MODULE.bazel", "MODULE.bazel.lock", ".bazelrc")]
++    sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "libspu/mpc/aby3/arithmetic.cc", "libspu/mpc/aby3/arithmetic.h", "libspu/mpc/aby3/protocol.cc", "libspu/mpc/common/prg_state.cc", "libspu/mpc/common/prg_state.h", "libspu/core/parallel_utils.h", "libspu/mpc/utils/simulate.h")]
++    parameters = {
++        "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
++        "count": args.count, "bits": 16, "application_ring_bits": 64,
++        "signed_input_bits": 63, "internal_authentication_bits": 128,
++        "input_range": "-2^62 < x < 2^62; balanced positive/negative pairs and zero",
++        "input_generator": "SplitMix64, seed 0x5350445a5452554e, fixed edge prefix; independent fresh shares each iteration",
++        "warmups": 1, "repetitions": args.repetitions,
++        "YACL_NUM_THREADS": 65, "background_workers": 64,
++        "transport": "FactoryMem, three parties in one process; protocols run sequentially",
++        "timing": "start after input authentication; include fresh random material, bitness and opening checks; stop at authenticated output; final authentication/export/reconstruction excluded",
++        "aggregation": "per iteration maximum of whole timed interval across ranks; median/min/max over measured iterations; do not sum phase maxima",
++        "aby3_kernel": "normally registered TruncAPr2, SignType::Unknown, ordinary replicated shares",
++        "bitness": "MP-SPDZ random linear dot product with fresh commit/reveal coefficients; full internal 128-bit CheckZero instead of low-word opening",
++        "mpspdz_reference": "113c4e47dd94bca9ecab029d2f0abe649bea5c52",
++        "platform": platform.platform(), "logical_cpus": os.cpu_count(),
++        "cpu_affinity": sorted(os.sched_getaffinity(0)),
++        "loadavg_at_start": os.getloadavg(),
++        "compiler": subprocess.check_output(["c++", "--version"], text=True).splitlines()[0],
++        "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
++        "binary_sha256": sha256(binary),
++        "source_sha256": {str(p.relative_to(ROOT)): sha256(p) for p in sources},
++    }
++    write_json(out / "parameters.json", parameters)
++    (out / "lscpu.txt").write_text(subprocess.check_output(["lscpu"], text=True))
++    (out / "meminfo.txt").write_text(Path("/proc/meminfo").read_text())
++    patch = subprocess.check_output(["git", "diff", "--binary", "HEAD", "--"] + [str(p.relative_to(ROOT)) for p in sources], cwd=ROOT)
++    for p in sources:
++        relative = str(p.relative_to(ROOT))
++        if subprocess.run(["git", "ls-files", "--error-unmatch", relative], cwd=ROOT, capture_output=True).returncode:
++            diff = subprocess.run(["git", "diff", "--no-index", "--", "/dev/null", relative], cwd=ROOT, capture_output=True)
++            assert diff.returncode == 1
++            patch += diff.stdout
++    (out / "source.patch").write_bytes(patch)
++    summaries = {}
++    for protocol in ("spdzwise", "aby3"):
++        command = [str(binary), protocol, str(args.count), str(args.repetitions)]
++        print("Running", " ".join(command), flush=True)
++        start = time.monotonic()
++        with (out / f"{protocol}.stdout").open("w") as stdout, (out / f"{protocol}.log").open("w") as stderr:
++            process = subprocess.Popen(command, env=env, stdout=stdout, stderr=stderr)
++            _, status, usage = os.wait4(process.pid, 0)
++            process.returncode = os.waitstatus_to_exitcode(status)
++        write_json(out / f"{protocol}-resources.json", {
++            "command": command, "exit_code": process.returncode,
++            "wall_seconds": time.monotonic() - start,
++            "user_seconds": usage.ru_utime, "system_seconds": usage.ru_stime,
++            "max_rss_kib": usage.ru_maxrss, "loadavg_at_end": os.getloadavg(),
++        })
++        if process.returncode:
++            raise SystemExit(f"{protocol} failed: inspect {out / (protocol + '.log')}")
++        stdout_text = (out / f"{protocol}.stdout").read_text()
++        pools = {int(n) for n in re.findall(r"Create a fixed thread pool with size (\d+)", stdout_text)}
++        assert pools <= {64} and (args.count < 32768 or pools == {64}), pools
++        lines = [line for line in stdout_text.splitlines() if line.startswith(("protocol,", "spdzwise-ring-signed,", "aby3-truncapr2,"))]
++        (out / f"{protocol}.csv").write_text("\n".join(lines) + "\n")
++        rows = list(csv.DictReader(lines))
++        summaries[protocol] = summarize(rows, args.count, args.repetitions, protocol == "spdzwise")
++    ratio = summaries["spdzwise"]["phases"]["total_ms"]["median_ms"] / summaries["aby3"]["phases"]["total_ms"]["median_ms"]
++    summaries["spdzwise_over_aby3"] = ratio
++    write_json(out / "summary.json", summaries)
++    table = ["| 协议 | 主耗时中位数 ms | 最小–最大 ms | 随机材料 ms | 在线 ms | 计时外检查 ms | 吞吐 elements/s |",
++             "|---|---:|---:|---:|---:|---:|---:|"]
++    for name in ("spdzwise", "aby3"):
++        s = summaries[name]
++        p = s["phases"]
++        total = p["total_ms"]
++        table.append(f"| {name} | {total['median_ms']:.3f} | {total['min_ms']:.3f}–{total['max_ms']:.3f} | {p['material_ms']['median_ms']:.3f} | {p['online_ms']['median_ms']:.3f} | {p['verify_ms']['median_ms']:.3f} | {s['elements_per_second']:.0f} |")
++    report = f"""# Signed RING probabilistic truncation
++
++{args.count:,} 个正负混合输入，m=16，双方输入满足 |x|<2^62。三方 FactoryMem；64 个 YACL 后台 worker；预热 1 次、测量 {args.repetitions} 次。
++
++主计时从已准备好的输入 shares 开始，包含现场随机材料生成与必要检查，输出 shares 形成时停止。SPDZwise 输入已正确认证，输出保留 MAC；ABY3 为正常注册的 TruncAPr2、普通 replicated shares。输入认证、最终认证检查、输出重构均不计入主耗时。所有轮次全部输出均通过验证。
++
++{chr(10).join(table)}
++
++SPDZwise / ABY3 主耗时比：**{ratio:.2f}×**。各分项独立取三方最大值，不能相加重建主耗时。ABY3 的随机材料生成属于其算子内部，表中在线时间包含完整调用，并非预处理后的时间。
++
++SPDZwise 按 MP-SPDZ 的有符号偏移、随机掩码与回绕修正实现；bitness 聚合使用现有内部 128 位零检查。主时间未包含最终延迟认证检查，不应解释为完成全部恶意安全验证的端到端时间。ABY3 保留源码中的 +1 修正，未假定与 MP-SPDZ 精确舍入分布相同。
++
++计时内三方总发送字节：SPDZwise {summaries['spdzwise']['total_sent_bytes']}，ABY3 {summaries['aby3']['total_sent_bytes']}。此结果为本机内存通信，不能直接推断 LAN/WAN 延迟。
++
++复现：`bash build.sh //:truncation_bench`，随后 `python3 run_truncation.py NEW_OUTPUT_DIRECTORY`。完整命令与环境见 parameters.json 和资源记录；逐轮数据见 CSV；源码改动见 source.patch。
++"""
++    (out / "RESULTS.md").write_text(report)
++    (out / "SHA256SUMS").write_text("".join(f"{sha256(p)}  {p.relative_to(out)}\n" for p in sorted(out.iterdir()) if p.is_file() and p.name != "SHA256SUMS"))
++    print(report)
++
++
++if __name__ == "__main__":
++    main()

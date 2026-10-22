@@ -1,0 +1,9 @@
+Working directory: /home/duanyufei/projects/Malicious-SPU/src
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:io_test //libspu/mpc/spdzwise:boolean_test //libspu/mpc:protocol_session_test //libspu/mpc/aby3:protocol_test //libspu/mpc/aby3:io_test --test_env=YACL_NUM_THREADS=65 --cache_test_results=no --local_test_jobs=1 --jobs=12 --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+
+Working directory: /home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks
+BENCHMARK_JOBS=12 bash build.sh //:truncation_bench
+python3 run_truncation.py NEW_OUTPUT_DIRECTORY
+
+The source.patch in the result directory is relative to the git_revision recorded
+in parameters.json; source and binary fingerprints describe the measured build.

@@ -1,5 +1,33 @@
 # Malicious PPML Benchmark
 
+## Signed RING truncation
+
+`truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的
+ABY3 `TruncAPr2`。100,000 个正负混合输入，`|x|<2^62`，`m=16`，双方均传
+`SignType::Unknown`。不开发或测试 FIELD 截断。
+
+计时前准备正确输入 shares；SPDZwise 完成输入认证。主计时包含现场生成随机材料、
+bitness/打开检查和截断，输出 shares 形成即停止。最终延迟认证检查、导出、重构在
+计时外执行并验证所有输出。ABY3 使用普通 replicated shares，不增加认证。
+
+```sh
+bash build.sh //:truncation_bench
+python3 run_truncation.py NEW_OUTPUT_DIRECTORY
+```
+
+固定 64 个后台 worker、预热一次、测量七次；每轮取三方完整主区间最大值，再统计
+中位数/范围。脚本同时保存分项耗时、通信量、逐轮 CSV、日志、源码补丁及指纹。
+仅供快速验证时可用 `--count 1000 --repetitions 1`。小批次不代表 100K 性能。
+
+最后一次完整 [100K 实测结果](truncation-signed-100k-optimized-2026-10-22/RESULTS.md)：
+SPDZwise 主耗时中位数 3431.204 ms，ABY3 为 8.728 ms，比例 393.13×。
+SPDZwise 随机材料阶段为 3419.199 ms，在线阶段为 16.493 ms；计时外认证检查
+为 1201.781 ms。分项分别统计，不可相加重建主耗时。计时内三方总发送量分别为
+1,436,027,195 B 和 2,800,000 B。原始 CSV、日志、参数、源码补丁及八组 301 个
+回归用例的验证记录均保存在该目录；此前中间版本实验归档已清理。
+
+## Existing arithmetic and Boolean benchmarks
+
 实验源码、Bazel 配置、原始数据和参数统一放在本目录；总表见项目 [Benchmark](../../../../../readme-malicious-ppml.md#benchmark)。当前服务器结果统一使用 **64 个 YACL 后台 worker**：设置 `YACL_NUM_THREADS=65`，因为 YACL 将调用线程计入该参数。三方共享线程池，各组实验串行运行。
 
 | 实验目录 | 内容 |

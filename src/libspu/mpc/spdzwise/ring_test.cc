@@ -412,6 +412,39 @@ std::shared_ptr<yacl::link::Context> Decorate(
   return link;
 }
 
+TEST(SpdzWiseRing, DirectAuthCopyHashesMatchMaterializedCopies) {
+  utils::simulate(3, [&](const auto& base) {
+    std::vector<std::string> digests;
+    auto link = Decorate(base, [&](size_t, yacl::Buffer bytes) {
+      if (bytes.size() == 32) digests.emplace_back(std::string_view(bytes));
+      return bytes;
+    });
+    for (int64_t n : {0, 1, 4097}) {
+      NdArrayRef storage(makeType<AShrTy>("hash-test"), {n, 2});
+      for (int64_t i = 0; i < n; ++i) {
+        const Word v = Word(i) << 100;
+        storage.data<AuthShare>()[2 * i] = {
+            v + base->Rank(), v + base->NextRank(),
+            Word(-1) - v - base->Rank(), Word(-1) - v - base->NextRank()};
+      }
+      const auto strided = storage.slice({0, 0}, {n, 1}, {1, 1}).reshape({n});
+      for (bool macs : {false, true}) {
+        std::vector<RepShare> materialized;
+        const NdArrayView<AuthShare> data(strided);
+        for (int64_t i = 0; i < n; ++i) {
+          materialized.push_back({data[i][0], data[i][1]});
+          if (macs) materialized.push_back({data[i][2], data[i][3]});
+        }
+        digests.clear();
+        CheckCopies(link, materialized, "identical-transcript");
+        CheckCopies(link, strided, "identical-transcript", macs);
+        ASSERT_EQ(digests.size(), 2);
+        EXPECT_EQ(digests[0], digests[1]);
+      }
+    }
+  });
+}
+
 TEST(SpdzWiseRing, StreamedCopyHashesMatchCanonicalTranscript) {
   utils::simulate(3, [&](const auto& base) {
     std::string expected;
@@ -451,6 +484,68 @@ TEST(SpdzWiseRing, StreamedCopyHashesMatchCanonicalTranscript) {
       EXPECT_EQ(digests, before + 1);
     }
   });
+}
+
+TEST(SpdzWiseRing, TruncationWireFaultsAbortAllRanks) {
+  for (size_t party = 0; party < 3; ++party) {
+    for (const std::string fault :
+         {"random-input", "second-input", "short-input", "input-mac",
+          "second-input-mac", "mac", "copies", "open", "short-open"}) {
+      utils::simulate(3, [&](const auto& base) {
+        SCOPED_TRACE(fault + "/party=" + std::to_string(party));
+        bool active = false, injected = false;
+        size_t products = 0;
+        auto link = Decorate(base, [&](size_t destination, yacl::Buffer bytes) {
+          if (!active || injected || base->Rank() != party) return bytes;
+          // Context tags are trace-only in YACL. At the channel boundary,
+          // distinguish the input-MAC and XOR-product payloads by wire order.
+          const bool product = destination == base->PrevRank() &&
+                               bytes.size() == 3 * 64 * 32;
+          if (product) ++products;
+          const bool input = (fault == "random-input" ||
+                              fault == "second-input" || fault == "short-input") &&
+                             destination == base->NextRank() &&
+                             bytes.size() == 3 * 64 * 16;
+          const bool input_mac = (fault == "input-mac" || fault == "second-input-mac") &&
+                                 product && products == 1;
+          const bool mac = fault == "mac" && product && products == 2;
+          const bool copies = fault == "copies" && products == 2 &&
+                              destination == base->PrevRank() && bytes.size() == 32;
+          const bool opened = (fault == "open" || fault == "short-open") &&
+                              destination == base->NextRank() &&
+                              bytes.size() == 3 * 8;
+          if (input || input_mac || mac || copies || opened) {
+            injected = true;
+            if (fault == "short-open" || fault == "short-input")
+              return yacl::Buffer(bytes.data(), bytes.size() - 1);
+            const size_t byte = fault == "second-input-mac" ? 3 * 64 * 16 :
+                                mac ? 16 : 0;
+            bytes.data<char>()[byte] ^= 1;
+          }
+          return bytes;
+        });
+        SPUContext ctx(Config(), link);
+        registerArithmeticPrototype(&ctx, link);
+        auto* s = ctx.prot()->getState<SpdzWiseState>();
+        s->begin(ExecutableProto("trunc-fault", {}, {}, "test"), {});
+        auto x = s->publicValue(Plain({3}).as(makeType<Pub2kTy>(FM64)));
+        // Rotate until the attacked rank owns the selected half of the batch.
+        const size_t rotation = fault == "second-input" ? (party + 2) % 3 : party;
+        for (size_t i = 0; i < rotation; ++i)
+          s->truncPrRandomBit(x, 16, SignType::Unknown);
+        active = true;
+        ExpectCheckFailure([&] {
+          s->truncPrRandomBit(x, 16, SignType::Unknown);
+          s->finalize();
+        });
+        EXPECT_TRUE(s->failed());
+        EXPECT_ANY_THROW(s->commit());
+        if (base->Rank() == party) {
+          EXPECT_TRUE(injected);
+        }
+      });
+    }
+  }
 }
 
 TEST(SpdzWiseRing, ParallelStridedArithmeticAndAggregation) {
