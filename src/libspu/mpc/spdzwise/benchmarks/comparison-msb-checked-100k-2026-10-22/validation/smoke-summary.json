@@ -1,0 +1,145 @@
+{
+  "spdzwise": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 3.064489,
+        "circuit_ms": 1.47226,
+        "finalize_output_ms": 1.614828,
+        "sent_bytes": 1293552,
+        "sent_actions": 204,
+        "circuit_bytes": 11568,
+        "finalize_output_bytes": 1281984
+      }
+    ],
+    "median_ms": 3.064489,
+    "min_ms": 3.064489,
+    "max_ms": 3.064489,
+    "comparisons_per_second": 21210.714086426808,
+    "phases": {
+      "total_ms": {
+        "median_ms": 3.064489,
+        "min_ms": 3.064489,
+        "max_ms": 3.064489
+      },
+      "circuit_ms": {
+        "median_ms": 1.47226,
+        "min_ms": 1.47226,
+        "max_ms": 1.47226
+      },
+      "finalize_output_ms": {
+        "median_ms": 1.614828,
+        "min_ms": 1.614828,
+        "max_ms": 1.614828
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        1293552
+      ],
+      "sent_actions": [
+        204
+      ],
+      "circuit_bytes": [
+        11568
+      ],
+      "finalize_output_bytes": [
+        1281984
+      ]
+    },
+    "three_party_sent_bytes": [
+      1293552
+    ],
+    "recorded_and_bits_per_party": 30848,
+    "check_mac_calls_per_party": 1,
+    "check_boolean_calls_per_party": 1,
+    "nonempty_mac_batches_per_party": 0,
+    "nonempty_boolean_batches_per_party": 1,
+    "outputs_verified": 130,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/comparison_bench",
+        "spdzwise",
+        "65",
+        "1"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.017169678991194814,
+      "user_seconds": 0.022206,
+      "system_seconds": 0.006704,
+      "max_rss_kib": 30916
+    },
+    "vs_aby3_checked_time_ratio": 3.3978522879730346
+  },
+  "aby3": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 0.90189,
+        "circuit_ms": 0.901103,
+        "finalize_output_ms": 0.001322,
+        "sent_bytes": 7020,
+        "sent_actions": 24,
+        "circuit_bytes": 7020,
+        "finalize_output_bytes": 0
+      }
+    ],
+    "median_ms": 0.90189,
+    "min_ms": 0.90189,
+    "max_ms": 0.90189,
+    "comparisons_per_second": 72070.8733881072,
+    "phases": {
+      "total_ms": {
+        "median_ms": 0.90189,
+        "min_ms": 0.90189,
+        "max_ms": 0.90189
+      },
+      "circuit_ms": {
+        "median_ms": 0.901103,
+        "min_ms": 0.901103,
+        "max_ms": 0.901103
+      },
+      "finalize_output_ms": {
+        "median_ms": 0.001322,
+        "min_ms": 0.001322,
+        "max_ms": 0.001322
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        7020
+      ],
+      "sent_actions": [
+        24
+      ],
+      "circuit_bytes": [
+        7020
+      ],
+      "finalize_output_bytes": [
+        0
+      ]
+    },
+    "three_party_sent_bytes": [
+      7020
+    ],
+    "recorded_and_bits_per_party": 0,
+    "check_mac_calls_per_party": 0,
+    "check_boolean_calls_per_party": 0,
+    "nonempty_mac_batches_per_party": 0,
+    "nonempty_boolean_batches_per_party": 0,
+    "outputs_verified": 130,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/comparison_bench",
+        "aby3",
+        "65",
+        "1"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.01131205097772181,
+      "user_seconds": 0.00936,
+      "system_seconds": 0.005862,
+      "max_rss_kib": 30916
+    }
+  }
+}

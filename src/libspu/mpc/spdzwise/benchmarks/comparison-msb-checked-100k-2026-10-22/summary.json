@@ -1,0 +1,265 @@
+{
+  "spdzwise": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 261.656111,
+        "circuit_ms": 32.259331,
+        "finalize_output_ms": 229.417809,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 2,
+        "total_ms": 264.990833,
+        "circuit_ms": 29.180325,
+        "finalize_output_ms": 235.901991,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 3,
+        "total_ms": 288.581909,
+        "circuit_ms": 28.698111,
+        "finalize_output_ms": 259.883798,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 4,
+        "total_ms": 305.249252,
+        "circuit_ms": 23.429804,
+        "finalize_output_ms": 281.819448,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 5,
+        "total_ms": 295.209962,
+        "circuit_ms": 22.659116,
+        "finalize_output_ms": 272.69471,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 6,
+        "total_ms": 273.962656,
+        "circuit_ms": 23.274973,
+        "finalize_output_ms": 250.762709,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      },
+      {
+        "iteration": 7,
+        "total_ms": 266.597242,
+        "circuit_ms": 21.011171,
+        "finalize_output_ms": 245.618855,
+        "sent_bytes": 361627200,
+        "sent_actions": 591,
+        "circuit_bytes": 9040392,
+        "finalize_output_bytes": 352586808
+      }
+    ],
+    "median_ms": 273.962656,
+    "min_ms": 261.656111,
+    "max_ms": 305.249252,
+    "comparisons_per_second": 365013.25202512275,
+    "phases": {
+      "total_ms": {
+        "median_ms": 273.962656,
+        "min_ms": 261.656111,
+        "max_ms": 305.249252
+      },
+      "circuit_ms": {
+        "median_ms": 23.429804,
+        "min_ms": 21.011171,
+        "max_ms": 32.259331
+      },
+      "finalize_output_ms": {
+        "median_ms": 250.762709,
+        "min_ms": 229.417809,
+        "max_ms": 281.819448
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        361627200
+      ],
+      "sent_actions": [
+        591
+      ],
+      "circuit_bytes": [
+        9040392
+      ],
+      "finalize_output_bytes": [
+        352586808
+      ]
+    },
+    "three_party_sent_bytes": [
+      361627200
+    ],
+    "recorded_and_bits_per_party": 24107712,
+    "check_mac_calls_per_party": 1,
+    "check_boolean_calls_per_party": 1,
+    "nonempty_mac_batches_per_party": 0,
+    "nonempty_boolean_batches_per_party": 1,
+    "outputs_verified": 800000,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/comparison_bench",
+        "spdzwise",
+        "100000",
+        "7"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 4.68031617597444,
+      "user_seconds": 11.512069,
+      "system_seconds": 3.071516,
+      "max_rss_kib": 579304
+    },
+    "vs_aby3_checked_time_ratio": 1.4130760079954072
+  },
+  "aby3": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 193.876801,
+        "circuit_ms": 193.875107,
+        "finalize_output_ms": 0.001857,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 2,
+        "total_ms": 194.836981,
+        "circuit_ms": 194.835684,
+        "finalize_output_ms": 0.00179,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 3,
+        "total_ms": 189.551206,
+        "circuit_ms": 189.549509,
+        "finalize_output_ms": 0.00185,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 4,
+        "total_ms": 191.937371,
+        "circuit_ms": 191.936213,
+        "finalize_output_ms": 0.001777,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 5,
+        "total_ms": 198.196801,
+        "circuit_ms": 198.195811,
+        "finalize_output_ms": 0.002046,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 6,
+        "total_ms": 199.581948,
+        "circuit_ms": 199.580594,
+        "finalize_output_ms": 0.001721,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      },
+      {
+        "iteration": 7,
+        "total_ms": 191.096163,
+        "circuit_ms": 191.095023,
+        "finalize_output_ms": 0.001793,
+        "sent_bytes": 10800000,
+        "sent_actions": 24,
+        "circuit_bytes": 10800000,
+        "finalize_output_bytes": 0
+      }
+    ],
+    "median_ms": 193.876801,
+    "min_ms": 189.551206,
+    "max_ms": 199.581948,
+    "comparisons_per_second": 515791.46903708193,
+    "phases": {
+      "total_ms": {
+        "median_ms": 193.876801,
+        "min_ms": 189.551206,
+        "max_ms": 199.581948
+      },
+      "circuit_ms": {
+        "median_ms": 193.875107,
+        "min_ms": 189.549509,
+        "max_ms": 199.580594
+      },
+      "finalize_output_ms": {
+        "median_ms": 0.001793,
+        "min_ms": 0.001721,
+        "max_ms": 0.002046
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        10800000
+      ],
+      "sent_actions": [
+        24
+      ],
+      "circuit_bytes": [
+        10800000
+      ],
+      "finalize_output_bytes": [
+        0
+      ]
+    },
+    "three_party_sent_bytes": [
+      10800000
+    ],
+    "recorded_and_bits_per_party": 0,
+    "check_mac_calls_per_party": 0,
+    "check_boolean_calls_per_party": 0,
+    "nonempty_mac_batches_per_party": 0,
+    "nonempty_boolean_batches_per_party": 0,
+    "outputs_verified": 800000,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/comparison_bench",
+        "aby3",
+        "100000",
+        "7"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 1.8148319930187427,
+      "user_seconds": 6.62916,
+      "system_seconds": 0.431199,
+      "max_rss_kib": 81740
+    }
+  }
+}

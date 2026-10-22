@@ -16,6 +16,14 @@ class A2B final : public UnaryKernel {
   Kind kind() const override { return Kind::Dynamic; }
   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
 };
+// Split-3 CSA followed by a logarithmic carry-only tree; no B2A or opening.
+class MsbA2B final : public UnaryKernel {
+ public:
+  static constexpr const char* kBindName() { return "msb_a2b"; }
+  void evaluate(KernelEvalContext* ctx) const override;
+  Kind kind() const override { return Kind::Dynamic; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
+};
 // Authenticated random mask -> split-3 A2B -> Boolean add -> checked open.
 class B2A final : public UnaryKernel {
  public:

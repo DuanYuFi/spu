@@ -69,6 +69,30 @@ SPDZwise 随机材料阶段为 3419.199 ms，在线阶段为 16.493 ms；计时�
 1,436,027,195 B 和 2,800,000 B。原始 CSV、日志、参数、源码补丁及八组 301 个
 回归用例的验证记录均保存在该目录；此前中间版本实验归档已清理。
 
+## Comparison MSB A2B
+
+```sh
+bash build.sh //:comparison_bench
+python3 run_comparison.py NEW_OUTPUT_DIRECTORY
+```
+
+默认比较 100,000 对输入，预热 1 次、测量 7 次；使用 FactoryMem 三方和
+64 个后台 worker。两协议均调用 HAL `i_less`：输入两个同形状的
+`DT_I64`/FM64 算术秘密份额数组，输出同形状的 `DT_I1` 一位 binary
+secret share。输入明文相同，各协议使用原生份额表示。
+
+主计时从输入准备/认证完成后开始，到可交付的 Boolean 份额为止。
+SPDZ-wise 的正常输出事务在计时内调用 `checkMac()` 与 `checkBoolean()`，
+包括验证用随机材料、全部验证通信、检查后的导出与提交。
+输入已认证且减法为线性运算，因此没有新的非空 MAC 批次；但 `checkMac`
+仍执行计时内的批次计数/状态同步。全部 Boolean AND 记录在计时内验证。
+明文重构和结果核对在计时外。
+
+以包含检查的 **total_ms** 为主指标，电路与最终验证/输出阶段单列；
+分阶段中位数不能相加。数据取自 `[-2^62, 2^62-1]`，模环 MSB 与有符号
+`<` 一致。逐轮 CSV、吞吐量、通信量、源码和环境归档见
+[checked 100K comparison](comparison-msb-checked-100k-2026-10-22/RESULTS.md)。
+
 ## Existing arithmetic and Boolean benchmarks
 
 实验源码、Bazel 配置、原始数据和参数统一放在本目录；总表见项目 [Benchmark](../../../../../readme-malicious-ppml.md#benchmark)。当前服务器结果统一使用 **64 个 YACL 后台 worker**：设置 `YACL_NUM_THREADS=65`，因为 YACL 将调用线程计入该参数。三方共享线程池，各组实验串行运行。

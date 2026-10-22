@@ -1,0 +1,34 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 6 targets (2 packages loaded, 0 targets configured)
+Analyzing: 6 targets (2 packages loaded, 0 targets configured)
+
+Analyzing: 6 targets (207 packages loaded, 7593 targets configured)
+
+Analyzing: 6 targets (267 packages loaded, 17802 targets configured)
+[1 / 1] no actions running
+INFO: Analyzed 6 targets (267 packages loaded, 17802 targets configured).
+[1,638 / 1,640] 5 / 6 tests; Compiling libspu/mpc/spdzwise/ring_conversion_test.cc; 0s processwrapper-sandbox
+[1,638 / 1,640] 5 / 6 tests; Compiling libspu/mpc/spdzwise/ring_conversion_test.cc; 11s processwrapper-sandbox
+[1,639 / 1,640] 5 / 6 tests; [Prepa] Linking libspu/mpc/spdzwise/ring_conversion_test
+INFO: Found 6 test targets...
+INFO: Elapsed time: 22.827s, Critical Path: 17.89s
+INFO: 4 processes: 1 internal, 3 processwrapper-sandbox.
+INFO: Build completed successfully, 4 total actions
+//libspu/mpc/spdzwise:boolean_test                              (cached) PASSED in 6.6s
+//libspu/mpc/spdzwise:io_test                                   (cached) PASSED in 0.0s
+//libspu/mpc/spdzwise:protocol_test                             (cached) PASSED in 0.4s
+//libspu/mpc/spdzwise:ring_test                                 (cached) PASSED in 0.4s
+//libspu/mpc/spdzwise:ring_truncation_test                      (cached) PASSED in 1.4s
+//libspu/mpc/spdzwise:ring_conversion_test                               PASSED in 0.5s
+
+Executed 1 out of 6 tests: 6 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

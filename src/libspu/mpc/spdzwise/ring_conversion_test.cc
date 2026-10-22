@@ -6,6 +6,7 @@
 
 #include <random>
 #include "gtest/gtest.h"
+#include "libspu/kernel/hal/integer.h"
 #include "libspu/mpc/ab_api.h"
 #include "libspu/mpc/api.h"
 #include "libspu/mpc/common/pv2k.h"
@@ -21,6 +22,14 @@ class BooleanTestAccess {
     auto& triple = state->boolean_->pending_batches_.front().front();
     if (state->rank() == party) triple[2][0] ^= 1;
     if (consistent && state->rank() == (party + 2) % 3) triple[2][1] ^= 1;
+  }
+  static void corruptMsb(SpdzWiseState* state, size_t party, bool consistent,
+                         bool padding) {
+    // Last layer exercises the new carry tree, including its padded SIMD lane.
+    auto& triple = state->boolean_->pending_batches_.back().back();
+    const uint64_t bit = uint64_t{1} << (padding ? 63 : 0);
+    if (state->rank() == party) triple[2][0] ^= bit;
+    if (consistent && state->rank() == (party + 2) % 3) triple[2][1] ^= bit;
   }
 };
 namespace ring {
@@ -169,20 +178,24 @@ TEST(RingConversion, ArithmeticCompositionHighLimbsAndBooleanConsumer) {
     EXPECT_TRUE(high);
     const auto before = state->arithmeticChecks();
     auto b = a2b(&ctx, square);
+    auto bit = msb_a2b(&ctx, square);
     auto z = and_bb(&ctx, b, b);
     z.setDtype(b.dtype());
     EXPECT_EQ(state->arithmeticChecks(), before);
     state->finalize();
     EXPECT_EQ(state->arithmeticChecks(), before + 1);
     EXPECT_EQ(state->booleanChecks(), 1);
-    state->prepareOutputs(&ctx, {"out"}, {z});
+    state->prepareOutputs(&ctx, {"out", "msb"}, {z, bit});
     guard.commit();
-    return state->exportedValue("out").data();
+    return std::array<NdArrayRef, 2>{state->exportedValue("out").data(),
+                                   state->exportedValue("msb").data()};
   });
-  const auto actual = io.fromShares(result);
+  const auto actual = io.fromShares({result[0][0], result[1][0], result[2][0]});
+  const auto msb = io.fromShares({result[0][1], result[1][1], result[2][1]});
   for (int64_t i = 0; i < plain.numel(); ++i) {
     const auto x = plain.data<uint64_t>()[i];
     EXPECT_EQ(actual.data<uint64_t>()[i], x * x);
+    EXPECT_EQ(msb.data<uint64_t>()[i], (x * x) >> 63);
   }
 }
 TEST(RingConversion, WrongDomainSessionAndLifecycleRejected) {
@@ -236,6 +249,191 @@ TEST(RingConversion, CorruptConversionAndRejectedAtEveryParty) {
         } catch (const std::exception& e) {
           EXPECT_NE(std::string(e.what()).find(consistent ? "ABFL sacrifice failed" : "Boolean replicated copies disagree"), std::string::npos);
         }
+        EXPECT_TRUE(state->failed());
+        EXPECT_ANY_THROW(state->exportedValue("out"));
+      });
+    }
+  }
+}
+
+TEST(RingConversion, MsbBoundariesShapesStridesAndBooleanOutput) {
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  const std::vector<int64_t> sizes{0, 1, 63, 64, 65, 130, 1025};
+  std::vector<NdArrayRef> plains;
+  std::vector<std::vector<NdArrayRef>> shares;
+  for (auto n : sizes) {
+    auto plain = Plain(n);
+    if (n >= 130) {
+      plain.data<uint64_t>()[128] = 0xaaaaaaaaaaaaaaaaULL;
+      plain.data<uint64_t>()[129] = 0x5555555555555555ULL;
+    }
+    plains.push_back(plain);
+    shares.push_back(io.toShares(plain, VIS_SECRET));
+  }
+  const auto results = utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(Config(), link);
+    registerArithmeticPrototype(&ctx, link);
+    EXPECT_NE(dynamic_cast<ring::MsbA2B*>(ctx.prot()->getKernel("msb_a2b")),
+              nullptr);
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    ProtocolRunGuard guard(&ctx);
+    std::vector<Value> inputs, outputs;
+    std::vector<std::string> names;
+    for (const auto& batch : shares)
+      inputs.emplace_back(batch[link->Rank()], DT_I64);
+    Begin(state, inputs);
+    for (size_t j = 0; j < sizes.size(); ++j) {
+      auto x = import_s(&ctx, inputs[j]);
+      if (sizes[j] == 1) x = Value(x.data().reshape({}), x.dtype());
+      if (sizes[j] == 130)
+        x = Value(x.data().reshape({65, 2}).transpose({1, 0}), x.dtype());
+      const auto pending = state->pendingBooleanBits();
+      const auto checks = state->arithmeticChecks();
+      const auto bytes = link->GetStats()->sent_bytes.load();
+      const auto bit = msb_a2b(&ctx, x);
+      EXPECT_EQ(bit.shape(), x.shape());
+      EXPECT_EQ(bit.dtype(), x.dtype());
+      EXPECT_EQ(bit.storage_type(), makeType<BShrTy>(state->session(), 1));
+      EXPECT_EQ(state->arithmeticChecks(), checks);
+      EXPECT_EQ(state->booleanChecks(), 0);
+      EXPECT_EQ(state->pendingBooleanBits() - pending,
+                241 * ((sizes[j] + 63) / 64) * 64);
+      if (!sizes[j]) {
+        EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+      }
+      // Exercise a Boolean consumer and compare against full A2B independently.
+      outputs.push_back(and_bb(&ctx, bit, bit).setDtype(DT_I1));
+      names.push_back("msb-" + std::to_string(j));
+      outputs.push_back(a2b(&ctx, x));
+      names.push_back("full-" + std::to_string(j));
+    }
+    EXPECT_ANY_THROW(state->exportValue(
+        outputs[outputs.size() - 2].data(),
+        makeType<BOutputTy>(link->Rank(), 1, "test")));
+    state->finalize();
+    EXPECT_EQ(state->booleanChecks(), 1);
+    EXPECT_EQ(state->pendingBooleanBits(), 0);
+    state->prepareOutputs(&ctx, names, outputs);
+    guard.commit();
+    std::vector<NdArrayRef> result;
+    for (const auto& name : names)
+      result.push_back(state->exportedValue(name).data());
+    return result;
+  });
+  for (size_t j = 0; j < sizes.size(); ++j) {
+    const auto actual = io.fromShares(
+        {results[0][2 * j], results[1][2 * j], results[2][2 * j]});
+    const auto full = io.fromShares(
+        {results[0][2 * j + 1], results[1][2 * j + 1], results[2][2 * j + 1]});
+    auto expected = plains[j];
+    if (sizes[j] == 130)
+      expected = expected.reshape({65, 2}).transpose({1, 0});
+    const NdArrayView<uint64_t> view(expected);
+    for (int64_t i = 0; i < sizes[j]; ++i) {
+      EXPECT_EQ(actual.data<uint64_t>()[i], view[i] >> 63);
+      EXPECT_EQ(actual.data<uint64_t>()[i], full.data<uint64_t>()[i] >> 63);
+      for (size_t rank = 0; rank < 3; ++rank) {
+        const auto& share = results[rank][2 * j].data<RepShare>()[i];
+        EXPECT_LE(share[0], 1);
+        EXPECT_EQ(share[1], results[(rank + 1) % 3][2 * j].data<RepShare>()[i][0]);
+      }
+    }
+  }
+}
+
+TEST(RingConversion, MsbHalComparisonSecretAndPublicOperands) {
+  constexpr int64_t n = 1025;
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  auto px = Plain(n), py = Plain(n);
+  std::mt19937_64 random(20261022);
+  const std::array<int64_t, 5> edges{0, -1, 1, -(int64_t{1} << 62),
+                                    (int64_t{1} << 62) - 1};
+  for (int64_t i = 0; i < n; ++i) {
+    const auto x = i < 25 ? edges[i / 5]
+                         : int64_t(random() >> 1) - (int64_t{1} << 62);
+    const auto y = i < 25 ? edges[i % 5]
+                         : int64_t(random() >> 1) - (int64_t{1} << 62);
+    px.data<uint64_t>()[i] = x;
+    py.data<uint64_t>()[i] = y;
+    if (i >= 513) {
+      px.data<uint64_t>()[i] = random();
+      py.data<uint64_t>()[i] = random();
+    }
+  }
+  // Explicit overflowing differences: retain the requested modular MSB semantics.
+  px.data<uint64_t>()[513] = uint64_t{1} << 63;
+  py.data<uint64_t>()[513] = 1;
+  px.data<uint64_t>()[514] = (uint64_t{1} << 63) - 1;
+  py.data<uint64_t>()[514] = ~uint64_t{0};
+  const auto sx = io.toShares(px, VIS_SECRET), sy = io.toShares(py, VIS_SECRET);
+  const auto results = utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(Config(), link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    ProtocolRunGuard guard(&ctx);
+    Value ix(sx[link->Rank()], DT_I64), iy(sy[link->Rank()], DT_I64);
+    Begin(state, {ix, iy});
+    const auto x = import_s(&ctx, ix), y = import_s(&ctx, iy);
+    const Value xp(px.as(makeType<Pub2kTy>(FM64)), DT_I64);
+    const Value yp(py.as(makeType<Pub2kTy>(FM64)), DT_I64);
+    std::vector<Value> outputs{
+        kernel::hal::i_less(&ctx, x, y), kernel::hal::i_less(&ctx, x, yp),
+        kernel::hal::i_less(&ctx, xp, y)};
+    for (const auto& out : outputs) {
+      EXPECT_EQ(out.dtype(), DT_I1);
+      EXPECT_EQ(out.storage_type(), makeType<BShrTy>(state->session(), 1));
+    }
+    EXPECT_EQ(state->booleanChecks(), 0);
+    state->prepareOutputs(&ctx, {"ss", "sp", "ps"}, outputs);
+    guard.commit();
+    std::vector<NdArrayRef> result;
+    for (const auto* name : {"ss", "sp", "ps"})
+      result.push_back(state->exportedValue(name).data());
+    return result;
+  });
+  for (size_t j = 0; j < 3; ++j) {
+    const auto actual = io.fromShares({results[0][j], results[1][j], results[2][j]});
+    for (int64_t i = 0; i < n; ++i) {
+      const auto x = px.data<uint64_t>()[i], y = py.data<uint64_t>()[i];
+      EXPECT_EQ(actual.data<uint64_t>()[i], (x - y) >> 63);
+      if (i < 513) {
+        EXPECT_EQ(actual.data<uint64_t>()[i], int64_t(x) < int64_t(y));
+      }
+    }
+  }
+}
+
+TEST(RingConversion, MsbRejectsWrongDomainSessionAndLifecycle) {
+  for (int fault = 0; fault < 5; ++fault) {
+    utils::simulate(3, [&](const auto& link) {
+      auto config = Config();
+      if (fault == 4) config.spdzwise_config.domain = SpdzWiseConfig::FIELD;
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      if (fault != 3) Begin(state);
+      const Type type = fault == 0 ? makeType<AShrTy>(state->session()) :
+                        fault == 1 ? makeType<ring::AShrTy>("wrong-session") :
+                        fault == 2 ? makeType<ring::InputTy>(link->Rank()) :
+                                     makeType<ring::AShrTy>("no-session");
+      EXPECT_ANY_THROW(state->msbA2B(NdArrayRef(type, {0})));
+      EXPECT_TRUE(state->failed());
+    });
+  }
+}
+
+TEST(RingConversion, MsbRejectsCorruptCarryAndPaddingAtEveryParty) {
+  for (size_t party = 0; party < 3; ++party) {
+    for (int fault = 0; fault < 3; ++fault) {
+      utils::simulate(3, [&](const auto& link) {
+        SPUContext ctx(Config(), link);
+        registerArithmeticPrototype(&ctx, link);
+        auto* state = ctx.prot()->getState<SpdzWiseState>();
+        Begin(state);
+        auto x = state->publicValue(Plain(65).as(makeType<Pub2kTy>(FM64)));
+        state->msbA2B(x);
+        BooleanTestAccess::corruptMsb(state, party, fault != 0, fault == 2);
+        EXPECT_ANY_THROW(state->finalize());
         EXPECT_TRUE(state->failed());
         EXPECT_ANY_THROW(state->exportedValue("out"));
       });

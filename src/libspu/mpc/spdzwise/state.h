@@ -98,6 +98,8 @@ class SpdzWiseState final : public ProtocolSession {
   void finalize();
   // Value-only split-3 RING A2B; AND checks are deferred to finalize().
   NdArrayRef a2b(const NdArrayRef& in);
+  // One-bit Boolean MSB of the application ring; checks remain deferred.
+  NdArrayRef msbA2B(const NdArrayRef& in);
   // Zero-extend 1..64 Boolean bits; verify both domains before masked opening.
   NdArrayRef b2a(const NdArrayRef& in);
   void validateBoolean(const NdArrayRef& value) const;

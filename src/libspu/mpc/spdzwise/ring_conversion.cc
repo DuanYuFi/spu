@@ -118,9 +118,8 @@ NdArrayRef Unslice(const Planes& planes, const Shape& shape) {
   });
   return out;
 }
-// 63 CSA ANDs plus 62 ripple-carry ANDs per input; neither the CSA
-// carry above bit 63 nor the final addition carry is needed modulo 2^64.
-Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
+// 63 CSA ANDs per input. The carry above bit 63 is discarded modulo 2^64.
+std::array<Planes, 2> SplitSummands(SpdzWiseState* state, const NdArrayRef& in) {
   const auto type = makeType<BShrTy>(state->session(), 64);
   const auto blocks = in.numel() / 64 + (in.numel() % 64 != 0);
   std::array<Planes, 3> x;
@@ -155,7 +154,63 @@ Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
   Planes b{Zero(type, blocks)};
   for (size_t bit = 0; bit < 63; ++bit)
     b.push_back(Xor(products[bit], x[2][bit]));
-  return Add(state, s, b, true);
+  return {std::move(s), std::move(b)};
+}
+Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
+  const auto summands = SplitSummands(state, in);
+  return Add(state, summands[0], summands[1], true);
+}
+// MP-SPDZ CarryOutRawLE/CarryOutAux: adjacent little-endian intervals combine
+// as G = G_hi XOR (P_hi AND G_lo), P = P_hi AND P_lo. The XOR equals OR
+// because generate and propagate are disjoint. The lowest interval never
+// needs P (carry-in is zero). Split-3 also makes b[0] public zero, so bit zero
+// can be omitted altogether. Keep only the carry into bit 63, not all sums.
+NdArrayRef MsbCarry(SpdzWiseState* state, const Planes& a, const Planes& b) {
+  Planes lhs(a.begin() + 1, a.begin() + 63);
+  Planes rhs(b.begin() + 1, b.begin() + 63);
+  auto g = AndLayer(state, lhs, rhs);
+  Planes p(g.size());
+  for (size_t i = 1; i < p.size(); ++i) p[i] = Xor(lhs[i], rhs[i]);
+  while (g.size() > 1) {
+    lhs.clear();
+    rhs.clear();
+    for (size_t i = 0; i + 1 < g.size(); i += 2) {
+      lhs.push_back(p[i + 1]);
+      rhs.push_back(g[i]);
+      if (i != 0) {
+        lhs.push_back(p[i + 1]);
+        rhs.push_back(p[i]);
+      }
+    }
+    const auto products = AndLayer(state, lhs, rhs);
+    Planes next_g, next_p;
+    size_t gate = 0;
+    for (size_t i = 0; i + 1 < g.size(); i += 2) {
+      next_g.push_back(Xor(g[i + 1], products[gate++]));
+      next_p.push_back(i ? products[gate++] : NdArrayRef{});
+    }
+    if (g.size() % 2) {
+      next_g.push_back(g.back());
+      next_p.push_back(p.back());
+    }
+    g = std::move(next_g);
+    p = std::move(next_p);
+  }
+  return g[0];
+}
+NdArrayRef UnsliceBit(const NdArrayRef& plane, const Type& type,
+                     const Shape& shape) {
+  NdArrayRef out(type, shape);
+  yacl::parallel_for(0, plane.numel(), 64, [&](int64_t begin, int64_t end) {
+    for (auto block = begin; block < end; ++block) {
+      const auto& packed = plane.data<RepShare>()[block];
+      const auto lanes = std::min(int64_t(64), out.numel() - 64 * block);
+      for (int64_t lane = 0; lane < lanes; ++lane)
+        out.data<RepShare>()[64 * block + lane] = {
+            (packed[0] >> lane) & 1, (packed[1] >> lane) & 1};
+    }
+  });
+  return out;
 }
 using Clock = std::chrono::steady_clock;
 double Ms(Clock::time_point start) {
@@ -173,6 +228,22 @@ NdArrayRef SpdzWiseState::a2b(const NdArrayRef& in) {
     if (in.numel() == 0)
       return NdArrayRef(makeType<BShrTy>(session_, 64), in.shape());
     return Unslice(Sliced(this, in), in.shape());
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+NdArrayRef SpdzWiseState::msbA2B(const NdArrayRef& in) {
+  try {
+    requireRunning();
+    SPU_ENFORCE(isRing(), "split-3 MSB A2B requires RING");
+    validateInternal(in);
+    const auto type = makeType<BShrTy>(session_, 1);
+    if (in.numel() == 0) return NdArrayRef(type, in.shape());
+    const auto summands = SplitSummands(this, in);
+    const auto carry = MsbCarry(this, summands[0], summands[1]);
+    const auto msb = Xor(Xor(summands[0][63], summands[1][63]), carry);
+    return UnsliceBit(msb, type, in.shape());
   } catch (...) {
     abort();
     throw;
@@ -245,5 +316,12 @@ void ring::A2B::evaluate(KernelEvalContext* ctx) const {
 }
 NdArrayRef ring::A2B::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
   return ctx->getState<SpdzWiseState>()->a2b(in);
+}
+void ring::MsbA2B::evaluate(KernelEvalContext* ctx) const {
+  const auto& in = ctx->getParam<Value>(0);
+  ctx->pushOutput(Value(proc(ctx, in.data()), in.dtype()));
+}
+NdArrayRef ring::MsbA2B::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
+  return ctx->getState<SpdzWiseState>()->msbA2B(in);
 }
 }  // namespace spu::mpc::spdzwise

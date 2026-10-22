@@ -1,6 +1,21 @@
 load("@spulib//bazel:spu.bzl", "spu_cc_binary")
 
 spu_cc_binary(
+    name = "comparison_bench",
+    srcs = ["comparison_bench.cc"],
+    deps = [
+        "@spulib//libspu/kernel/hal:integer",
+        "@spulib//libspu/mpc:api",
+        "@spulib//libspu/mpc/aby3:protocol",
+        "@spulib//libspu/mpc/aby3:io",
+        "@spulib//libspu/mpc/spdzwise:io",
+        "@spulib//libspu/mpc/spdzwise:protocol",
+        "@spulib//libspu/mpc/spdzwise:state",
+        "@spulib//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_binary(
     name = "truncation_bench",
     srcs = ["truncation_bench.cc"],
     deps = [

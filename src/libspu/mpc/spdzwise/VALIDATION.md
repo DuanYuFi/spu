@@ -349,3 +349,78 @@ for one warmup and seven measured runs, asserts one arithmetic mask check and
 one ABFL check, and records all 188 ANDs per padded input lane. Raw logs,
 parameters, hashes and validation artifacts are archived in
 `benchmarks/b2a-split3-100k-2026-10-22/`.
+
+## RING MSB A2B validation — 2026-10-22
+
+The registered `msb_a2b` kernel reuses split-3 CSA and computes only the
+carry into bit 63 with a balanced tree. It returns one-bit Boolean shares;
+HAL integer less-than reaches it through the existing subtraction/MSB fallback.
+There are 241 ANDs per padded input lane in eight online AND layers. The
+kernel leaves the arithmetic/Boolean verification schedule deferred.
+
+Six native targets pass: `ring_conversion_test` (15 cases), `ring_test` (15),
+`boolean_test` (17), `protocol_test` (13), `io_test` (8), and
+`ring_truncation_test` (9), for **77 cases, zero failures**. The final run
+re-executed conversion tests after adding extended-ring and modular-overflow
+coverage; the five unchanged targets reused passing Bazel results.
+
+MSB coverage includes full-width boundary/random values, long carries,
+alternating bits, 0/1/63/64/65/130/1025-element inputs, scalar/matrix shapes,
+non-contiguous views, output dtype/session/bit width, Boolean consumers and
+agreement with full A2B. Authenticated multiplication outputs exercise high
+128-bit value limbs and deferred arithmetic checks. HAL secret-secret,
+secret-public and public-secret comparisons cover equality, signed boundaries,
+random non-overflowing pairs and explicit modulo-2^64 subtraction overflow.
+Wrong domain/session/input type/lifecycle are rejected. Corrupt carry records
+and padded SIMD lanes are rejected at finalization for each party position.
+
+Regression logs and XML results are retained in the final comparison archive's
+`validation/regression/` directory. These runs use the existing C++ prototype
+registration entrypoint; production factory gating is unchanged.
+
+## Checked comparison benchmark — 2026-10-22
+
+The same HAL `i_less` call is used for both protocols. Inputs are two
+arrays of 100,000 `DT_I64`/FM64 arithmetic secrets, with identical deterministic
+plaintext values and shape. Both outputs are serializable one-bit Boolean
+secret-share arrays with dtype `DT_I1` and the same shape. Runtime assertions
+check these contracts; the complete outputs are reconstructed against the
+same signed less-than and modular-MSB oracle outside timing.
+
+Timing begins after native input preparation/authentication and ends after
+output preparation. For SPDZ-wise, the normal output transaction calls
+`prepareOutputs -> finalize_protocol -> verify -> checkMac + checkBoolean`,
+then exports and commits checked shares, all before the stop timestamp.
+No security check is left after the stop timestamp. The input authentication
+and context/PRSS setup remain excluded under the already-authenticated-input
+assumption.
+
+`checkMac` executes its count/status exchange inside timing. Its nonempty
+batch count is zero because authenticated inputs and linear subtraction do
+not create new arithmetic MAC work. `checkBoolean` verifies the whole batch
+of 24,107,712 padded AND bits per party, including random material generation
+and all verification traffic. Each party performs one call to each check via
+the normal finalization path and records one nonempty Boolean batch.
+
+The rebuilt benchmark and a 65-pair smoke run pass. The formal FactoryMem run
+uses 64 worker threads, one warmup and seven measured iterations. All 800,000
+outputs per protocol pass the oracle, and every SPDZ-wise run completes its
+security checks successfully. Total time uses the maximum complete interval
+across parties, then the median across iterations.
+
+| Protocol | Checked total median ms | Range ms | Three-party sent bytes |
+|---|---:|---:|---:|
+| SPDZ-wise ring | 273.963 | 261.656–305.249 | 361,627,200 |
+| Native ABY3 | 193.877 | 189.551–199.582 | 10,800,000 |
+
+SPDZ-wise/ABY3 total time is **1.413x**. SPDZ-wise finalization and output
+preparation have a diagnostic median of 250.763 ms and send 352,586,808 bytes
+across three parties. Phase medians must not be added to reconstruct total
+median time. Internal circuit/layout optimizations differ, so this measures
+the implementations at the same HAL interface rather than isolating the
+cost of the security model.
+
+[Checked results and raw artifacts](benchmarks/comparison-msb-checked-100k-2026-10-22/RESULTS.md)
+include source/binary fingerprints, a source archive, per-party CSV,
+environment, commands, build log, smoke-test evidence and protocol regression
+results. Only the final checked comparison experiment is retained.

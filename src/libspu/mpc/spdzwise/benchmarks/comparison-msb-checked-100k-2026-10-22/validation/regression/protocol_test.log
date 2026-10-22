@@ -1,0 +1,134 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:protocol_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 13 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 13 tests from SpdzWiseProtocol
+[ RUN      ] SpdzWiseProtocol.PrssCopiesStayAlignedAcrossOddAndEmptyBatches
+[       OK ] SpdzWiseProtocol.PrssCopiesStayAlignedAcrossOddAndEmptyBatches (3 ms)
+[ RUN      ] SpdzWiseProtocol.FieldRouteUsesF61MultiplicationAndSharedBooleanKernels
+[       OK ] SpdzWiseProtocol.FieldRouteUsesF61MultiplicationAndSharedBooleanKernels (1 ms)
+[ RUN      ] SpdzWiseProtocol.RingRouteHasIndependentArithmeticAndSharedBoolean
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.RingRouteHasIndependentArithmeticAndSharedBoolean (0 ms)
+[ RUN      ] SpdzWiseProtocol.MultiplicationPayloadAndConstantSizeVerification
+[2026-10-22 09:40:20.545] [info] [thread_pool.cc:30] Create a fixed thread pool with size 3
+[       OK ] SpdzWiseProtocol.MultiplicationPayloadAndConstantSizeVerification (125 ms)
+[ RUN      ] SpdzWiseProtocol.F61WireEncodingRejectsInvalidResiduesAndLengths
+[       OK ] SpdzWiseProtocol.F61WireEncodingRejectsInvalidResiduesAndLengths (0 ms)
+[ RUN      ] SpdzWiseProtocol.SelectiveAndCombinedVerificationCheckpoints
+[       OK ] SpdzWiseProtocol.SelectiveAndCombinedVerificationCheckpoints (7 ms)
+[ RUN      ] SpdzWiseProtocol.PublicAndSpecificPartyRevealRemainClosed
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.PublicAndSpecificPartyRevealRemainClosed (4 ms)
+[ RUN      ] SpdzWiseProtocol.ArithmeticTransactionAndMacFreeExport
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.ArithmeticTransactionAndMacFreeExport (1 ms)
+[ RUN      ] SpdzWiseProtocol.MatrixProductAndAuthenticatedReuse
+[       OK ] SpdzWiseProtocol.MatrixProductAndAuthenticatedReuse (1 ms)
+[ RUN      ] SpdzWiseProtocol.PublicArithmeticAndShapeViewsPreserveMacs
+[       OK ] SpdzWiseProtocol.PublicArithmeticAndShapeViewsPreserveMacs (0 ms)
+[ RUN      ] SpdzWiseProtocol.CorruptedMacPoisonsSessionForEveryParty
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.CorruptedMacPoisonsSessionForEveryParty (3 ms)
+[ RUN      ] SpdzWiseProtocol.ParallelBatchRejectsMacCorruptionAtDifferentPositions
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.ParallelBatchRejectsMacCorruptionAtDifferentPositions (164 ms)
+[ RUN      ] SpdzWiseProtocol.RejectsMixedOutputBatchesBeforeAuthentication
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1448/maps: errno=2
+[       OK ] SpdzWiseProtocol.RejectsMixedOutputBatchesBeforeAuthentication (0 ms)
+[----------] 13 tests from SpdzWiseProtocol (314 ms total)
+
+[----------] Global test environment tear-down
+[==========] 13 tests from 1 test suite ran. (315 ms total)
+[  PASSED  ] 13 tests.

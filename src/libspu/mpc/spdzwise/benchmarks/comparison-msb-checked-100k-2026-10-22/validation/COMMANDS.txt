@@ -1,0 +1,7 @@
+From src/libspu/mpc/spdzwise/benchmarks:
+
+bash build.sh //:comparison_bench
+python3 run_comparison.py /tmp/spdzwise-checked-comparison-smoke --count 65 --repetitions 1
+python3 run_comparison.py comparison-msb-checked-100k-2026-10-22
+
+Both protocols call HAL i_less with DT_I64/FM64 arithmetic arrays and produce DT_I1 one-bit Boolean shares. Timed output finalization calls checkMac and checkBoolean via prepareOutputs -> finalize_protocol -> verify. No protocol logic was changed in this rerun.

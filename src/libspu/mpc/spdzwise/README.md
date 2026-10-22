@@ -39,8 +39,8 @@ preserve the domain, which is also included in execution agreement.
   private bit inputs, public challenges, bitness checks and scratch storage.
 - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
   registers no conversions. FIELD truncation and comparisons remain future work.
-  `ring_conversion.h/.cc` implements value-only split-3 RING A2B and
-  authenticated-mask B2A.
+  `ring_conversion.h/.cc` implements value-only split-3 RING A2B, one-bit MSB
+  A2B for comparison, and authenticated-mask B2A.
   `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
   through `TruncASelector`.
 - `state.h/.cc`: checked session lifecycle, field authentication and checks;
@@ -150,8 +150,9 @@ matrix multiplication. Matrices accumulate each dot product locally before
 exchanging two 128-bit words per output cell. A fixed status exchange also
 rejects malformed wire lengths; payload does not grow with the inner dimension.
 RING `a2b` converts the application value to 64-bit Boolean RSS; `b2a` converts
-1–64 Boolean bits to an authenticated arithmetic value. Exact truncation,
-comparison and PPML integration remain unimplemented. Signed
+1–64 Boolean bits to an authenticated arithmetic value. RING `msb_a2b`
+supports comparison via `MSB(x-y)`, returning a one-bit Boolean share.
+Exact truncation and full PPML integration remain unimplemented. Signed
 probabilistic truncation is described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
@@ -513,6 +514,45 @@ no circuit ANDs and uses the existing B=5 parameters.
 The security assumptions and outstanding ABFL composition review described
 above are unchanged by this conversion implementation.
 
+## RING MSB A2B and comparison
+
+The RING prototype registers `msb_a2b` for authenticated `ring::AShrTy`
+inputs. It returns `BShrTy(session, 1)` with the same shape and dtype;
+HAL integer `less` sets the result dtype to `DT_I1`. The result remains a
+binary secret share, with no B2A, opening, or automatic final verification.
+
+The circuit follows `Compiler/comparison.py::LtzRingRaw` and
+`CarryOutRawLE` in MP-SPDZ commit
+`113c4e47dd94bca9ecab029d2f0abe649bea5c52` with `-Z 3`. It reuses A2B's
+value-only split-3 and bit-sliced CSA, then computes only the carry into bit
+63 using a balanced propagate/generate tree. Its second summand has a zero
+LSB, so bit zero is omitted; the lowest interval's propagate is also omitted
+at every level. The result is the XOR of this carry and the two bit-63 shares.
+Only that bit is unpacked, with each output share component normalized to 0/1.
+
+There are 241 ANDs per input lane: 63 for CSA, 62 initial generates, 61
+generate merges and 55 propagate merges. Independent gates share one ABFL
+call per layer: eight online AND rounds in total. Padding to 64 input lanes
+remains covered by the deferred verifier. A2B/B2A retain their existing RCA.
+
+The existing HAL fallback computes `MSB((x-y) mod 2^64)`. This equals signed
+less-than when the difference does not overflow; the implementation does not
+add overflow correction for arbitrary full-width signed operands. Tests cover
+both non-overflowing comparisons and explicit modular-overflow cases, all
+output shapes and strides, extended-ring arithmetic composition, and corrupt
+carry/padding records rejected at finalization.
+
+The comparison benchmark starts with imported, authenticated input pairs and
+uses the same HAL `i_less(DT_I64, DT_I64) -> DT_I1` interface for both protocols.
+Timing ends at deliverable one-bit Boolean shares: SPDZ-wise's normal
+`prepareOutputs -> finalize_protocol -> checkMac + checkBoolean` and checked
+export/commit are included. Only input preparation, context setup,
+reconstruction and plaintext correctness checking are excluded. The empty
+arithmetic MAC batch still performs its normal count/status exchange inside
+timing; the complete nonempty Boolean AND batch is verified inside timing.
+See [the benchmark instructions](benchmarks/README.md#comparison-msb-a2b)
+and [checked 100K results](benchmarks/comparison-msb-checked-100k-2026-10-22/RESULTS.md).
+
 ## RING split-3 masked B2A
 
 The RING prototype registers `b2a` for `BShrTy(session, nbits)`, with
@@ -623,8 +663,9 @@ For the future mixed backend:
   reconstruction checks dtype/shape as well as protocol wire metadata.
 - **F4**: HAL optionally dispatches `less_ss`, `less_sp`, and `less_ps`, preserving
   operand order and the old fallback for protocols without these kernels.
-  Dispatch regression tests are supplied; SPDZWISE comparison kernels still
-  require the unimplemented checked Boolean backend.
+  Dispatch regression tests are supplied; FIELD comparison kernels still
+  require the unimplemented field conversion backend. RING uses the existing
+  fallback with its registered `msb_a2b` kernel.
 
 `SPDZWISE = 7` is registered in C++/protobuf/Python configuration with 16
 fractional bits by default. IO construction is available for development, but

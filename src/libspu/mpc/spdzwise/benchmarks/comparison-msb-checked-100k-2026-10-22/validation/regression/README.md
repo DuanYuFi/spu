@@ -1,0 +1,1 @@
+Protocol regression evidence: six targets, 77 passing cases. These tests validate the unchanged protocol implementation used by the final checked benchmark. They were run before the benchmark timing-boundary revision; the final benchmark build and smoke evidence are in the parent validation directory.
