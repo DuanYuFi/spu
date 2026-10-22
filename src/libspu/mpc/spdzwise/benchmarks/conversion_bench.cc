@@ -12,6 +12,7 @@
 #include "libspu/mpc/aby3/conversion.h"
 #include "libspu/mpc/aby3/io.h"
 #include "libspu/mpc/aby3/protocol.h"
+#include "libspu/mpc/aby3/type.h"
 #include "libspu/mpc/api.h"
 #include "libspu/mpc/spdzwise/io.h"
 #include "libspu/mpc/spdzwise/protocol.h"
@@ -20,6 +21,12 @@
 #include "libspu/mpc/utils/simulate.h"
 
 namespace spu::mpc::spdzwise {
+class SpdzWiseBenchmarkAccess {
+ public:
+  static auto times(const SpdzWiseState* s) { return s->b2a_ms_; }
+  static auto bytes(const SpdzWiseState* s) { return s->b2a_bytes_; }
+  static size_t gates(const SpdzWiseState* s) { return s->b2a_and_bits_; }
+};
 namespace {
 using Clock = std::chrono::steady_clock;
 double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
@@ -63,9 +70,14 @@ struct Result {
   double total_ms = 0, online_ms = 0, verify_ms = 0;
   size_t bytes = 0, actions = 0, online_bytes = 0, verify_bytes = 0,
          input_checks = 0, final_checks = 0, and_bits = 0;
+  std::array<double, 4> phase_ms{};
+  std::array<size_t, 4> phase_bytes{};
+  size_t arithmetic_checks = 0;
   NdArrayRef output;
 };
-void Run(const std::string& protocol, int64_t count, int repetitions) {
+void Run(const std::string& protocol, int64_t count, int repetitions,
+         const std::string& operation) {
+  const bool to_arithmetic = operation == "b2a";
   const bool wise = protocol != "aby3";
   const auto plain = Inputs(count);
   SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
@@ -73,10 +85,20 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
   RuntimeConfig config(wise ? SPDZWISE : ABY3, FM64);
   config.spdzwise_config.domain = SpdzWiseConfig::RING;
   std::cout << std::fixed << std::setprecision(6)
-      << "protocol,count,iteration,rank,total_ms,online_ms,verify_ms,sent_bytes,online_bytes,verify_bytes,sent_actions,input_checks,final_checks,and_bits,outputs_verified\n";
+            << "protocol,count,iteration,rank,total_ms,online_ms,verify_ms,"
+               "sent_bytes,online_bytes,verify_bytes,sent_actions,input_checks,"
+               "final_checks,and_bits,outputs_verified,operation,arithmetic_"
+               "checks,material_ms,circuit_ms,check_ms,open_ms,material_bytes,"
+               "circuit_bytes,check_bytes,open_bytes\n";
   for (int iteration = 0; iteration <= repetitions; ++iteration) {
-    const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
-                            : aby_io->toShares(plain, VIS_SECRET, -1);
+    auto inputs = to_arithmetic ? wise_io.toBooleanShares(plain, 64)
+                  : wise        ? wise_io.toShares(plain, VIS_SECRET)
+                                : aby_io->toShares(plain, VIS_SECRET, -1);
+    // Both protocols use the same XOR RSS layout/distribution. Adapt only the
+    // external metadata to native ABY3 before timing, as in binary_bench.
+    if (to_arithmetic && !wise)
+      for (auto& input : inputs)
+        input = input.as(makeType<aby3::BShrTy>(PT_U64, 64));
     Barrier barrier;
     const auto results = utils::simulate(3, [&](const auto& link) {
       std::unique_ptr<SPUContext> ctx = wise ? std::make_unique<SPUContext>(config, link)
@@ -87,44 +109,67 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
       Value x(inputs[link->Rank()], DT_U64);
       Result r;
       if (wise) {
-        SPU_ENFORCE(dynamic_cast<ring::A2B*>(ctx->prot()->getKernel("a2b")));
-        state->begin(ExecutableProto("a2b-bench", {"x"}, {"y"}, "test"), {x});
+        if (to_arithmetic)
+          SPU_ENFORCE(dynamic_cast<ring::B2A*>(ctx->prot()->getKernel("b2a")));
+        else
+          SPU_ENFORCE(dynamic_cast<ring::A2B*>(ctx->prot()->getKernel("a2b")));
+        state->begin(
+            ExecutableProto(operation + "-bench", {"x"}, {"y"}, "test"), {x});
         x = import_s(ctx.get(), x);
         r.input_checks = state->arithmeticChecks();
-        SPU_ENFORCE(r.input_checks == 1);
+        SPU_ENFORCE(r.input_checks == size_t(!to_arithmetic));
       } else {
-        SPU_ENFORCE(dynamic_cast<aby3::A2B*>(ctx->prot()->getKernel("a2b")));
+        if (to_arithmetic)
+          SPU_ENFORCE(
+              dynamic_cast<aby3::B2ASelector*>(ctx->prot()->getKernel("b2a")));
+        else
+          SPU_ENFORCE(dynamic_cast<aby3::A2B*>(ctx->prot()->getKernel("a2b")));
       }
       const auto stats = link->GetStats();
       barrier.wait();
       const auto bytes = stats->sent_bytes.load();
       const auto actions = stats->sent_actions.load();
       const auto start = Clock::now();
-      auto y = a2b(ctx.get(), x);
+      auto y = to_arithmetic ? b2a(ctx.get(), x) : a2b(ctx.get(), x);
       const auto online_stop = Clock::now();
       const auto online_bytes = stats->sent_bytes.load();
-      if (wise) {
+      if (wise && !to_arithmetic) {
         r.and_bits = state->pendingBooleanBits();
         state->finalize();
       }
       const auto stop = Clock::now();
       r.total_ms = Ms(start, stop);
       r.online_ms = Ms(start, online_stop);
-      r.verify_ms = wise ? Ms(online_stop, stop) : 0;
+      r.verify_ms = wise && !to_arithmetic ? Ms(online_stop, stop) : 0;
       r.bytes = stats->sent_bytes.load() - bytes;
       r.online_bytes = online_bytes - bytes;
       r.verify_bytes = r.bytes - r.online_bytes;
       r.actions = stats->sent_actions.load() - actions;
+      if (wise && to_arithmetic) {
+        r.phase_ms = SpdzWiseBenchmarkAccess::times(state);
+        r.phase_bytes = SpdzWiseBenchmarkAccess::bytes(state);
+        r.and_bits = SpdzWiseBenchmarkAccess::gates(state);
+        SPU_ENFORCE(r.and_bits == 188 * ((size_t(count) + 63) / 64) * 64);
+        r.verify_ms = r.phase_ms[2];
+        r.online_ms = r.total_ms - r.verify_ms;
+        r.verify_bytes = r.phase_bytes[2];
+        r.online_bytes = r.bytes - r.verify_bytes;
+      }
       if (!wise) y.setDtype(x.dtype());  // Native low-level kernels erase dtype.
       SPU_ENFORCE(y.shape() == x.shape() && y.dtype() == x.dtype() &&
-                  y.storage_type().as<BShare>()->nbits() == 64);
+                  (to_arithmetic
+                       ? y.storage_type().isa<AShare>()
+                       : y.storage_type().as<BShare>()->nbits() == 64));
       if (wise) {
         r.final_checks = state->booleanChecks();
         SPU_ENFORCE(r.final_checks == 1 && state->pendingBooleanBits() == 0);
-        SPU_ENFORCE(state->arithmeticChecks() == r.input_checks);
+        r.arithmetic_checks = state->arithmeticChecks();
+        SPU_ENFORCE(r.arithmetic_checks ==
+                    r.input_checks + size_t(to_arithmetic));
         state->prepareOutputs(ctx.get(), {"y"}, {y});
         guard.commit();
-        SPU_ENFORCE(state->booleanChecks() == 1 && state->arithmeticChecks() == r.input_checks);
+        SPU_ENFORCE(state->booleanChecks() == 1 &&
+                    state->arithmeticChecks() == r.arithmetic_checks);
         r.output = state->exportedValue("y").data();
       } else {
         r.output = y.data();
@@ -137,16 +182,22 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
     const auto actual = wise ? wise_io.fromShares(output) : aby_io->fromShares(output);
     for (int64_t i = 0; i < count; ++i) {
       SPU_ENFORCE(actual.data<uint64_t>()[i] == plain.data<uint64_t>()[i],
-                  "A2B output mismatch: iteration {}, element {}", iteration, i);
+                  "{} output mismatch: iteration {}, element {}", operation,
+                  iteration, i);
       for (size_t rank = 0; rank < 3; ++rank)
         SPU_ENFORCE(output[rank].data<RepShare>()[i][1] == output[(rank + 1) % 3].data<RepShare>()[i][0]);
     }
     for (size_t rank = 0; rank < 3; ++rank) {
       const auto& r = results[rank];
-      std::cout << protocol << ',' << count << ',' << iteration << ',' << rank << ','
-          << r.total_ms << ',' << r.online_ms << ',' << r.verify_ms << ',' << r.bytes << ','
-          << r.online_bytes << ',' << r.verify_bytes << ',' << r.actions << ','
-          << r.input_checks << ',' << r.final_checks << ',' << r.and_bits << ',' << count << '\n';
+      std::cout << protocol << ',' << count << ',' << iteration << ',' << rank
+                << ',' << r.total_ms << ',' << r.online_ms << ',' << r.verify_ms
+                << ',' << r.bytes << ',' << r.online_bytes << ','
+                << r.verify_bytes << ',' << r.actions << ',' << r.input_checks
+                << ',' << r.final_checks << ',' << r.and_bits << ',' << count
+                << ',' << operation << ',' << r.arithmetic_checks;
+      for (auto t : r.phase_ms) std::cout << ',' << t;
+      for (auto b : r.phase_bytes) std::cout << ',' << b;
+      std::cout << '\n';
     }
     std::cout.flush();
     std::cerr << protocol << " iteration " << iteration << ": verified all " << count << " outputs\n";
@@ -160,8 +211,11 @@ int main(int argc, char** argv) {
     SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
     const auto count = argc > 2 ? std::stoll(argv[2]) : 100000;
     const auto repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
-    SPU_ENFORCE(count > 0 && repetitions > 0 && argc <= 4);
-    spu::mpc::spdzwise::Run(protocol, count, repetitions);
+    SPU_ENFORCE(count > 0 && repetitions > 0 && (argc <= 4 || argc == 6));
+    const std::string operation = argc == 6 ? argv[5] : "a2b";
+    SPU_ENFORCE(argc != 6 || std::string(argv[4]) == "--operation");
+    SPU_ENFORCE(operation == "a2b" || operation == "b2a");
+    spu::mpc::spdzwise::Run(protocol, count, repetitions, operation);
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';
     return 1;

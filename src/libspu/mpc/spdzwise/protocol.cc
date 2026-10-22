@@ -99,7 +99,7 @@ void registerRingArithmeticPrototype(
   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
   registerCommonKernels(ctx);
   ring::registerArithmeticKernels(ctx->prot());
-  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B>();
+  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B, ring::B2A>();
   registerBooleanKernels(ctx->prot());
 }
 

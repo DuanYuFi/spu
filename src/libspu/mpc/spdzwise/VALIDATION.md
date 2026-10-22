@@ -264,3 +264,28 @@ Results are summarized in the project
 
 The production factory continues to reject `SPDZWISE`. Correctness and local
 performance validation do not establish complete malicious-security acceptance.
+
+## RING masked B2A
+
+`ring_conversion_test` additionally covers 1/5/8/16/32/63/64-bit Boolean
+inputs, zero extension, full-width carries, multidimensional strided inputs,
+empty and small accumulated calls, the 320/321-element standalone threshold,
+A2B/B2A round trips, Boolean and arithmetic consumers, and fresh masks across
+repeated conversions. It reconstructs the extended-ring value and MAC in the
+test harness and checks `mac = alpha * value`, including high limbs.
+
+For each party position, fault tests corrupt mask MAC records (one copy and
+both copies), AND results (one copy and both copies, including a padding lane), and the share
+encoded in the masked opening payload. A test-only channel decorator also
+corrupts an actual `b2a-open` wire payload to just one recipient and checks
+that ordered-view agreement rejects the equivocation. An observer on the existing message-tag
+callback asserts that arithmetic/ABFL failures never reach `b2a-open`; corrupt
+opening copies must be rejected before any output. Consistent two-copy
+injections test the algebraic checker separately from copy checking; they do
+not model two corrupt parties under the one-corruption threat model.
+
+The 100K benchmark compares the registered B2A kernels, verifies every output
+for one warmup and seven measured runs, asserts one arithmetic mask check and
+one ABFL check, and records all 188 ANDs per padded input lane. Raw logs,
+parameters, hashes and validation artifacts are archived in
+`benchmarks/b2a-split3-100k-2026-10-22/`.

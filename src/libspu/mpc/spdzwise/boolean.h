@@ -21,6 +21,9 @@
 #include "libspu/mpc/spdzwise/type.h"
 
 namespace spu::mpc::spdzwise {
+namespace ring {
+class ConversionTestAccess;
+}
 
 // Counts packed 64-bit triples (including one zero-extended partial word),
 // not the number of active bit lanes. Small nonempty batches are unsupported.
@@ -29,6 +32,8 @@ size_t AbflBucketSize(size_t words);
 // Owned by the checked session. No application reveal API is exposed.
 class BooleanState {
   friend class BooleanTestAccess;
+  friend class SpdzWiseState;
+  friend class ring::ConversionTestAccess;
   using Triple = std::array<RepShare, 3>;
   // Default-initialized storage: parallel writers touch each element once.
   // Unlike vector(size), this does not zero large buffers on the caller thread.
@@ -62,8 +67,10 @@ class BooleanState {
   void requireAll(bool valid, std::string_view reason);
   std::vector<RepShare> andRaw(const std::vector<RepShare>& x,
                                const std::vector<RepShare>& y);
-  std::vector<uint64_t> open(absl::Span<const RepShare> shares);
-  void open(absl::Span<const RepShare> shares, absl::Span<uint64_t> result);
+  std::vector<uint64_t> open(absl::Span<const RepShare> shares,
+                             std::string_view operation = "boolean-open");
+  void open(absl::Span<const RepShare> shares, absl::Span<uint64_t> result,
+            std::string_view operation = "boolean-open");
   void reservePending(size_t full_words);
   void append(const std::vector<RepShare>& a, const std::vector<RepShare>& b,
               const std::vector<RepShare>& c, size_t width);

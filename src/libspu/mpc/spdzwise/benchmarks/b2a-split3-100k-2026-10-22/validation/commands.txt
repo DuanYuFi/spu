@@ -1,0 +1,6 @@
+# From src/
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt //libspu/mpc/spdzwise:ring_conversion_test //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:boolean_test //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc:protocol_session_test --lockfile_mode=off --jobs=16 --test_env=YACL_NUM_THREADS=65 --test_timeout=240 --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+
+# From src/libspu/mpc/spdzwise/benchmarks/
+BENCHMARK_JOBS=16 bash build.sh //:conversion_bench
+python3 run_conversion.py b2a-split3-100k-2026-10-22 --operation b2a

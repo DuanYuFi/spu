@@ -27,6 +27,7 @@ class SpdzWiseState final : public ProtocolSession {
   friend class SpdzWiseBenchmarkAccess;
   friend class BooleanTestAccess;
   friend class ring::TruncationTestAccess;
+  friend class ring::ConversionTestAccess;
   std::unique_ptr<BooleanState> boolean_;
   std::unique_ptr<ring::ArithmeticState> ring_;
   bool isRing() const {
@@ -43,6 +44,12 @@ class SpdzWiseState final : public ProtocolSession {
   uint64_t execution_ = 0;
   uint64_t arithmetic_checks_ = 0;
   std::vector<AuthShare> pending_;
+  // Last B2A: material, circuit, verification, opening/linear output. Only
+  // benchmark friends inspect these; no secret-dependent metrics are stored.
+  std::array<double, 4> b2a_ms_{};
+  std::array<size_t, 4> b2a_bytes_{};
+  size_t b2a_and_bits_ = 0;
+  NdArrayRef finishB2A(const NdArrayRef& mask, const NdArrayRef& masked);
 
   std::string tag(std::string_view operation);
   std::vector<uint64_t> exchange(const std::vector<uint64_t>& local,
@@ -88,6 +95,8 @@ class SpdzWiseState final : public ProtocolSession {
   void finalize();
   // Value-only split-3 RING A2B; AND checks are deferred to finalize().
   NdArrayRef a2b(const NdArrayRef& in);
+  // Zero-extend 1..64 Boolean bits; verify both domains before masked opening.
+  NdArrayRef b2a(const NdArrayRef& in);
   void validateBoolean(const NdArrayRef& value) const;
   NdArrayRef publicBoolean(const NdArrayRef& value) const;
   NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,

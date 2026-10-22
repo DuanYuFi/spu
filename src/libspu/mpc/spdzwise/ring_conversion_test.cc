@@ -23,6 +23,57 @@ class BooleanTestAccess {
     if (consistent && state->rank() == (party + 2) % 3) triple[2][1] ^= 1;
   }
 };
+namespace ring {
+class ConversionTestAccess {
+ public:
+  static RepShare key(SpdzWiseState* s) { return s->ring_->key_; }
+  static size_t gates(SpdzWiseState* s) { return s->b2a_and_bits_; }
+  static void observeOpening(SpdzWiseState* s, bool& opened) {
+    auto original = s->boolean_->tag_;
+    s->boolean_->tag_ = [original, &opened](std::string_view name) {
+      if (name == "b2a-open") opened = true;
+      return original(name);
+    };
+  }
+  static void tamperOpening(SpdzWiseState* s, std::shared_ptr<bool> active) {
+    auto original = s->boolean_->tag_;
+    s->boolean_->tag_ = [original, active](std::string_view name) {
+      *active = name == "b2a-open";
+      return original(name);
+    };
+  }
+  static void fault(SpdzWiseState* s, size_t party, int fault) {
+    auto mask = s->ring_->randomAuthenticated({1025});
+    auto masked = s->a2b(mask);  // Valid B2A masked result for x=0.
+    const bool first = s->rank() == party;
+    const bool second = s->rank() == (party + 2) % 3;
+    if (fault < 2) {
+      auto& record = s->ring_->pending_.front();
+      if (first) record[2] ^= 1;
+      if (fault == 1 && second) record[3] ^= 1;
+    } else if (fault < 4) {
+      auto& record = s->boolean_->pending_batches_.front().front();
+      if (first) record[2][0] ^= 1;
+      if (fault == 3 && second) record[2][1] ^= 1;
+    } else if (fault == 5) {
+      // The final SIMD block has one active lane; bit 63 is padding.
+      auto& record = s->boolean_->pending_batches_.front().back();
+      if (first) record[2][0] ^= uint64_t{1} << 63;
+      if (second) record[2][1] ^= uint64_t{1} << 63;
+    } else if (first) {
+      // Alter the share encoded into the opening payload, after the AND
+      // snapshots were frozen. Duplicate-holder checking must reject it.
+      masked.data<spdzwise::RepShare>()[0][0] ^= 1;
+    }
+    try {
+      s->finishB2A(mask, masked);
+    } catch (...) {
+      s->abort();
+      throw;
+    }
+  }
+};
+}  // namespace ring
 namespace {
 RuntimeConfig Config() {
   RuntimeConfig c(SPDZWISE, FM64);
@@ -192,6 +243,290 @@ TEST(RingConversion, CorruptConversionAndRejectedAtEveryParty) {
         EXPECT_ANY_THROW(state->exportedValue("out"));
       });
     }
+  }
+}
+
+TEST(RingConversion, B2AWidthsShapesAndAuthenticatedOutput) {
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  struct Result {
+    NdArrayRef internal, external;
+    ring::RepShare key;
+  };
+  for (size_t width : {1U, 5U, 8U, 16U, 32U, 63U, 64U}) {
+    auto plain = Plain(1026);
+    for (int64_t i = 0; i < plain.numel(); ++i)
+      plain.data<uint64_t>()[i] &= BooleanMask(width);
+    plain.data<uint64_t>()[0] = 0;
+    const auto shares = io.toBooleanShares(plain, width);
+    const auto results = utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(Config(), link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      ProtocolRunGuard guard(&ctx);
+      Value input(shares[link->Rank()], DT_U64);
+      Begin(state, {input});
+      auto x = import_s(&ctx, input);
+      x = Value(x.data().reshape({513, 2}).transpose({1, 0}), x.dtype());
+      EXPECT_FALSE(x.data().isCompact());
+      const auto y = b2a(&ctx, x);
+      EXPECT_EQ(y.dtype(), x.dtype());
+      EXPECT_EQ(y.shape(), x.shape());
+      EXPECT_EQ(y.storage_type(), makeType<ring::AShrTy>(state->session()));
+      EXPECT_EQ(state->arithmeticChecks(), 1);
+      EXPECT_EQ(state->booleanChecks(), 1);
+      EXPECT_EQ(state->pendingBooleanBits(), 0);
+      EXPECT_EQ(ring::ConversionTestAccess::gates(state), 188 * 17 * 64);
+      state->finalize();
+      EXPECT_EQ(state->booleanChecks(), 1);
+      EXPECT_EQ(state->arithmeticChecks(), 1);
+      const auto key = ring::ConversionTestAccess::key(state);
+      // Check composability and the output MAC through an actual
+      // multiplication.
+      const auto z = mul_aa(&ctx, y, y);
+      state->prepareOutputs(&ctx, {"out"}, {z});
+      guard.commit();
+      return Result{y.data(), state->exportedValue("out").data(), key};
+    });
+    ring::Word alpha = 0;
+    std::vector<NdArrayRef> outputs;
+    for (const auto& r : results) {
+      alpha += r.key[0];
+      outputs.push_back(r.external);
+    }
+    const auto actual = io.fromShares(outputs);
+    const auto expected_array = plain.reshape({513, 2}).transpose({1, 0});
+    const NdArrayView<uint64_t> expected(expected_array);
+    for (int64_t i = 0; i < plain.numel(); ++i) {
+      ring::Word value = 0, mac = 0;
+      for (size_t rank = 0; rank < 3; ++rank) {
+        const auto& a = results[rank].internal.data<ring::AuthShare>()[i];
+        const auto& next =
+            results[(rank + 1) % 3].internal.data<ring::AuthShare>()[i];
+        EXPECT_EQ(a[1], next[0]);
+        EXPECT_EQ(a[3], next[2]);
+        value += a[0];
+        mac += a[2];
+      }
+      ASSERT_EQ(uint64_t(value), expected[i]);
+      ASSERT_EQ(mac, alpha * value);
+      ASSERT_EQ(actual.data<uint64_t>()[i], expected[i] * expected[i]);
+    }
+  }
+}
+
+TEST(RingConversion, B2ARoundtripConsumersAndFreshRepeatedMasks) {
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  const auto plain = Plain(1025);
+  const auto shares = io.toShares(plain, VIS_SECRET);
+  const auto outputs = utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(Config(), link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    ProtocolRunGuard guard(&ctx);
+    Value input(shares[link->Rank()], DT_I64);
+    Begin(state, {input});
+    auto a = import_s(&ctx, input);
+    auto b = a2b(&ctx, a);
+    b = and_bb(&ctx, b, b);
+    b.setDtype(DT_I64);
+    const auto y = b2a(&ctx, b);
+    const auto z = b2a(&ctx, b);
+    EXPECT_EQ(state->booleanChecks(), 2);
+    EXPECT_EQ(state->arithmeticChecks(), 3);  // Input plus two fresh masks.
+    EXPECT_NE(y.data().data<ring::AuthShare>()[0][0],
+              z.data().data<ring::AuthShare>()[0][0]);
+    state->prepareOutputs(&ctx, {"y", "z"}, {y, z});
+    guard.commit();
+    return std::array<NdArrayRef, 2>{state->exportedValue("y").data(),
+                                     state->exportedValue("z").data()};
+  });
+  for (size_t j = 0; j < 2; ++j) {
+    const auto actual =
+        io.fromShares({outputs[0][j], outputs[1][j], outputs[2][j]});
+    for (int64_t i = 0; i < plain.numel(); ++i)
+      ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
+  }
+}
+
+TEST(RingConversion, B2AEmptySmallCallsAndThreshold) {
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  for (int64_t n : {0, 1, 63, 64, 65, 320, 321}) {
+    const auto plain = Plain(n);
+    const auto shares = io.toBooleanShares(plain, 64);
+    const auto outputs = utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(Config(), link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      ProtocolRunGuard guard(&ctx);
+      Value input(shares[link->Rank()], DT_I64);
+      Begin(state, {input});
+      const auto x = import_s(&ctx, input);
+      if (n > 0 && n < 320) {
+        auto pad =
+            state->publicBoolean(Plain(1024).as(makeType<Pub2kTy>(FM64)));
+        state->booleanBinary(pad, pad, true, false);
+      }
+      bool opened = false;
+      ring::ConversionTestAccess::observeOpening(state, opened);
+      const auto bytes = link->GetStats()->sent_bytes.load();
+      if (n == 320) {  // 5 blocks * 188 = 940 words, below 1024.
+        EXPECT_ANY_THROW(b2a(&ctx, x));
+        EXPECT_FALSE(opened);
+        EXPECT_TRUE(state->failed());
+        return NdArrayRef();
+      }
+      const auto y = b2a(&ctx, x);
+      EXPECT_EQ(opened, n != 0);
+      if (!n) {
+        EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
+        EXPECT_EQ(state->booleanChecks(), 0);
+        EXPECT_EQ(state->arithmeticChecks(), 0);
+      }
+      state->prepareOutputs(&ctx, {"out"}, {y});
+      guard.commit();
+      return state->exportedValue("out").data();
+    });
+    if (n == 320) continue;
+    const auto actual = io.fromShares(outputs);
+    for (int64_t i = 0; i < n; ++i)
+      ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
+  }
+  // A standalone single element must also fail before opening.
+  utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(Config(), link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* state = ctx.prot()->getState<SpdzWiseState>();
+    Begin(state);
+    auto x = state->publicBoolean(Plain(1).as(makeType<Pub2kTy>(FM64)));
+    bool opened = false;
+    ring::ConversionTestAccess::observeOpening(state, opened);
+    EXPECT_ANY_THROW(state->b2a(x));
+    EXPECT_FALSE(opened);
+    EXPECT_TRUE(state->failed());
+  });
+}
+
+TEST(RingConversion, B2AInvalidInputAndLifecycleRejected) {
+  for (int fault = 0; fault < 6; ++fault) {
+    utils::simulate(3, [&](const auto& link) {
+      auto config = Config();
+      if (fault == 4) config.spdzwise_config.domain = SpdzWiseConfig::FIELD;
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      if (fault != 3) Begin(state);
+      const Type type =
+          fault == 0   ? makeType<ring::AShrTy>(state->session())
+          : fault == 1 ? makeType<BShrTy>("wrong-session", 64)
+          : fault == 2
+              ? makeType<BInputTy>(link->Rank(), 64)
+              : makeType<BShrTy>(fault == 3 ? "no-session" : state->session(),
+                                 fault == 5 ? 1 : 64);
+      NdArrayRef input(type, {fault == 5 ? 1 : 0});
+      if (fault == 5) input.data<RepShare>()[0] = {2, 0};
+      EXPECT_ANY_THROW(state->b2a(input));
+      EXPECT_TRUE(state->failed());
+      EXPECT_ANY_THROW(state->exportedValue("out"));
+    });
+  }
+}
+
+TEST(RingConversion, B2ARejectsFaultsBeforeOpeningOrOutput) {
+  for (size_t party = 0; party < 3; ++party) {
+    for (int fault = 0; fault < 6; ++fault) {
+      utils::simulate(3, [&](const auto& link) {
+        SPUContext ctx(Config(), link);
+        registerArithmeticPrototype(&ctx, link);
+        auto* state = ctx.prot()->getState<SpdzWiseState>();
+        Begin(state);
+        bool opened = false;
+        ring::ConversionTestAccess::observeOpening(state, opened);
+        EXPECT_ANY_THROW(
+            ring::ConversionTestAccess::fault(state, party, fault));
+        EXPECT_EQ(opened, fault == 4);
+        EXPECT_TRUE(state->failed());
+        EXPECT_ANY_THROW(state->exportedValue("out"));
+      });
+    }
+  }
+}
+// Test-only channel decorator: mutate actual wire messages without adding
+// fault-injection branches to the protocol implementation.
+class B2AFaultChannel : public yacl::link::transport::IChannel {
+  std::shared_ptr<yacl::link::transport::IChannel> inner_;
+  std::shared_ptr<bool> active_;
+  yacl::Buffer change(yacl::Buffer value) {
+    if (*active_ && value.size()) {
+      value.data<char>()[0] ^= 1;
+    }
+    return value;
+  }
+
+ public:
+  B2AFaultChannel(std::shared_ptr<yacl::link::transport::IChannel> inner,
+                  std::shared_ptr<bool> active)
+      : inner_(std::move(inner)), active_(std::move(active)) {}
+  void SendAsync(const std::string& k, yacl::Buffer v) override {
+    inner_->SendAsync(k, change(std::move(v)));
+  }
+  void SendAsyncThrottled(const std::string& k, yacl::Buffer v) override {
+    inner_->SendAsyncThrottled(k, change(std::move(v)));
+  }
+  void Send(const std::string& k, yacl::ByteContainerView v) override {
+    auto b = change(yacl::Buffer(v));
+    inner_->Send(k, yacl::ByteContainerView(b));
+  }
+  yacl::Buffer Recv(const std::string& k) override { return inner_->Recv(k); }
+  void SetRecvTimeout(uint64_t t) override { inner_->SetRecvTimeout(t); }
+  uint64_t GetRecvTimeout() const override { return inner_->GetRecvTimeout(); }
+  void WaitLinkTaskFinish() override { inner_->WaitLinkTaskFinish(); }
+  void Abort() override { inner_->Abort(); }
+  void SetThrottleWindowSize(size_t s) override {
+    inner_->SetThrottleWindowSize(s);
+  }
+  void TestSend(uint32_t t) override { inner_->TestSend(t); }
+  void TestRecv() override { inner_->TestRecv(); }
+  void SetChunkParallelSendSize(size_t s) override {
+    inner_->SetChunkParallelSendSize(s);
+  }
+};
+TEST(RingConversion, B2ARejectsOpeningWireEquivocation) {
+  for (size_t party = 0; party < 3; ++party) {
+    utils::simulate(3, [&](const auto& base) {
+      auto active = std::make_shared<bool>(false);
+      yacl::link::ContextDesc desc;
+      desc.id = base->Id();
+      std::vector<std::shared_ptr<yacl::link::transport::IChannel>> channels(3);
+      for (size_t i = 0; i < 3; ++i) {
+        desc.parties.push_back({std::to_string(i), "memory"});
+        if (i != base->Rank()) {
+          channels[i] = base->GetChannel(i);
+          // Corrupt only one recipient's payload: copies and ordered views
+          // must bind the exact messages, not just the local reconstruction.
+          if (base->Rank() == party && i == (party + 1) % 3)
+            channels[i] =
+                std::make_shared<B2AFaultChannel>(channels[i], active);
+        }
+      }
+      auto link = std::make_shared<yacl::link::Context>(desc, base->Rank(),
+                                                        channels, nullptr);
+      link->SetRecvTimeout(5000);
+      SPUContext ctx(Config(), link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      Begin(state);
+      auto x = state->publicBoolean(Plain(1025).as(makeType<Pub2kTy>(FM64)));
+      ring::ConversionTestAccess::tamperOpening(state, active);
+      try {
+        state->b2a(x);
+        FAIL() << "accepted opening equivocation";
+      } catch (const std::exception& e) {
+        EXPECT_NE(std::string(e.what()).find("Boolean transcript disagreement"),
+                  std::string::npos);
+      }
+      EXPECT_TRUE(state->failed());
+      EXPECT_ANY_THROW(state->exportedValue("out"));
+    });
   }
 }
 }  // namespace

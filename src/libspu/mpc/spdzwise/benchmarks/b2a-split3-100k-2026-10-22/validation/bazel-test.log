@@ -1,0 +1,36 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 6 targets (3 packages loaded, 0 targets configured)
+Analyzing: 6 targets (3 packages loaded, 0 targets configured)
+
+Analyzing: 6 targets (207 packages loaded, 7589 targets configured)
+
+Analyzing: 6 targets (266 packages loaded, 17793 targets configured)
+[1 / 1] no actions running
+INFO: Analyzed 6 targets (266 packages loaded, 17793 targets configured).
+[1,627 / 1,633] 1 / 6 tests; Compiling libspu/mpc/spdzwise/ring_conversion.cc; 0s processwrapper-sandbox
+[1,628 / 1,633] 1 / 6 tests; [Prepa] Linking libspu/mpc/spdzwise/boolean_test
+[1,636 / 1,638] 5 / 6 tests; Testing //libspu/mpc/spdzwise:boolean_test; 1s processwrapper-sandbox ... (2 actions running)
+[1,637 / 1,638] 5 / 6 tests; Testing //libspu/mpc/spdzwise:boolean_test; 2s processwrapper-sandbox
+[1,637 / 1,638] 6 / 6 tests; Testing //libspu/mpc/spdzwise:boolean_test; 6s processwrapper-sandbox
+INFO: Found 6 test targets...
+INFO: Elapsed time: 22.316s, Critical Path: 17.68s
+INFO: 12 processes: 1 internal, 11 processwrapper-sandbox.
+INFO: Build completed successfully, 12 total actions
+//libspu/mpc:protocol_session_test                              (cached) PASSED in 0.0s
+//libspu/mpc/spdzwise:boolean_test                                       PASSED in 6.4s
+//libspu/mpc/spdzwise:protocol_test                                      PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_conversion_test                               PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_test                                          PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_truncation_test                               PASSED in 1.4s
+
+Executed 5 out of 6 tests: 6 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

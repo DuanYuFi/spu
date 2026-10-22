@@ -16,7 +16,7 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 
 RING/FM64 已实现 split-3 A2B：仅转换 authenticated share 的 value 低 64 位，采用 CSA + bit-sliced RCA，所有秘密 AND 纳入会话最终 ABFL 验证；不转换 MAC share。技术与论文依据见 [SPDZwise README](src/libspu/mpc/spdzwise/README.md#ring-split-3-a2b)，测量见下方 Building Blocks Benchmark。
 
-当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B、B2A、精确截断、比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
+当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B/B2A、精确截断、比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。LR、树、CNN 等 PPML 模型未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
 
 实现位于 [`src/libspu/mpc/spdzwise`](src/libspu/mpc/spdzwise/)，协议参考映射和数值约定见其 [README](src/libspu/mpc/spdzwise/README.md)。
 
@@ -203,6 +203,57 @@ ABFL 验证约占 SPDZwise 总耗时的 90%，没有省略验证。
 [完整选型报告与复现命令](src/libspu/mpc/spdzwise/benchmarks/a2b-split3-100k-2026-10-22/RESULTS.md)、
 [候选原始数据及源码指纹](src/libspu/mpc/spdzwise/benchmarks/a2b-split3-100k-2026-10-22/candidates/)、
 [最终参数、原始数据和回归记录](src/libspu/mpc/spdzwise/benchmarks/a2b-split3-100k-2026-10-22/final/)。
+
+#### RING Split-3 Masked B2A Benchmark
+
+测量日期：**2026-10-22**。相同的 **100,000 个完整 64 位输入**，三方 FactoryMem、
+64 个后台 worker（`YACL_NUM_THREADS=65`）；双方串行运行，预热一次、正式测量七次，
+每轮新建上下文并准备新鲜 Boolean RSS。每轮取三方完整计时区间最大值，再统计中位数及范围。
+
+SPDZwise 使用认证随机算术掩码 `r`，经 split-3 A2B 获得 Boolean 掩码，
+用 bit-sliced RCA 计算 `x+r mod 2^64`；完成算术检查和**一次完整 ABFL 检查后**打开结果 `c`，
+返回保留 MAC 的算术共享 `c-r`。主计时包含掩码及 MAC 生成、转置、两个转换/加法电路、
+全部内部验证、打开及算术减法。原生 ABY3 为**半诚实 baseline**，调用正常注册的
+`B2ASelector`，完整 64 位输入走其 PPA 路线。
+
+双方均从 Boolean shares 开始，排除上下文初始化、外部输入准备/导入、输出导出、重构和明文核对。
+SPDZwise 转换内部的掩码 A2B 与认证成本均计入；导出不重复执行非空 ABFL 验证。
+
+| 协议 | 总耗时中位数（ms） | 范围（ms） | 验证外阶段（ms） | 验证（ms） | 三方总发送（B） | 峰值 RSS（MiB） |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| SPDZwise split-3 masked B2A | 250.632 | 232.225–260.404 | 61.325 | 192.303 | 296,500,854 | 447.7 |
+| 原生 ABY3 B2A | 136.924 | 123.232–166.031 | 136.924 | 0.000 | 36,800,000 | 119.1 |
+
+SPDZwise 阶段明细：
+
+| 阶段 | 耗时中位数（ms） | 三方总发送（B） |
+| --- | ---: | ---: |
+| 随机掩码及 MAC 生成 | 13.067 | 4,800,012 |
+| split-3 A2B、转置与 Boolean 加法 | 20.936 | 7,052,256 |
+| 算术检查与一次 ABFL 验证 | 192.303 | 275,048,394 |
+| 检查式打开与算术减法 | 31.739 | 9,600,192 |
+
+SPDZwise / ABY3 的完整耗时比为 **1.830×**，完整通信量比为 **8.057×**。
+验证是主要耗时。CSV 中的 `online_ms` 表示总耗时减去验证，包含随机材料生成，
+不能解释为不含预处理的在线成本。阶段中位数独立聚合，不能相加重建主指标；
+RSS 是承载三方的整个进程峰值，包含输入准备。结果仅代表本机内存通信及该批量。
+
+电路每个输入使用 188 个 AND（掩码 A2B 为 125，后续 RCA 为 63），共 126 个在线 AND 层；
+尾块补齐到 64 lanes 并验证，每方每轮记录 **18,806,016 个 AND bits**。
+包括预热在内，每种协议累计核对 **800,000 个输出**；六个回归目标共 **67 个用例通过**，
+覆盖窄位宽零扩展、非连续视图、MAC 关系、往返与后续算术计算，以及三方位置的 MAC/AND
+篡改、填充位篡改和打开消息不一致。算术或 ABFL 检查失败时不会发送 `b2a-open`。
+
+接口支持 1–64 位输入，窄输入零扩展；当前独立非空 B2A 至少需要 321 个元素，
+或利用会话中已有的真实 AND 记录满足 ABFL 的 1024 packed-word 检查阈值。生产 factory 仍未启用。
+
+[算法及输入契约](src/libspu/mpc/spdzwise/README.md#ring-split-3-masked-b2a)、
+[完整实验报告](src/libspu/mpc/spdzwise/benchmarks/b2a-split3-100k-2026-10-22/RESULTS.md)、
+[参数、原始数据与源码指纹](src/libspu/mpc/spdzwise/benchmarks/b2a-split3-100k-2026-10-22/)、
+[回归验证记录](src/libspu/mpc/spdzwise/benchmarks/b2a-split3-100k-2026-10-22/validation/)。
+复现：在 `src/libspu/mpc/spdzwise/benchmarks` 下执行
+`bash build.sh //:conversion_bench`，再执行
+`python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation b2a`。
 
 #### Signed RING Truncation Benchmark
 

@@ -18,6 +18,7 @@
 
 namespace spu::mpc::spdzwise::ring {
 class TruncationTestAccess;
+class ConversionTestAccess;
 
 // Wire words are exactly 16 bytes, little endian, independent of host layout.
 std::string Encode(const std::vector<Word>& words);
@@ -35,6 +36,7 @@ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
 
 class ArithmeticState {
   friend class TruncationTestAccess;
+  friend class ConversionTestAccess;
   std::shared_ptr<yacl::link::Context> link_;
   std::string session_;
   std::function<std::string(std::string_view)> tag_;
@@ -67,6 +69,8 @@ class ArithmeticState {
                   std::function<std::string(std::string_view)> tag);
   void validateInternal(const NdArrayRef& value) const;
   NdArrayRef importValue(const NdArrayRef& value);
+  // Fresh uniform extended-ring value with a MAC queued for checking.
+  NdArrayRef randomAuthenticated(const Shape& shape);
   NdArrayRef publicValue(const NdArrayRef& value) const;
   NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef negate(const NdArrayRef& x) const;

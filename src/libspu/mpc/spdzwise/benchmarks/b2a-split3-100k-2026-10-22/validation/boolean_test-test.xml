@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="16" failures="0" disabled="0" errors="0" time="6.288" timestamp="2026-10-22T08:22:06.692" name="AllTests">
+  <testsuite name="Abfl" tests="15" failures="0" disabled="0" skipped="0" errors="0" time="6.288" timestamp="2026-10-22T08:22:06.692">
+    <testcase name="BucketBoundaries" file="libspu/mpc/spdzwise/boolean_test.cc" line="236" status="run" result="completed" time="0." timestamp="2026-10-22T08:22:06.692" classname="Abfl" />
+    <testcase name="BatchedShuffleMatchesSerialFisherYates" file="libspu/mpc/spdzwise/boolean_test.cc" line="248" status="run" result="completed" time="0.06" timestamp="2026-10-22T08:22:06.693" classname="Abfl" />
+    <testcase name="ParallelGenerationPreservesSerialRandomStreams" file="libspu/mpc/spdzwise/boolean_test.cc" line="252" status="run" result="completed" time="0.041" timestamp="2026-10-22T08:22:06.753" classname="Abfl" />
+    <testcase name="DirectBufferOpeningChecksLastReplicaAndLengths" file="libspu/mpc/spdzwise/boolean_test.cc" line="262" status="run" result="completed" time="0.004" timestamp="2026-10-22T08:22:06.794" classname="Abfl" />
+    <testcase name="PackingAllWidthsAndOverflowOccupancies" file="libspu/mpc/spdzwise/boolean_test.cc" line="297" status="run" result="completed" time="0.264" timestamp="2026-10-22T08:22:06.799" classname="Abfl" />
+    <testcase name="AllBucketsAndWidthsEndToEnd" file="libspu/mpc/spdzwise/boolean_test.cc" line="309" status="run" result="completed" time="5.734" timestamp="2026-10-22T08:22:07.064" classname="Abfl" />
+    <testcase name="FullWidthStridedAndEmptyFastPath" file="libspu/mpc/spdzwise/boolean_test.cc" line="363" status="run" result="completed" time="0.007" timestamp="2026-10-22T08:22:12.798" classname="Abfl" />
+    <testcase name="MixedWidthsViewsAndDeferredBatch" file="libspu/mpc/spdzwise/boolean_test.cc" line="392" status="run" result="completed" time="0.002" timestamp="2026-10-22T08:22:12.806" classname="Abfl" />
+    <testcase name="EmptySmallAndNoOutputExecutions" file="libspu/mpc/spdzwise/boolean_test.cc" line="450" status="run" result="completed" time="0.026" timestamp="2026-10-22T08:22:12.809" classname="Abfl" />
+    <testcase name="SnapshotAndReuse" file="libspu/mpc/spdzwise/boolean_test.cc" line="474" status="run" result="completed" time="0.003" timestamp="2026-10-22T08:22:12.836" classname="Abfl" />
+    <testcase name="OnlineAndRandomFaultsAtEveryParty" file="libspu/mpc/spdzwise/boolean_test.cc" line="516" status="run" result="completed" time="0.015" timestamp="2026-10-22T08:22:12.839" classname="Abfl" />
+    <testcase name="DetectsFaultInLastPartialWord" file="libspu/mpc/spdzwise/boolean_test.cc" line="545" status="run" result="completed" time="0.001" timestamp="2026-10-22T08:22:12.855" classname="Abfl" />
+    <testcase name="DetectsCorruptionInZeroExtendedPadding" file="libspu/mpc/spdzwise/boolean_test.cc" line="561" status="run" result="completed" time="0.001" timestamp="2026-10-22T08:22:12.856" classname="Abfl" />
+    <testcase name="DetectsFaultInLastSacrificeTile" file="libspu/mpc/spdzwise/boolean_test.cc" line="577" status="run" result="completed" time="0.104" timestamp="2026-10-22T08:22:12.858" classname="Abfl" />
+    <testcase name="RejectsWireTampering" file="libspu/mpc/spdzwise/boolean_test.cc" line="639" status="run" result="completed" time="0.017" timestamp="2026-10-22T08:22:12.962" classname="Abfl" />
+  </testsuite>
+  <testsuite name="AbflIo" tests="1" failures="0" disabled="0" skipped="0" errors="0" time="0." timestamp="2026-10-22T08:22:12.980">
+    <testcase name="PackedAndBitInputsAndMetadata" file="libspu/mpc/spdzwise/boolean_test.cc" line="682" status="run" result="completed" time="0." timestamp="2026-10-22T08:22:12.980" classname="AbflIo" />
+  </testsuite>
+</testsuites>

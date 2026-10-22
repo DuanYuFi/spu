@@ -21,6 +21,27 @@ python3 run_conversion.py NEW_OUTPUT_DIRECTORY
 CSA + bit-sliced RCA、剪枝 Brent–Kung、word-packed Kogge–Stone 和原生 ABY3
 的实测数据。最终只保留总耗时最快的 RCA 实现及 ABY3 baseline。
 
+## RING split-3 masked B2A
+
+```sh
+bash build.sh //:conversion_bench
+python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation b2a
+```
+
+使用与上面相同的 100K、64-worker、一次预热及七轮测量口径。SPDZwise 计时包含
+认证随机掩码、split-3 A2B、Boolean RCA 加法、算术检查、一次 ABFL 检查、打开
+掩码结果和算术减法。ABFL 在打开前完成；输出导出不会再次验证同一批 AND。
+基线调用原生 ABY3 `B2ASelector`，全宽输入走其 PPA 路线。双方输入均为新鲜
+XOR RSS，ABY3 在计时外使用其原生 Boolean 类型；不把 A2B 输入转换计入 B2A。
+
+CSV 的 `online_ms` 表示总耗时减去验证，包含掩码生成；额外四组阶段字段分别记录
+material、circuit、check、open 的耗时和发送字节。算术认证与 ABFL 预处理均计入
+完整成本。默认仍运行 A2B。独立 B2A 至少需要 321 个元素，或者利用会话中已有
+的真实 AND 记录满足 1024 packed-word 的检查阈值。
+
+[100K B2A 实测报告](b2a-split3-100k-2026-10-22/RESULTS.md)归档全部输出核对、
+逐方原始样本、完整通信与资源数据、构建指纹及回归测试证据。
+
 ## Signed RING truncation
 
 `truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的

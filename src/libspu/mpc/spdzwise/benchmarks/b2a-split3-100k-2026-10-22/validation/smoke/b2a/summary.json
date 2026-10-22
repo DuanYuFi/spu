@@ -1,0 +1,175 @@
+{
+  "spdzwise": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 6.264479,
+        "online_ms": 2.711505,
+        "verify_ms": 3.552974,
+        "material_ms": 0.107548,
+        "circuit_ms": 2.45731,
+        "check_ms": 3.552974,
+        "open_ms": 0.121711,
+        "sent_bytes": 4217658,
+        "online_bytes": 224508,
+        "verify_bytes": 3993150,
+        "sent_actions": 660,
+        "material_bytes": 49212,
+        "circuit_bytes": 76704,
+        "check_bytes": 3993150,
+        "open_bytes": 98592
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 6.264479,
+        "min_ms": 6.264479,
+        "max_ms": 6.264479
+      },
+      "online_ms": {
+        "median_ms": 2.711505,
+        "min_ms": 2.711505,
+        "max_ms": 2.711505
+      },
+      "verify_ms": {
+        "median_ms": 3.552974,
+        "min_ms": 3.552974,
+        "max_ms": 3.552974
+      },
+      "material_ms": {
+        "median_ms": 0.107548,
+        "min_ms": 0.107548,
+        "max_ms": 0.107548
+      },
+      "circuit_ms": {
+        "median_ms": 2.45731,
+        "min_ms": 2.45731,
+        "max_ms": 2.45731
+      },
+      "check_ms": {
+        "median_ms": 3.552974,
+        "min_ms": 3.552974,
+        "max_ms": 3.552974
+      },
+      "open_ms": {
+        "median_ms": 0.121711,
+        "min_ms": 0.121711,
+        "max_ms": 0.121711
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        4217658
+      ],
+      "online_bytes": [
+        224508
+      ],
+      "verify_bytes": [
+        3993150
+      ],
+      "sent_actions": [
+        660
+      ],
+      "material_bytes": [
+        49212
+      ],
+      "circuit_bytes": [
+        76704
+      ],
+      "check_bytes": [
+        3993150
+      ],
+      "open_bytes": [
+        98592
+      ]
+    },
+    "recorded_and_bits_per_party": [
+      204544
+    ],
+    "outputs_verified": 2050,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/conversion_bench",
+        "spdzwise",
+        "1025",
+        "1",
+        "--operation",
+        "b2a"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.03438485797960311,
+      "user_seconds": 0.031325,
+      "system_seconds": 0.04029,
+      "max_rss_kib": 30848
+    },
+    "vs_aby3": {
+      "total_time_ratio": 4.552193991185522,
+      "online_time_ratio": 1.97036286147172,
+      "traffic_ratio": 11.181489925768823
+    }
+  },
+  "aby3": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 1.376145,
+        "online_ms": 1.375953,
+        "verify_ms": 0.0,
+        "sent_bytes": 377200,
+        "online_bytes": 377200,
+        "verify_bytes": 0,
+        "sent_actions": 28
+      }
+    ],
+    "phases": {
+      "total_ms": {
+        "median_ms": 1.376145,
+        "min_ms": 1.376145,
+        "max_ms": 1.376145
+      },
+      "online_ms": {
+        "median_ms": 1.375953,
+        "min_ms": 1.375953,
+        "max_ms": 1.375953
+      },
+      "verify_ms": {
+        "median_ms": 0.0,
+        "min_ms": 0.0,
+        "max_ms": 0.0
+      }
+    },
+    "three_party_traffic": {
+      "sent_bytes": [
+        377200
+      ],
+      "online_bytes": [
+        377200
+      ],
+      "verify_bytes": [
+        0
+      ],
+      "sent_actions": [
+        28
+      ]
+    },
+    "recorded_and_bits_per_party": [
+      0
+    ],
+    "outputs_verified": 2050,
+    "resources": {
+      "command": [
+        "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/conversion_bench",
+        "aby3",
+        "1025",
+        "1",
+        "--operation",
+        "b2a"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.016004019998945296,
+      "user_seconds": 0.016742,
+      "system_seconds": 0.005581,
+      "max_rss_kib": 30848
+    }
+  }
+}

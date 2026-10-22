@@ -321,6 +321,23 @@ NdArrayRef ArithmeticState::importValue(const NdArrayRef& value) {
   return out;
 }
 
+NdArrayRef ArithmeticState::randomAuthenticated(const Shape& shape) {
+  NdArrayRef out(makeType<AShrTy>(session_), shape);
+  if (!out.numel()) return out;
+  // Fresh draws share the multiplication-mask stream, never the key or
+  // checking-coefficient stream. Low 64 bits are uniform in the application
+  // ring; retain all 128 bits for the authenticated representative.
+  const auto values = Random(mask_prg_.get(), out.numel());
+  const auto macs =
+      multiplyRaw(values, std::vector<RepShare>(values.size(), key_));
+  pforeach(0, out.numel(), [&](int64_t i) {
+    out.data<AuthShare>()[i] = {values[i][0], values[i][1], macs[i][0],
+                                macs[i][1]};
+  });
+  remember(out);
+  return out;
+}
+
 bool ArithmeticState::check() {
   const auto context = tag_("ring-check");
   const auto count = std::to_string(pending_.size());

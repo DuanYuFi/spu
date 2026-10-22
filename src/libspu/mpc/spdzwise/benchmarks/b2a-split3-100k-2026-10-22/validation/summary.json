@@ -1,0 +1,32 @@
+{
+  "ring_conversion_test": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0
+  },
+  "protocol_test": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0
+  },
+  "boolean_test": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0
+  },
+  "ring_test": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0
+  },
+  "ring_truncation_test": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0
+  },
+  "protocol_session_test": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0
+  }
+}

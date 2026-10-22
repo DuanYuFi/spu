@@ -245,13 +245,15 @@ void BooleanState::checkCopies(const std::vector<RepShare>& shares) {
   }
   requireAll(valid, "Boolean replicated copies disagree");
 }
-std::vector<uint64_t> BooleanState::open(absl::Span<const RepShare> shares) {
+std::vector<uint64_t> BooleanState::open(absl::Span<const RepShare> shares,
+                                         std::string_view operation) {
   std::vector<uint64_t> result(shares.size());
-  open(shares, absl::MakeSpan(result));
+  open(shares, absl::MakeSpan(result), operation);
   return result;
 }
 void BooleanState::open(absl::Span<const RepShare> shares,
-                        absl::Span<uint64_t> result) {
+                        absl::Span<uint64_t> result,
+                        std::string_view operation) {
   SPU_ENFORCE(result.size() == shares.size(), "Boolean opening shape mismatch");
   SPU_ENFORCE(shares.size() <= std::numeric_limits<size_t>::max() / 16,
               "Boolean opening length overflow");
@@ -272,7 +274,7 @@ void BooleanState::open(absl::Span<const RepShare> shares,
   const auto encoded = Encode(words);
   const auto bytes = std::string_view(encoded);
 #endif
-  const auto buffers = gather(bytes, "boolean-open", true);
+  const auto buffers = gather(bytes, operation, true);
   std::array<const char*, 3> data;
   for (size_t rank = 0; rank < 3; ++rank) {
     if (rank == link_->Rank()) {

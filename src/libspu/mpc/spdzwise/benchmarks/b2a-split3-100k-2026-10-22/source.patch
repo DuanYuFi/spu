@@ -1,0 +1,1271 @@
+diff --git a/src/libspu/mpc/spdzwise/README.md b/src/libspu/mpc/spdzwise/README.md
+index a47b5e18..5cb28c08 100644
+--- a/src/libspu/mpc/spdzwise/README.md
++++ b/src/libspu/mpc/spdzwise/README.md
+@@ -39,7 +39,8 @@ preserve the domain, which is also included in execution agreement.
+   private bit inputs, public challenges, bitness checks and scratch storage.
+ - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
+   registers no conversions. FIELD truncation and comparisons remain future work.
+-  `ring_conversion.h/.cc` implements value-only split-3 RING A2B.
++  `ring_conversion.h/.cc` implements value-only split-3 RING A2B and
++  authenticated-mask B2A.
+   `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
+   through `TruncASelector`.
+ - `state.h/.cc`: checked session lifecycle, field authentication and checks;
+@@ -102,7 +103,7 @@ as a runtime dependency.
+ | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
+ | FIELD A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
+ | RING A2B | `SpdzWiseRingShare::split`, `Rep3Share2::split(case 3)` | Value-only local split-3, bit-sliced CSA + RCA, existing ABFL final verification |
+-| B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
++| RING B2A | `Compiler/types.py::_secret.bit_compose` splitting branch | Authenticated random mask, split-3 A2B, RCA, checks before Boolean opening; FIELD and daBit paths outstanding |
+ | FIELD truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
+ | RING probabilistic truncation | `floatingpoint.py::TruncPrRing`, signed, k=63 | Authenticated random masks, low-64-bit opening and signed offset correction |
+ 
+@@ -148,8 +149,9 @@ prototype registration. The implementation provides input authentication,
+ matrix multiplication. Matrices accumulate each dot product locally before
+ exchanging two 128-bit words per output cell. A fixed status exchange also
+ rejects malformed wire lengths; payload does not grow with the inner dimension.
+-RING `a2b` converts the application value to 64-bit Boolean RSS. B2A, exact
+-truncation, comparison and PPML integration remain unimplemented. Signed
++RING `a2b` converts the application value to 64-bit Boolean RSS; `b2a` converts
++1–64 Boolean bits to an authenticated arithmetic value. Exact truncation,
++comparison and PPML integration remain unimplemented. Signed
+ probabilistic truncation is described below.
+ 
+ Client input words are zero-extended from 64 to 128 bits, then shared in
+@@ -491,6 +493,76 @@ in the session. No artificial ANDs or new verifier parameters are introduced.
+ The security assumptions and outstanding ABFL composition review described
+ above are unchanged by this conversion implementation.
+ 
++## RING split-3 masked B2A
++
++The RING prototype registers `b2a` for `BShrTy(session, nbits)`, with
++`1 <= nbits <= 64`. The result is `ring::AShrTy(session)`, preserving shape
++and dtype. Narrow words are **zero-extended**, independent of dtype; this is
++not a signed narrow-integer conversion. FIELD B2A and daBits are not provided.
++
++Reference: MP-SPDZ commit `113c4e47dd94bca9ecab029d2f0abe649bea5c52`,
++`Compiler/types.py::_secret.bit_compose` ring
++splitting branch and `Protocols/SpdzWise.hpp` random-value authentication,
++used by `Machines/sy-rep-ring-party.cpp`. We retain its full-word masking
++construction, with the existing ABFL backend and RCA selected for A2B:
++
++```
++r_A = fresh authenticated random extended-ring element
++r_B = split3_a2b(r_A)                 # low 64 value bits
++masked_B = x_B + r_B mod 2^64
++check pending arithmetic records
++check all pending Boolean ANDs once  # includes r_B and masked_B circuits
++c = checked_open(masked_B)
++x_A = public_authenticated(c) - r_A
++```
++
++Fresh PRSS draws produce uniform 128-bit replicated components; secret
++multiplication by the MAC key authenticates the mask and saves immutable
++records. Value draws and multiplication masks consume disjoint portions of
++the existing mask stream; keys and checking coefficients use separate streams.
++The low 64 bits of the mask are uniform even when the input is narrow. The
++output retains the extended-ring representative `c-r`, with MAC
++`alpha*c - mac_r`; only its low 64 bits are the application value.
++
++The mask's A2B result stays bit-sliced until after the second addition. A2B
++costs 125 ANDs per input, and the full-word RCA costs 63, for
++`188 * ceil(numel/64)` packed AND words. Tail lanes participate in verification.
++There are 126 online AND layers before the combined check. No short-width
++carry correction or single-bit daBit optimization is used.
++
++Both arithmetic verification and ABFL verification finish **before** any
++`b2a-open` payload is sent. Opening reuses replicated-copy checks and agreement
++on ordered message views. Failed checks abort the session and prevent export.
++Successful B2A flushes existing pending checks, then returns an internal value
++that can feed further arithmetic or conversions. Later finalization does not
++repeat a nonempty ABFL check unless new ANDs were executed. A2B's deferred
++checking behavior remains unchanged.
++
++Empty inputs consume no randomness, send no messages and trigger no checks.
++For nonempty inputs the existing ABFL minimum of 1024 packed AND words still
++applies **at this opening checkpoint**. With an otherwise empty Boolean queue,
++321 elements (six SIMD blocks) suffice; 320 or fewer do not. A smaller call
++can use real AND work already pending in the same session. Insufficient
++batches abort before opening; no virtual gates or verifier changes are added.
++
++Run the comparable 100K full-word benchmark with:
++
++```sh
++bash build.sh //:conversion_bench
++python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation b2a
++```
++
++From the benchmark directory, this measures fresh mask/MAC generation,
++transposes, both circuits, arithmetic and ABFL checks, opening and subtraction.
++The native ABY3 selector supplies the semi-honest baseline. External input
++preparation/import, context setup, export and plaintext comparisons are outside
++timing. `online_ms` in the shared CSV means total minus verification, including
++material generation. Four additional phase columns separate material, circuit,
++check and opening/linear output; their medians must not be added. The default
++operation remains A2B. See the [100K B2A report](benchmarks/b2a-split3-100k-2026-10-22/RESULTS.md).
++The existing protocol assumptions and outstanding whole-execution ABFL review
++remain applicable; these tests are not an independent security proof.
++
+ ## Numerical contract
+ 
+ Public and Boolean words retain SPU's 64-bit two's-complement representation.
+@@ -563,12 +635,14 @@ Validation record for this change is maintained in `VALIDATION.md`.
+ 
+ Remaining acceptance gates, in order:
+ 
+-1. The three native prototype test targets pass (23 cases, including MAC
+-   corruption at all three server positions); see `VALIDATION.md`. Next test
++1. The six RING/Boolean/conversion/session regression targets pass (67 cases,
++   including faults at all three server positions); see `VALIDATION.md`. Next test
+    real device execution and additional fault paths. Review input/key/check composition and
+    derive the bound rather than inferring it from finite fault tests.
+-2. Review the ABFL prototype and implement malicious daBits; prove/check the combined opening
+-   schedule before enabling A2B/B2A, precise truncation and F4 comparisons.
++2. Review the ABFL prototype and the combined opening schedule before enabling
++   mixed-domain execution in the production factory. Malicious daBits for
++   dedicated bit conversion, FIELD conversions, precise truncation and F4
++   comparisons remain future work.
+ 3. Add the specified LR/tree/CNN fixtures, pinned data splits and weights,
+    actual secure executions, interval/range records and float/quantized
+    numerical acceptance. Plaintext oracle tests do not satisfy this gate.
+@@ -581,6 +655,6 @@ Remaining acceptance gates, in order:
+ Benchmark sources, build targets, parameters and measurement archives are in
+ [`benchmarks`](benchmarks/).
+ The retained workloads cover the two-input F61 circuit, native ABY3 ring64
+-arithmetic and a recorded native ABY3 Boolean AND measurement.
++arithmetic, Boolean AND, and RING split-3 A2B/masked B2A comparisons.
+ For the project progress and complete test/build commands, see
+ [`readme-malicious-ppml.md`](../../../../readme-malicious-ppml.md).
+diff --git a/src/libspu/mpc/spdzwise/VALIDATION.md b/src/libspu/mpc/spdzwise/VALIDATION.md
+index ac55d841..e5eab8e5 100644
+--- a/src/libspu/mpc/spdzwise/VALIDATION.md
++++ b/src/libspu/mpc/spdzwise/VALIDATION.md
+@@ -264,3 +264,28 @@ Results are summarized in the project
+ 
+ The production factory continues to reject `SPDZWISE`. Correctness and local
+ performance validation do not establish complete malicious-security acceptance.
++
++## RING masked B2A
++
++`ring_conversion_test` additionally covers 1/5/8/16/32/63/64-bit Boolean
++inputs, zero extension, full-width carries, multidimensional strided inputs,
++empty and small accumulated calls, the 320/321-element standalone threshold,
++A2B/B2A round trips, Boolean and arithmetic consumers, and fresh masks across
++repeated conversions. It reconstructs the extended-ring value and MAC in the
++test harness and checks `mac = alpha * value`, including high limbs.
++
++For each party position, fault tests corrupt mask MAC records (one copy and
++both copies), AND results (one copy and both copies, including a padding lane), and the share
++encoded in the masked opening payload. A test-only channel decorator also
++corrupts an actual `b2a-open` wire payload to just one recipient and checks
++that ordered-view agreement rejects the equivocation. An observer on the existing message-tag
++callback asserts that arithmetic/ABFL failures never reach `b2a-open`; corrupt
++opening copies must be rejected before any output. Consistent two-copy
++injections test the algebraic checker separately from copy checking; they do
++not model two corrupt parties under the one-corruption threat model.
++
++The 100K benchmark compares the registered B2A kernels, verifies every output
++for one warmup and seven measured runs, asserts one arithmetic mask check and
++one ABFL check, and records all 188 ANDs per padded input lane. Raw logs,
++parameters, hashes and validation artifacts are archived in
++`benchmarks/b2a-split3-100k-2026-10-22/`.
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/README.md b/src/libspu/mpc/spdzwise/benchmarks/README.md
+index e3a35f0a..d700649b 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/README.md
++++ b/src/libspu/mpc/spdzwise/benchmarks/README.md
+@@ -21,6 +21,27 @@ python3 run_conversion.py NEW_OUTPUT_DIRECTORY
+ CSA + bit-sliced RCA、剪枝 Brent–Kung、word-packed Kogge–Stone 和原生 ABY3
+ 的实测数据。最终只保留总耗时最快的 RCA 实现及 ABY3 baseline。
+ 
++## RING split-3 masked B2A
++
++```sh
++bash build.sh //:conversion_bench
++python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation b2a
++```
++
++使用与上面相同的 100K、64-worker、一次预热及七轮测量口径。SPDZwise 计时包含
++认证随机掩码、split-3 A2B、Boolean RCA 加法、算术检查、一次 ABFL 检查、打开
++掩码结果和算术减法。ABFL 在打开前完成；输出导出不会再次验证同一批 AND。
++基线调用原生 ABY3 `B2ASelector`，全宽输入走其 PPA 路线。双方输入均为新鲜
++XOR RSS，ABY3 在计时外使用其原生 Boolean 类型；不把 A2B 输入转换计入 B2A。
++
++CSV 的 `online_ms` 表示总耗时减去验证，包含掩码生成；额外四组阶段字段分别记录
++material、circuit、check、open 的耗时和发送字节。算术认证与 ABFL 预处理均计入
++完整成本。默认仍运行 A2B。独立 B2A 至少需要 321 个元素，或者利用会话中已有
++的真实 AND 记录满足 1024 packed-word 的检查阈值。
++
++[100K B2A 实测报告](b2a-split3-100k-2026-10-22/RESULTS.md)归档全部输出核对、
++逐方原始样本、完整通信与资源数据、构建指纹及回归测试证据。
++
+ ## Signed RING truncation
+ 
+ `truncation_bench` 比较 SPDZwise RING 的 MP-SPDZ 有符号概率截断与正常注册的
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc b/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
+index f5846be7..9458a7ae 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
++++ b/src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
+@@ -12,6 +12,7 @@
+ #include "libspu/mpc/aby3/conversion.h"
+ #include "libspu/mpc/aby3/io.h"
+ #include "libspu/mpc/aby3/protocol.h"
++#include "libspu/mpc/aby3/type.h"
+ #include "libspu/mpc/api.h"
+ #include "libspu/mpc/spdzwise/io.h"
+ #include "libspu/mpc/spdzwise/protocol.h"
+@@ -20,6 +21,12 @@
+ #include "libspu/mpc/utils/simulate.h"
+ 
+ namespace spu::mpc::spdzwise {
++class SpdzWiseBenchmarkAccess {
++ public:
++  static auto times(const SpdzWiseState* s) { return s->b2a_ms_; }
++  static auto bytes(const SpdzWiseState* s) { return s->b2a_bytes_; }
++  static size_t gates(const SpdzWiseState* s) { return s->b2a_and_bits_; }
++};
+ namespace {
+ using Clock = std::chrono::steady_clock;
+ double Ms(Clock::time_point start, Clock::time_point end = Clock::now()) {
+@@ -63,9 +70,14 @@ struct Result {
+   double total_ms = 0, online_ms = 0, verify_ms = 0;
+   size_t bytes = 0, actions = 0, online_bytes = 0, verify_bytes = 0,
+          input_checks = 0, final_checks = 0, and_bits = 0;
++  std::array<double, 4> phase_ms{};
++  std::array<size_t, 4> phase_bytes{};
++  size_t arithmetic_checks = 0;
+   NdArrayRef output;
+ };
+-void Run(const std::string& protocol, int64_t count, int repetitions) {
++void Run(const std::string& protocol, int64_t count, int repetitions,
++         const std::string& operation) {
++  const bool to_arithmetic = operation == "b2a";
+   const bool wise = protocol != "aby3";
+   const auto plain = Inputs(count);
+   SpdzWiseIo wise_io(FM64, 3, SpdzWiseConfig::RING);
+@@ -73,10 +85,20 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
+   RuntimeConfig config(wise ? SPDZWISE : ABY3, FM64);
+   config.spdzwise_config.domain = SpdzWiseConfig::RING;
+   std::cout << std::fixed << std::setprecision(6)
+-      << "protocol,count,iteration,rank,total_ms,online_ms,verify_ms,sent_bytes,online_bytes,verify_bytes,sent_actions,input_checks,final_checks,and_bits,outputs_verified\n";
++            << "protocol,count,iteration,rank,total_ms,online_ms,verify_ms,"
++               "sent_bytes,online_bytes,verify_bytes,sent_actions,input_checks,"
++               "final_checks,and_bits,outputs_verified,operation,arithmetic_"
++               "checks,material_ms,circuit_ms,check_ms,open_ms,material_bytes,"
++               "circuit_bytes,check_bytes,open_bytes\n";
+   for (int iteration = 0; iteration <= repetitions; ++iteration) {
+-    const auto inputs = wise ? wise_io.toShares(plain, VIS_SECRET)
+-                            : aby_io->toShares(plain, VIS_SECRET, -1);
++    auto inputs = to_arithmetic ? wise_io.toBooleanShares(plain, 64)
++                  : wise        ? wise_io.toShares(plain, VIS_SECRET)
++                                : aby_io->toShares(plain, VIS_SECRET, -1);
++    // Both protocols use the same XOR RSS layout/distribution. Adapt only the
++    // external metadata to native ABY3 before timing, as in binary_bench.
++    if (to_arithmetic && !wise)
++      for (auto& input : inputs)
++        input = input.as(makeType<aby3::BShrTy>(PT_U64, 64));
+     Barrier barrier;
+     const auto results = utils::simulate(3, [&](const auto& link) {
+       std::unique_ptr<SPUContext> ctx = wise ? std::make_unique<SPUContext>(config, link)
+@@ -87,44 +109,67 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
+       Value x(inputs[link->Rank()], DT_U64);
+       Result r;
+       if (wise) {
+-        SPU_ENFORCE(dynamic_cast<ring::A2B*>(ctx->prot()->getKernel("a2b")));
+-        state->begin(ExecutableProto("a2b-bench", {"x"}, {"y"}, "test"), {x});
++        if (to_arithmetic)
++          SPU_ENFORCE(dynamic_cast<ring::B2A*>(ctx->prot()->getKernel("b2a")));
++        else
++          SPU_ENFORCE(dynamic_cast<ring::A2B*>(ctx->prot()->getKernel("a2b")));
++        state->begin(
++            ExecutableProto(operation + "-bench", {"x"}, {"y"}, "test"), {x});
+         x = import_s(ctx.get(), x);
+         r.input_checks = state->arithmeticChecks();
+-        SPU_ENFORCE(r.input_checks == 1);
++        SPU_ENFORCE(r.input_checks == size_t(!to_arithmetic));
+       } else {
+-        SPU_ENFORCE(dynamic_cast<aby3::A2B*>(ctx->prot()->getKernel("a2b")));
++        if (to_arithmetic)
++          SPU_ENFORCE(
++              dynamic_cast<aby3::B2ASelector*>(ctx->prot()->getKernel("b2a")));
++        else
++          SPU_ENFORCE(dynamic_cast<aby3::A2B*>(ctx->prot()->getKernel("a2b")));
+       }
+       const auto stats = link->GetStats();
+       barrier.wait();
+       const auto bytes = stats->sent_bytes.load();
+       const auto actions = stats->sent_actions.load();
+       const auto start = Clock::now();
+-      auto y = a2b(ctx.get(), x);
++      auto y = to_arithmetic ? b2a(ctx.get(), x) : a2b(ctx.get(), x);
+       const auto online_stop = Clock::now();
+       const auto online_bytes = stats->sent_bytes.load();
+-      if (wise) {
++      if (wise && !to_arithmetic) {
+         r.and_bits = state->pendingBooleanBits();
+         state->finalize();
+       }
+       const auto stop = Clock::now();
+       r.total_ms = Ms(start, stop);
+       r.online_ms = Ms(start, online_stop);
+-      r.verify_ms = wise ? Ms(online_stop, stop) : 0;
++      r.verify_ms = wise && !to_arithmetic ? Ms(online_stop, stop) : 0;
+       r.bytes = stats->sent_bytes.load() - bytes;
+       r.online_bytes = online_bytes - bytes;
+       r.verify_bytes = r.bytes - r.online_bytes;
+       r.actions = stats->sent_actions.load() - actions;
++      if (wise && to_arithmetic) {
++        r.phase_ms = SpdzWiseBenchmarkAccess::times(state);
++        r.phase_bytes = SpdzWiseBenchmarkAccess::bytes(state);
++        r.and_bits = SpdzWiseBenchmarkAccess::gates(state);
++        SPU_ENFORCE(r.and_bits == 188 * ((size_t(count) + 63) / 64) * 64);
++        r.verify_ms = r.phase_ms[2];
++        r.online_ms = r.total_ms - r.verify_ms;
++        r.verify_bytes = r.phase_bytes[2];
++        r.online_bytes = r.bytes - r.verify_bytes;
++      }
+       if (!wise) y.setDtype(x.dtype());  // Native low-level kernels erase dtype.
+       SPU_ENFORCE(y.shape() == x.shape() && y.dtype() == x.dtype() &&
+-                  y.storage_type().as<BShare>()->nbits() == 64);
++                  (to_arithmetic
++                       ? y.storage_type().isa<AShare>()
++                       : y.storage_type().as<BShare>()->nbits() == 64));
+       if (wise) {
+         r.final_checks = state->booleanChecks();
+         SPU_ENFORCE(r.final_checks == 1 && state->pendingBooleanBits() == 0);
+-        SPU_ENFORCE(state->arithmeticChecks() == r.input_checks);
++        r.arithmetic_checks = state->arithmeticChecks();
++        SPU_ENFORCE(r.arithmetic_checks ==
++                    r.input_checks + size_t(to_arithmetic));
+         state->prepareOutputs(ctx.get(), {"y"}, {y});
+         guard.commit();
+-        SPU_ENFORCE(state->booleanChecks() == 1 && state->arithmeticChecks() == r.input_checks);
++        SPU_ENFORCE(state->booleanChecks() == 1 &&
++                    state->arithmeticChecks() == r.arithmetic_checks);
+         r.output = state->exportedValue("y").data();
+       } else {
+         r.output = y.data();
+@@ -137,16 +182,22 @@ void Run(const std::string& protocol, int64_t count, int repetitions) {
+     const auto actual = wise ? wise_io.fromShares(output) : aby_io->fromShares(output);
+     for (int64_t i = 0; i < count; ++i) {
+       SPU_ENFORCE(actual.data<uint64_t>()[i] == plain.data<uint64_t>()[i],
+-                  "A2B output mismatch: iteration {}, element {}", iteration, i);
++                  "{} output mismatch: iteration {}, element {}", operation,
++                  iteration, i);
+       for (size_t rank = 0; rank < 3; ++rank)
+         SPU_ENFORCE(output[rank].data<RepShare>()[i][1] == output[(rank + 1) % 3].data<RepShare>()[i][0]);
+     }
+     for (size_t rank = 0; rank < 3; ++rank) {
+       const auto& r = results[rank];
+-      std::cout << protocol << ',' << count << ',' << iteration << ',' << rank << ','
+-          << r.total_ms << ',' << r.online_ms << ',' << r.verify_ms << ',' << r.bytes << ','
+-          << r.online_bytes << ',' << r.verify_bytes << ',' << r.actions << ','
+-          << r.input_checks << ',' << r.final_checks << ',' << r.and_bits << ',' << count << '\n';
++      std::cout << protocol << ',' << count << ',' << iteration << ',' << rank
++                << ',' << r.total_ms << ',' << r.online_ms << ',' << r.verify_ms
++                << ',' << r.bytes << ',' << r.online_bytes << ','
++                << r.verify_bytes << ',' << r.actions << ',' << r.input_checks
++                << ',' << r.final_checks << ',' << r.and_bits << ',' << count
++                << ',' << operation << ',' << r.arithmetic_checks;
++      for (auto t : r.phase_ms) std::cout << ',' << t;
++      for (auto b : r.phase_bytes) std::cout << ',' << b;
++      std::cout << '\n';
+     }
+     std::cout.flush();
+     std::cerr << protocol << " iteration " << iteration << ": verified all " << count << " outputs\n";
+@@ -160,8 +211,11 @@ int main(int argc, char** argv) {
+     SPU_ENFORCE(protocol == "spdzwise" || protocol == "aby3");
+     const auto count = argc > 2 ? std::stoll(argv[2]) : 100000;
+     const auto repetitions = argc > 3 ? std::stoi(argv[3]) : 7;
+-    SPU_ENFORCE(count > 0 && repetitions > 0 && argc <= 4);
+-    spu::mpc::spdzwise::Run(protocol, count, repetitions);
++    SPU_ENFORCE(count > 0 && repetitions > 0 && (argc <= 4 || argc == 6));
++    const std::string operation = argc == 6 ? argv[5] : "a2b";
++    SPU_ENFORCE(argc != 6 || std::string(argv[4]) == "--operation");
++    SPU_ENFORCE(operation == "a2b" || operation == "b2a");
++    spu::mpc::spdzwise::Run(protocol, count, repetitions, operation);
+   } catch (const std::exception& e) {
+     std::cerr << e.what() << '\n';
+     return 1;
+diff --git a/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py b/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
+index 8df02980..9315e63f 100644
+--- a/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
++++ b/src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
+@@ -1,4 +1,4 @@
+-"""Archive RING split-3 A2B and native ABY3 conversion measurements.
++"""Archive RING split-3 A2B/B2A and native ABY3 conversion measurements.
+ 
+ Build: bash build.sh //:conversion_bench
+ Run: python3 run_conversion.py NEW_OUTPUT_DIRECTORY
+@@ -29,7 +29,8 @@ def save(path, data):
+     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+ 
+ 
+-def summarize(rows, count, repetitions, wise):
++def summarize(rows, count, repetitions, wise, operation):
++    phase_keys = ("material", "circuit", "check", "open") if wise and operation == "b2a" else ()
+     assert len(rows) == 3 * (repetitions + 1)
+     samples = []
+     for iteration in range(repetitions + 1):
+@@ -37,7 +38,14 @@ def summarize(rows, count, repetitions, wise):
+         assert len(batch) == 3 and {int(r["rank"]) for r in batch} == {0, 1, 2}
+         for r in batch:
+             assert int(r["count"]) == int(r["outputs_verified"]) == count
+-            assert int(r["input_checks"]) == int(r["final_checks"]) == int(wise)
++            assert r["operation"] == operation
++            assert int(r["input_checks"]) == int(wise and operation == "a2b")
++            assert int(r["final_checks"]) == int(wise)
++            assert int(r["arithmetic_checks"]) == int(wise)
++            if phase_keys:
++                assert int(r["and_bits"]) == 188 * ((count + 63) // 64) * 64
++                assert sum(int(r[k + "_bytes"]) for k in phase_keys) == int(r["sent_bytes"])
++                assert abs(float(r["check_ms"]) - float(r["verify_ms"])) < 1e-4
+             assert int(r["sent_bytes"]) == int(r["online_bytes"]) + int(r["verify_bytes"])
+             if wise:
+                 assert abs(float(r["total_ms"]) - float(r["online_ms"]) - float(r["verify_ms"])) < 1e-4
+@@ -47,15 +55,15 @@ def summarize(rows, count, repetitions, wise):
+         if iteration:
+             samples.append({
+                 "iteration": iteration,
+-                **{key: max(float(r[key]) for r in batch) for key in ("total_ms", "online_ms", "verify_ms")},
+-                **{key: sum(int(r[key]) for r in batch) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions")},
++                **{key: max(float(r[key]) for r in batch) for key in ("total_ms", "online_ms", "verify_ms") + tuple(k + "_ms" for k in phase_keys)},
++                **{key: sum(int(r[key]) for r in batch) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions") + tuple(k + "_bytes" for k in phase_keys)},
+             })
+     return {
+         "samples": samples,
+         "phases": {key: {"median_ms": statistics.median(s[key] for s in samples),
+                           "min_ms": min(s[key] for s in samples),
+-                          "max_ms": max(s[key] for s in samples)} for key in ("total_ms", "online_ms", "verify_ms")},
+-        "three_party_traffic": {key: sorted({s[key] for s in samples}) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions")},
++                          "max_ms": max(s[key] for s in samples)} for key in ("total_ms", "online_ms", "verify_ms") + tuple(k + "_ms" for k in phase_keys)},
++        "three_party_traffic": {key: sorted({s[key] for s in samples}) for key in ("sent_bytes", "online_bytes", "verify_bytes", "sent_actions") + tuple(k + "_bytes" for k in phase_keys)},
+         "recorded_and_bits_per_party": sorted({int(r["and_bits"]) for r in rows}),
+         "outputs_verified": count * (repetitions + 1),
+     }
+@@ -67,6 +75,7 @@ def main():
+     parser.add_argument("--count", type=int, default=100000)
+     parser.add_argument("--repetitions", type=int, default=7)
+     parser.add_argument("--protocols", nargs="+", choices=["spdzwise", "aby3"], default=["spdzwise", "aby3"])
++    parser.add_argument("--operation", choices=["a2b", "b2a"], default="a2b")
+     args = parser.parse_args()
+     assert args.count > 0 and args.repetitions > 0
+     out = args.output.resolve()
+@@ -78,10 +87,10 @@ def main():
+     sources += [ROOT / "src" / n for n in (".bazelrc", "MODULE.bazel", "MODULE.bazel.lock", "libspu/mpc/aby3/conversion.cc", "libspu/mpc/aby3/conversion.h", "libspu/mpc/aby3/boolean.cc", "libspu/mpc/aby3/protocol.cc", "libspu/mpc/common/prg_state.cc", "libspu/core/parallel_utils.h")]
+     parameters = {
+         "started_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+-        "count": args.count, "repetitions": args.repetitions, "warmups": 1,
++        "operation": args.operation, "count": args.count, "repetitions": args.repetitions, "warmups": 1,
+         "protocols": args.protocols, "YACL_NUM_THREADS": 65, "background_workers": 64,
+         "transport": "FactoryMem, three parties in one process; protocols run serially",
+-        "timing": "A2B plus one final ABFL verification; native ABY3 A2B only. Exclude input sharing/authentication, context/PRSS setup, export/reconstruction/comparison.",
++        "timing": ("B2A includes fresh random mask/MAC generation, split-3 A2B, Boolean addition, arithmetic and one ABFL check before opening, opening and linear output; native ABY3 B2A only. Exclude external input preparation/import, context/PRSS setup, export/reconstruction/comparison." if args.operation == "b2a" else "A2B plus one final ABFL verification; native ABY3 A2B only. Exclude input sharing/authentication, context/PRSS setup, export/reconstruction/comparison."),
+         "aggregation": "maximum whole interval across parties per iteration, then median/min/max; phase medians must not be summed",
+         "input": "full-width uint64 SplitMix64 seed 0x53504c4954334132 with fixed edge prefix; identical plaintext across protocols; fresh protocol-native shares and context each iteration",
+         "security": "SPDZwise uses existing ABFL checks; ABY3 is the native semi-honest baseline",
+@@ -96,7 +105,7 @@ def main():
+     (out / "git-status.txt").write_text(subprocess.check_output(["git", "status", "--short"], cwd=ROOT, text=True))
+     results = {}
+     for protocol in args.protocols:
+-        command = [str(binary), protocol, str(args.count), str(args.repetitions)]
++        command = [str(binary), protocol, str(args.count), str(args.repetitions), "--operation", args.operation]
+         start = time.monotonic()
+         with (out / (protocol + ".stdout")).open("w") as stdout, (out / (protocol + ".log")).open("w") as stderr:
+             process = subprocess.Popen(command, stdout=stdout, stderr=stderr, env=dict(os.environ, YACL_NUM_THREADS="65"))
+@@ -113,7 +122,7 @@ def main():
+         assert pools <= {64} and (args.count < 32768 or pools == {64}), pools
+         lines = [s for s in stdout_text.splitlines(True) if s.startswith(("protocol,", protocol + ","))]
+         (out / (protocol + ".csv")).write_text("".join(lines))
+-        results[protocol] = summarize(list(csv.DictReader(lines)), args.count, args.repetitions, protocol != "aby3")
++        results[protocol] = summarize(list(csv.DictReader(lines)), args.count, args.repetitions, protocol != "aby3", args.operation)
+         results[protocol]["resources"] = resources
+         print(protocol, results[protocol]["phases"], flush=True)
+     if "aby3" in results:
+@@ -132,21 +141,31 @@ def main():
+         p = r["phases"]
+         t = p["total_ms"]
+         table.append(f"| {name} | {t['median_ms']:.3f} | {t['min_ms']:.3f}–{t['max_ms']:.3f} | {p['online_ms']['median_ms']:.3f} | {p['verify_ms']['median_ms']:.3f} | {r['three_party_traffic']['sent_bytes'][0]:,} | {r['resources']['max_rss_kib']/1024:.1f} |")
+-    report = f"""# RING split-3 A2B versus native ABY3
++    b2a_note = ("For B2A, verification runs inside the conversion before masked opening; "
++                "`online_ms` means the remaining measured time, including material generation. "
++                "Both protocols start from fresh XOR RSS in their native types."
++                if args.operation == "b2a" else "")
++    report = f"""# RING split-3 {args.operation.upper()} versus native ABY3
+ 
+ {args.count:,} full-width 64-bit inputs; three-party FactoryMem; 64 background workers; one warmup and {args.repetitions} measured iterations. Fresh context and native input shares every iteration. All outputs, including warmup, were reconstructed and compared exactly, outside timing.
+ 
+-SPDZwise timing includes conversion and one final ABFL verification, including fresh verification material. Native ABY3 timing includes its complete registered A2B operation. Input authentication, protocol initialization and output reconstruction are excluded. ABY3 is a semi-honest baseline.
++{parameters["timing"]} ABY3 is a semi-honest baseline. {b2a_note}
+ 
+ {chr(10).join(table)}
+ 
+ Each sample is the maximum whole interval across the three parties; the table reports medians and ranges. Separately aggregated phase medians cannot be summed. CSV includes per-party phase traffic and message counts. Peak RSS covers the whole three-party process, including input preparation.
+ """
++    if args.operation == "b2a" and "spdzwise" in results:
++        report += "\n| B2A phase | Median ms | Three-party sent bytes |\n|---|---:|---:|\n"
++        r = results["spdzwise"]
++        for phase in ("material", "circuit", "check", "open"):
++            report += f"| {phase} | {r['phases'][phase + '_ms']['median_ms']:.3f} | {r['three_party_traffic'][phase + '_bytes'][0]:,} |\n"
++        report += "\nMaterial includes mask authentication; check includes arithmetic verification and one ABFL batch; open includes checked opening and arithmetic subtraction. Phase medians must not be summed.\n"
+     for name, r in results.items():
+         if "vs_aby3" in r:
+             ratio = r["vs_aby3"]
+             report += f"\n{name} / ABY3: total time **{ratio['total_time_ratio']:.3f}x**, conversion time **{ratio['online_time_ratio']:.3f}x**, total traffic **{ratio['traffic_ratio']:.3f}x**.\n"
+-    report += "\nReproduce with `bash build.sh //:conversion_bench` and `python3 run_conversion.py NEW_OUTPUT_DIRECTORY`. Commands, source/binary fingerprints, environment, raw samples and resources are archived alongside this report. These are local-memory transport results.\n"
++    report += "\nReproduce with `bash build.sh //:conversion_bench` and `python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation " + args.operation + "`. Commands, source/binary fingerprints, environment, raw samples and resources are archived alongside this report. These are local-memory transport results.\n"
+     (out / "RESULTS.md").write_text(report)
+     parameters["finished_at"] = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+     save(out / "parameters.json", parameters)
+diff --git a/src/libspu/mpc/spdzwise/boolean.cc b/src/libspu/mpc/spdzwise/boolean.cc
+index 6e4174d5..3229771c 100644
+--- a/src/libspu/mpc/spdzwise/boolean.cc
++++ b/src/libspu/mpc/spdzwise/boolean.cc
+@@ -245,13 +245,15 @@ void BooleanState::checkCopies(const std::vector<RepShare>& shares) {
+   }
+   requireAll(valid, "Boolean replicated copies disagree");
+ }
+-std::vector<uint64_t> BooleanState::open(absl::Span<const RepShare> shares) {
++std::vector<uint64_t> BooleanState::open(absl::Span<const RepShare> shares,
++                                         std::string_view operation) {
+   std::vector<uint64_t> result(shares.size());
+-  open(shares, absl::MakeSpan(result));
++  open(shares, absl::MakeSpan(result), operation);
+   return result;
+ }
+ void BooleanState::open(absl::Span<const RepShare> shares,
+-                        absl::Span<uint64_t> result) {
++                        absl::Span<uint64_t> result,
++                        std::string_view operation) {
+   SPU_ENFORCE(result.size() == shares.size(), "Boolean opening shape mismatch");
+   SPU_ENFORCE(shares.size() <= std::numeric_limits<size_t>::max() / 16,
+               "Boolean opening length overflow");
+@@ -272,7 +274,7 @@ void BooleanState::open(absl::Span<const RepShare> shares,
+   const auto encoded = Encode(words);
+   const auto bytes = std::string_view(encoded);
+ #endif
+-  const auto buffers = gather(bytes, "boolean-open", true);
++  const auto buffers = gather(bytes, operation, true);
+   std::array<const char*, 3> data;
+   for (size_t rank = 0; rank < 3; ++rank) {
+     if (rank == link_->Rank()) {
+diff --git a/src/libspu/mpc/spdzwise/boolean.h b/src/libspu/mpc/spdzwise/boolean.h
+index 390a7166..9ba22d21 100644
+--- a/src/libspu/mpc/spdzwise/boolean.h
++++ b/src/libspu/mpc/spdzwise/boolean.h
+@@ -21,6 +21,9 @@
+ #include "libspu/mpc/spdzwise/type.h"
+ 
+ namespace spu::mpc::spdzwise {
++namespace ring {
++class ConversionTestAccess;
++}
+ 
+ // Counts packed 64-bit triples (including one zero-extended partial word),
+ // not the number of active bit lanes. Small nonempty batches are unsupported.
+@@ -29,6 +32,8 @@ size_t AbflBucketSize(size_t words);
+ // Owned by the checked session. No application reveal API is exposed.
+ class BooleanState {
+   friend class BooleanTestAccess;
++  friend class SpdzWiseState;
++  friend class ring::ConversionTestAccess;
+   using Triple = std::array<RepShare, 3>;
+   // Default-initialized storage: parallel writers touch each element once.
+   // Unlike vector(size), this does not zero large buffers on the caller thread.
+@@ -62,8 +67,10 @@ class BooleanState {
+   void requireAll(bool valid, std::string_view reason);
+   std::vector<RepShare> andRaw(const std::vector<RepShare>& x,
+                                const std::vector<RepShare>& y);
+-  std::vector<uint64_t> open(absl::Span<const RepShare> shares);
+-  void open(absl::Span<const RepShare> shares, absl::Span<uint64_t> result);
++  std::vector<uint64_t> open(absl::Span<const RepShare> shares,
++                             std::string_view operation = "boolean-open");
++  void open(absl::Span<const RepShare> shares, absl::Span<uint64_t> result,
++            std::string_view operation = "boolean-open");
+   void reservePending(size_t full_words);
+   void append(const std::vector<RepShare>& a, const std::vector<RepShare>& b,
+               const std::vector<RepShare>& c, size_t width);
+diff --git a/src/libspu/mpc/spdzwise/protocol.cc b/src/libspu/mpc/spdzwise/protocol.cc
+index 777692ed..1c4b7385 100644
+--- a/src/libspu/mpc/spdzwise/protocol.cc
++++ b/src/libspu/mpc/spdzwise/protocol.cc
+@@ -99,7 +99,7 @@ void registerRingArithmeticPrototype(
+   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
+   registerCommonKernels(ctx);
+   ring::registerArithmeticKernels(ctx->prot());
+-  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B>();
++  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B, ring::B2A>();
+   registerBooleanKernels(ctx->prot());
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/protocol_test.cc b/src/libspu/mpc/spdzwise/protocol_test.cc
+index 7edf7d3f..8ec83f9d 100644
+--- a/src/libspu/mpc/spdzwise/protocol_test.cc
++++ b/src/libspu/mpc/spdzwise/protocol_test.cc
+@@ -113,7 +113,7 @@ TEST(SpdzWiseProtocol, RingRouteHasIndependentArithmeticAndSharedBoolean) {
+     EXPECT_EQ(dynamic_cast<field::MulAA*>(ctx.prot()->getKernel("mul_aa")),
+               nullptr);
+     EXPECT_TRUE(ctx.hasKernel("a2b"));
+-    EXPECT_FALSE(ctx.hasKernel("b2a"));
++    EXPECT_TRUE(ctx.hasKernel("b2a"));
+   });
+ }
+ 
+diff --git a/src/libspu/mpc/spdzwise/ring.cc b/src/libspu/mpc/spdzwise/ring.cc
+index 3a622bfc..73cc2572 100644
+--- a/src/libspu/mpc/spdzwise/ring.cc
++++ b/src/libspu/mpc/spdzwise/ring.cc
+@@ -321,6 +321,23 @@ NdArrayRef ArithmeticState::importValue(const NdArrayRef& value) {
+   return out;
+ }
+ 
++NdArrayRef ArithmeticState::randomAuthenticated(const Shape& shape) {
++  NdArrayRef out(makeType<AShrTy>(session_), shape);
++  if (!out.numel()) return out;
++  // Fresh draws share the multiplication-mask stream, never the key or
++  // checking-coefficient stream. Low 64 bits are uniform in the application
++  // ring; retain all 128 bits for the authenticated representative.
++  const auto values = Random(mask_prg_.get(), out.numel());
++  const auto macs =
++      multiplyRaw(values, std::vector<RepShare>(values.size(), key_));
++  pforeach(0, out.numel(), [&](int64_t i) {
++    out.data<AuthShare>()[i] = {values[i][0], values[i][1], macs[i][0],
++                                macs[i][1]};
++  });
++  remember(out);
++  return out;
++}
++
+ bool ArithmeticState::check() {
+   const auto context = tag_("ring-check");
+   const auto count = std::to_string(pending_.size());
+diff --git a/src/libspu/mpc/spdzwise/ring.h b/src/libspu/mpc/spdzwise/ring.h
+index 7797e819..e2780680 100644
+--- a/src/libspu/mpc/spdzwise/ring.h
++++ b/src/libspu/mpc/spdzwise/ring.h
+@@ -18,6 +18,7 @@
+ 
+ namespace spu::mpc::spdzwise::ring {
+ class TruncationTestAccess;
++class ConversionTestAccess;
+ 
+ // Wire words are exactly 16 bytes, little endian, independent of host layout.
+ std::string Encode(const std::vector<Word>& words);
+@@ -35,6 +36,7 @@ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
+ 
+ class ArithmeticState {
+   friend class TruncationTestAccess;
++  friend class ConversionTestAccess;
+   std::shared_ptr<yacl::link::Context> link_;
+   std::string session_;
+   std::function<std::string(std::string_view)> tag_;
+@@ -67,6 +69,8 @@ class ArithmeticState {
+                   std::function<std::string(std::string_view)> tag);
+   void validateInternal(const NdArrayRef& value) const;
+   NdArrayRef importValue(const NdArrayRef& value);
++  // Fresh uniform extended-ring value with a MAC queued for checking.
++  NdArrayRef randomAuthenticated(const Shape& shape);
+   NdArrayRef publicValue(const NdArrayRef& value) const;
+   NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
+   NdArrayRef negate(const NdArrayRef& x) const;
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion.cc b/src/libspu/mpc/spdzwise/ring_conversion.cc
+index e25cc38f..c32a7fee 100644
+--- a/src/libspu/mpc/spdzwise/ring_conversion.cc
++++ b/src/libspu/mpc/spdzwise/ring_conversion.cc
+@@ -9,9 +9,11 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <chrono>
+ #include <vector>
+ 
+ #include "libspu/core/parallel_utils.h"
++#include "libspu/mpc/common/pv2k.h"
+ #include "libspu/mpc/spdzwise/state.h"
+ 
+ namespace spu::mpc::spdzwise {
+@@ -62,6 +64,60 @@ void Transpose(std::array<uint64_t, 64>& a) {
+     }
+   }
+ }
++// Ripple carry: one AND per retained carry. A2B skips bit zero because
++// its second CSA output has a public zero there; general B2A addition does not.
++Planes Add(SpdzWiseState* state, const Planes& a, const Planes& b,
++           bool zero_lsb = false) {
++  Planes result;
++  if (zero_lsb) result.push_back(a[0]);
++  auto carry = Zero(a[0].eltype(), a[0].numel());
++  for (size_t bit = zero_lsb ? 1 : 0; bit < 64; ++bit) {
++    result.push_back(Xor(Xor(a[bit], b[bit]), carry));
++    if (bit < 63) {
++      auto next = state->booleanBinary(Xor(a[bit], carry), Xor(b[bit], carry),
++                                       true, false);
++      carry = Xor(next, carry);
++    }
++  }
++  return result;
++}
++Planes SliceBoolean(const NdArrayRef& in, const Type& type) {
++  const auto blocks = in.numel() / 64 + (in.numel() % 64 != 0);
++  Planes out;
++  for (size_t bit = 0; bit < 64; ++bit) out.push_back(Zero(type, blocks));
++  const NdArrayView<RepShare> input(in);
++  yacl::parallel_for(0, blocks, 64, [&](int64_t begin, int64_t end) {
++    for (auto block = begin; block < end; ++block) {
++      for (size_t c = 0; c < 2; ++c) {
++        std::array<uint64_t, 64> rows{};
++        const auto lanes = std::min(int64_t(64), in.numel() - 64 * block);
++        for (int64_t lane = 0; lane < lanes; ++lane)
++          rows[lane] = input[64 * block + lane][c];
++        Transpose(rows);
++        for (size_t bit = 0; bit < 64; ++bit)
++          out[bit].data<RepShare>()[block][c] = rows[bit];
++      }
++    }
++  });
++  return out;
++}
++NdArrayRef Unslice(const Planes& planes, const Shape& shape) {
++  NdArrayRef out(planes[0].eltype(), shape);
++  const auto blocks = planes[0].numel();
++  yacl::parallel_for(0, blocks, 64, [&](int64_t begin, int64_t end) {
++    for (auto block = begin; block < end; ++block)
++      for (size_t c = 0; c < 2; ++c) {
++        std::array<uint64_t, 64> rows;
++        for (size_t bit = 0; bit < 64; ++bit)
++          rows[bit] = planes[bit].data<RepShare>()[block][c];
++        Transpose(rows);
++        const auto lanes = std::min(int64_t(64), out.numel() - 64 * block);
++        for (int64_t lane = 0; lane < lanes; ++lane)
++          out.data<RepShare>()[64 * block + lane][c] = rows[lane];
++      }
++  });
++  return out;
++}
+ // 63 CSA ANDs plus 62 ripple-carry ANDs per input; neither the CSA
+ // carry above bit 63 nor the final addition carry is needed modulo 2^64.
+ Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
+@@ -99,18 +155,14 @@ Planes Sliced(SpdzWiseState* state, const NdArrayRef& in) {
+   Planes b{Zero(type, blocks)};
+   for (size_t bit = 0; bit < 63; ++bit)
+     b.push_back(Xor(products[bit], x[2][bit]));
+-  Planes result{s[0]};
+-  auto carry = Zero(type, blocks);
+-  for (size_t bit = 1; bit < 64; ++bit) {
+-    result.push_back(Xor(Xor(s[bit], b[bit]), carry));
+-    if (bit < 63) {
+-      auto next = state->booleanBinary(Xor(s[bit], carry),
+-                                       Xor(b[bit], carry), true, false);
+-      carry = Xor(next, carry);
+-    }
+-  }
+-  return result;
++  return Add(state, s, b, true);
++}
++using Clock = std::chrono::steady_clock;
++double Ms(Clock::time_point start) {
++  return std::chrono::duration<double, std::milli>(Clock::now() - start)
++      .count();
+ }
++
+ }  // namespace
+ 
+ NdArrayRef SpdzWiseState::a2b(const NdArrayRef& in) {
+@@ -118,29 +170,76 @@ NdArrayRef SpdzWiseState::a2b(const NdArrayRef& in) {
+     requireRunning();
+     SPU_ENFORCE(isRing(), "split-3 A2B requires RING");
+     validateInternal(in);
+-    NdArrayRef out(makeType<BShrTy>(session_, 64), in.shape());
+-    if (in.numel() == 0) return out;
+-    const auto planes = Sliced(this, in);
+-    const auto blocks = planes[0].numel();
+-    yacl::parallel_for(0, blocks, 64, [&](int64_t begin, int64_t end) {
+-      for (auto block = begin; block < end; ++block)
+-        for (size_t c = 0; c < 2; ++c) {
+-          std::array<uint64_t, 64> rows;
+-          for (size_t bit = 0; bit < 64; ++bit)
+-            rows[bit] = planes[bit].data<RepShare>()[block][c];
+-          Transpose(rows);
+-          const auto lanes = std::min(int64_t(64), in.numel() - 64 * block);
+-          for (int64_t lane = 0; lane < lanes; ++lane) {
+-            out.data<RepShare>()[64 * block + lane][c] = rows[lane];
+-          }
+-        }
+-    });
+-    return out;
++    if (in.numel() == 0)
++      return NdArrayRef(makeType<BShrTy>(session_, 64), in.shape());
++    return Unslice(Sliced(this, in), in.shape());
++  } catch (...) {
++    abort();
++    throw;
++  }
++}
++// This checkpoint is shared by the real B2A path and fault-injection tests.
++// It is private: callers cannot open arbitrary unchecked Boolean values.
++NdArrayRef SpdzWiseState::finishB2A(const NdArrayRef& mask,
++                                    const NdArrayRef& masked) {
++  auto start = Clock::now();
++  auto bytes = link_->GetStats()->sent_bytes.load();
++  check();
++  boolean_->check();
++  b2a_ms_[2] = Ms(start);
++  b2a_bytes_[2] = link_->GetStats()->sent_bytes.load() - bytes;
++  start = Clock::now();
++  bytes = link_->GetStats()->sent_bytes.load();
++  const auto opened = boolean_->open(
++      {masked.data<RepShare>(), size_t(masked.numel())}, "b2a-open");
++  NdArrayRef c(makeType<Pub2kTy>(FM64), mask.shape());
++  std::copy(opened.begin(), opened.end(), c.data<uint64_t>());
++  // Keep c-r in the extended ring. Its low 64 bits equal x, and the MAC
++  // authenticates this exact representative, including any high limbs.
++  auto out = add(publicValue(c), negate(mask));
++  b2a_ms_[3] = Ms(start);
++  b2a_bytes_[3] = link_->GetStats()->sent_bytes.load() - bytes;
++  return out;
++}
++NdArrayRef SpdzWiseState::b2a(const NdArrayRef& in) {
++  try {
++    requireRunning();
++    SPU_ENFORCE(isRing(), "split-3 B2A requires RING");
++    validateBoolean(in);
++    const auto width = in.eltype().as<BShrTy>()->nbits();
++    SPU_ENFORCE(width >= 1 && width <= 64, "B2A requires 1..64 bits");
++    b2a_ms_ = {};
++    b2a_bytes_ = {};
++    b2a_and_bits_ = 0;
++    if (!in.numel())
++      return NdArrayRef(makeType<ring::AShrTy>(session_), in.shape());
++    auto start = Clock::now();
++    auto bytes = link_->GetStats()->sent_bytes.load();
++    const auto mask = ring_->randomAuthenticated(in.shape());
++    b2a_ms_[0] = Ms(start);
++    b2a_bytes_[0] = link_->GetStats()->sent_bytes.load() - bytes;
++    start = Clock::now();
++    bytes = link_->GetStats()->sent_bytes.load();
++    const auto before = pendingBooleanBits();
++    const auto r = Sliced(this, mask);
++    const auto x = SliceBoolean(in, makeType<BShrTy>(session_, 64));
++    const auto masked = Unslice(Add(this, x, r), in.shape());
++    b2a_and_bits_ = pendingBooleanBits() - before;
++    b2a_ms_[1] = Ms(start);
++    b2a_bytes_[1] = link_->GetStats()->sent_bytes.load() - bytes;
++    return finishB2A(mask, masked);
+   } catch (...) {
+     abort();
+     throw;
+   }
+ }
++void ring::B2A::evaluate(KernelEvalContext* ctx) const {
++  const auto& in = ctx->getParam<Value>(0);
++  ctx->pushOutput(Value(proc(ctx, in.data()), in.dtype()));
++}
++NdArrayRef ring::B2A::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
++  return ctx->getState<SpdzWiseState>()->b2a(in);
++}
+ void ring::A2B::evaluate(KernelEvalContext* ctx) const {
+   const auto& in = ctx->getParam<Value>(0);
+   ctx->pushOutput(Value(proc(ctx, in.data()), in.dtype()));
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion.h b/src/libspu/mpc/spdzwise/ring_conversion.h
+index fab3c9b7..3b4508db 100644
+--- a/src/libspu/mpc/spdzwise/ring_conversion.h
++++ b/src/libspu/mpc/spdzwise/ring_conversion.h
+@@ -16,4 +16,12 @@ class A2B final : public UnaryKernel {
+   Kind kind() const override { return Kind::Dynamic; }
+   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
+ };
++// Authenticated random mask -> split-3 A2B -> Boolean add -> checked open.
++class B2A final : public UnaryKernel {
++ public:
++  static constexpr const char* kBindName() { return "b2a"; }
++  void evaluate(KernelEvalContext* ctx) const override;
++  Kind kind() const override { return Kind::Dynamic; }
++  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
++};
+ }  // namespace spu::mpc::spdzwise::ring
+diff --git a/src/libspu/mpc/spdzwise/ring_conversion_test.cc b/src/libspu/mpc/spdzwise/ring_conversion_test.cc
+index 84bef949..843c9ac7 100644
+--- a/src/libspu/mpc/spdzwise/ring_conversion_test.cc
++++ b/src/libspu/mpc/spdzwise/ring_conversion_test.cc
+@@ -23,6 +23,57 @@ class BooleanTestAccess {
+     if (consistent && state->rank() == (party + 2) % 3) triple[2][1] ^= 1;
+   }
+ };
++namespace ring {
++class ConversionTestAccess {
++ public:
++  static RepShare key(SpdzWiseState* s) { return s->ring_->key_; }
++  static size_t gates(SpdzWiseState* s) { return s->b2a_and_bits_; }
++  static void observeOpening(SpdzWiseState* s, bool& opened) {
++    auto original = s->boolean_->tag_;
++    s->boolean_->tag_ = [original, &opened](std::string_view name) {
++      if (name == "b2a-open") opened = true;
++      return original(name);
++    };
++  }
++  static void tamperOpening(SpdzWiseState* s, std::shared_ptr<bool> active) {
++    auto original = s->boolean_->tag_;
++    s->boolean_->tag_ = [original, active](std::string_view name) {
++      *active = name == "b2a-open";
++      return original(name);
++    };
++  }
++  static void fault(SpdzWiseState* s, size_t party, int fault) {
++    auto mask = s->ring_->randomAuthenticated({1025});
++    auto masked = s->a2b(mask);  // Valid B2A masked result for x=0.
++    const bool first = s->rank() == party;
++    const bool second = s->rank() == (party + 2) % 3;
++    if (fault < 2) {
++      auto& record = s->ring_->pending_.front();
++      if (first) record[2] ^= 1;
++      if (fault == 1 && second) record[3] ^= 1;
++    } else if (fault < 4) {
++      auto& record = s->boolean_->pending_batches_.front().front();
++      if (first) record[2][0] ^= 1;
++      if (fault == 3 && second) record[2][1] ^= 1;
++    } else if (fault == 5) {
++      // The final SIMD block has one active lane; bit 63 is padding.
++      auto& record = s->boolean_->pending_batches_.front().back();
++      if (first) record[2][0] ^= uint64_t{1} << 63;
++      if (second) record[2][1] ^= uint64_t{1} << 63;
++    } else if (first) {
++      // Alter the share encoded into the opening payload, after the AND
++      // snapshots were frozen. Duplicate-holder checking must reject it.
++      masked.data<spdzwise::RepShare>()[0][0] ^= 1;
++    }
++    try {
++      s->finishB2A(mask, masked);
++    } catch (...) {
++      s->abort();
++      throw;
++    }
++  }
++};
++}  // namespace ring
+ namespace {
+ RuntimeConfig Config() {
+   RuntimeConfig c(SPDZWISE, FM64);
+@@ -194,5 +245,289 @@ TEST(RingConversion, CorruptConversionAndRejectedAtEveryParty) {
+     }
+   }
+ }
++
++TEST(RingConversion, B2AWidthsShapesAndAuthenticatedOutput) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  struct Result {
++    NdArrayRef internal, external;
++    ring::RepShare key;
++  };
++  for (size_t width : {1U, 5U, 8U, 16U, 32U, 63U, 64U}) {
++    auto plain = Plain(1026);
++    for (int64_t i = 0; i < plain.numel(); ++i)
++      plain.data<uint64_t>()[i] &= BooleanMask(width);
++    plain.data<uint64_t>()[0] = 0;
++    const auto shares = io.toBooleanShares(plain, width);
++    const auto results = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      ProtocolRunGuard guard(&ctx);
++      Value input(shares[link->Rank()], DT_U64);
++      Begin(state, {input});
++      auto x = import_s(&ctx, input);
++      x = Value(x.data().reshape({513, 2}).transpose({1, 0}), x.dtype());
++      EXPECT_FALSE(x.data().isCompact());
++      const auto y = b2a(&ctx, x);
++      EXPECT_EQ(y.dtype(), x.dtype());
++      EXPECT_EQ(y.shape(), x.shape());
++      EXPECT_EQ(y.storage_type(), makeType<ring::AShrTy>(state->session()));
++      EXPECT_EQ(state->arithmeticChecks(), 1);
++      EXPECT_EQ(state->booleanChecks(), 1);
++      EXPECT_EQ(state->pendingBooleanBits(), 0);
++      EXPECT_EQ(ring::ConversionTestAccess::gates(state), 188 * 17 * 64);
++      state->finalize();
++      EXPECT_EQ(state->booleanChecks(), 1);
++      EXPECT_EQ(state->arithmeticChecks(), 1);
++      const auto key = ring::ConversionTestAccess::key(state);
++      // Check composability and the output MAC through an actual
++      // multiplication.
++      const auto z = mul_aa(&ctx, y, y);
++      state->prepareOutputs(&ctx, {"out"}, {z});
++      guard.commit();
++      return Result{y.data(), state->exportedValue("out").data(), key};
++    });
++    ring::Word alpha = 0;
++    std::vector<NdArrayRef> outputs;
++    for (const auto& r : results) {
++      alpha += r.key[0];
++      outputs.push_back(r.external);
++    }
++    const auto actual = io.fromShares(outputs);
++    const auto expected_array = plain.reshape({513, 2}).transpose({1, 0});
++    const NdArrayView<uint64_t> expected(expected_array);
++    for (int64_t i = 0; i < plain.numel(); ++i) {
++      ring::Word value = 0, mac = 0;
++      for (size_t rank = 0; rank < 3; ++rank) {
++        const auto& a = results[rank].internal.data<ring::AuthShare>()[i];
++        const auto& next =
++            results[(rank + 1) % 3].internal.data<ring::AuthShare>()[i];
++        EXPECT_EQ(a[1], next[0]);
++        EXPECT_EQ(a[3], next[2]);
++        value += a[0];
++        mac += a[2];
++      }
++      ASSERT_EQ(uint64_t(value), expected[i]);
++      ASSERT_EQ(mac, alpha * value);
++      ASSERT_EQ(actual.data<uint64_t>()[i], expected[i] * expected[i]);
++    }
++  }
++}
++
++TEST(RingConversion, B2ARoundtripConsumersAndFreshRepeatedMasks) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  const auto plain = Plain(1025);
++  const auto shares = io.toShares(plain, VIS_SECRET);
++  const auto outputs = utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    ProtocolRunGuard guard(&ctx);
++    Value input(shares[link->Rank()], DT_I64);
++    Begin(state, {input});
++    auto a = import_s(&ctx, input);
++    auto b = a2b(&ctx, a);
++    b = and_bb(&ctx, b, b);
++    b.setDtype(DT_I64);
++    const auto y = b2a(&ctx, b);
++    const auto z = b2a(&ctx, b);
++    EXPECT_EQ(state->booleanChecks(), 2);
++    EXPECT_EQ(state->arithmeticChecks(), 3);  // Input plus two fresh masks.
++    EXPECT_NE(y.data().data<ring::AuthShare>()[0][0],
++              z.data().data<ring::AuthShare>()[0][0]);
++    state->prepareOutputs(&ctx, {"y", "z"}, {y, z});
++    guard.commit();
++    return std::array<NdArrayRef, 2>{state->exportedValue("y").data(),
++                                     state->exportedValue("z").data()};
++  });
++  for (size_t j = 0; j < 2; ++j) {
++    const auto actual =
++        io.fromShares({outputs[0][j], outputs[1][j], outputs[2][j]});
++    for (int64_t i = 0; i < plain.numel(); ++i)
++      ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
++  }
++}
++
++TEST(RingConversion, B2AEmptySmallCallsAndThreshold) {
++  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
++  for (int64_t n : {0, 1, 63, 64, 65, 320, 321}) {
++    const auto plain = Plain(n);
++    const auto shares = io.toBooleanShares(plain, 64);
++    const auto outputs = utils::simulate(3, [&](const auto& link) {
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      ProtocolRunGuard guard(&ctx);
++      Value input(shares[link->Rank()], DT_I64);
++      Begin(state, {input});
++      const auto x = import_s(&ctx, input);
++      if (n > 0 && n < 320) {
++        auto pad =
++            state->publicBoolean(Plain(1024).as(makeType<Pub2kTy>(FM64)));
++        state->booleanBinary(pad, pad, true, false);
++      }
++      bool opened = false;
++      ring::ConversionTestAccess::observeOpening(state, opened);
++      const auto bytes = link->GetStats()->sent_bytes.load();
++      if (n == 320) {  // 5 blocks * 188 = 940 words, below 1024.
++        EXPECT_ANY_THROW(b2a(&ctx, x));
++        EXPECT_FALSE(opened);
++        EXPECT_TRUE(state->failed());
++        return NdArrayRef();
++      }
++      const auto y = b2a(&ctx, x);
++      EXPECT_EQ(opened, n != 0);
++      if (!n) {
++        EXPECT_EQ(link->GetStats()->sent_bytes.load(), bytes);
++        EXPECT_EQ(state->booleanChecks(), 0);
++        EXPECT_EQ(state->arithmeticChecks(), 0);
++      }
++      state->prepareOutputs(&ctx, {"out"}, {y});
++      guard.commit();
++      return state->exportedValue("out").data();
++    });
++    if (n == 320) continue;
++    const auto actual = io.fromShares(outputs);
++    for (int64_t i = 0; i < n; ++i)
++      ASSERT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
++  }
++  // A standalone single element must also fail before opening.
++  utils::simulate(3, [&](const auto& link) {
++    SPUContext ctx(Config(), link);
++    registerArithmeticPrototype(&ctx, link);
++    auto* state = ctx.prot()->getState<SpdzWiseState>();
++    Begin(state);
++    auto x = state->publicBoolean(Plain(1).as(makeType<Pub2kTy>(FM64)));
++    bool opened = false;
++    ring::ConversionTestAccess::observeOpening(state, opened);
++    EXPECT_ANY_THROW(state->b2a(x));
++    EXPECT_FALSE(opened);
++    EXPECT_TRUE(state->failed());
++  });
++}
++
++TEST(RingConversion, B2AInvalidInputAndLifecycleRejected) {
++  for (int fault = 0; fault < 6; ++fault) {
++    utils::simulate(3, [&](const auto& link) {
++      auto config = Config();
++      if (fault == 4) config.spdzwise_config.domain = SpdzWiseConfig::FIELD;
++      SPUContext ctx(config, link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      if (fault != 3) Begin(state);
++      const Type type =
++          fault == 0   ? makeType<ring::AShrTy>(state->session())
++          : fault == 1 ? makeType<BShrTy>("wrong-session", 64)
++          : fault == 2
++              ? makeType<BInputTy>(link->Rank(), 64)
++              : makeType<BShrTy>(fault == 3 ? "no-session" : state->session(),
++                                 fault == 5 ? 1 : 64);
++      NdArrayRef input(type, {fault == 5 ? 1 : 0});
++      if (fault == 5) input.data<RepShare>()[0] = {2, 0};
++      EXPECT_ANY_THROW(state->b2a(input));
++      EXPECT_TRUE(state->failed());
++      EXPECT_ANY_THROW(state->exportedValue("out"));
++    });
++  }
++}
++
++TEST(RingConversion, B2ARejectsFaultsBeforeOpeningOrOutput) {
++  for (size_t party = 0; party < 3; ++party) {
++    for (int fault = 0; fault < 6; ++fault) {
++      utils::simulate(3, [&](const auto& link) {
++        SPUContext ctx(Config(), link);
++        registerArithmeticPrototype(&ctx, link);
++        auto* state = ctx.prot()->getState<SpdzWiseState>();
++        Begin(state);
++        bool opened = false;
++        ring::ConversionTestAccess::observeOpening(state, opened);
++        EXPECT_ANY_THROW(
++            ring::ConversionTestAccess::fault(state, party, fault));
++        EXPECT_EQ(opened, fault == 4);
++        EXPECT_TRUE(state->failed());
++        EXPECT_ANY_THROW(state->exportedValue("out"));
++      });
++    }
++  }
++}
++// Test-only channel decorator: mutate actual wire messages without adding
++// fault-injection branches to the protocol implementation.
++class B2AFaultChannel : public yacl::link::transport::IChannel {
++  std::shared_ptr<yacl::link::transport::IChannel> inner_;
++  std::shared_ptr<bool> active_;
++  yacl::Buffer change(yacl::Buffer value) {
++    if (*active_ && value.size()) {
++      value.data<char>()[0] ^= 1;
++    }
++    return value;
++  }
++
++ public:
++  B2AFaultChannel(std::shared_ptr<yacl::link::transport::IChannel> inner,
++                  std::shared_ptr<bool> active)
++      : inner_(std::move(inner)), active_(std::move(active)) {}
++  void SendAsync(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsync(k, change(std::move(v)));
++  }
++  void SendAsyncThrottled(const std::string& k, yacl::Buffer v) override {
++    inner_->SendAsyncThrottled(k, change(std::move(v)));
++  }
++  void Send(const std::string& k, yacl::ByteContainerView v) override {
++    auto b = change(yacl::Buffer(v));
++    inner_->Send(k, yacl::ByteContainerView(b));
++  }
++  yacl::Buffer Recv(const std::string& k) override { return inner_->Recv(k); }
++  void SetRecvTimeout(uint64_t t) override { inner_->SetRecvTimeout(t); }
++  uint64_t GetRecvTimeout() const override { return inner_->GetRecvTimeout(); }
++  void WaitLinkTaskFinish() override { inner_->WaitLinkTaskFinish(); }
++  void Abort() override { inner_->Abort(); }
++  void SetThrottleWindowSize(size_t s) override {
++    inner_->SetThrottleWindowSize(s);
++  }
++  void TestSend(uint32_t t) override { inner_->TestSend(t); }
++  void TestRecv() override { inner_->TestRecv(); }
++  void SetChunkParallelSendSize(size_t s) override {
++    inner_->SetChunkParallelSendSize(s);
++  }
++};
++TEST(RingConversion, B2ARejectsOpeningWireEquivocation) {
++  for (size_t party = 0; party < 3; ++party) {
++    utils::simulate(3, [&](const auto& base) {
++      auto active = std::make_shared<bool>(false);
++      yacl::link::ContextDesc desc;
++      desc.id = base->Id();
++      std::vector<std::shared_ptr<yacl::link::transport::IChannel>> channels(3);
++      for (size_t i = 0; i < 3; ++i) {
++        desc.parties.push_back({std::to_string(i), "memory"});
++        if (i != base->Rank()) {
++          channels[i] = base->GetChannel(i);
++          // Corrupt only one recipient's payload: copies and ordered views
++          // must bind the exact messages, not just the local reconstruction.
++          if (base->Rank() == party && i == (party + 1) % 3)
++            channels[i] =
++                std::make_shared<B2AFaultChannel>(channels[i], active);
++        }
++      }
++      auto link = std::make_shared<yacl::link::Context>(desc, base->Rank(),
++                                                        channels, nullptr);
++      link->SetRecvTimeout(5000);
++      SPUContext ctx(Config(), link);
++      registerArithmeticPrototype(&ctx, link);
++      auto* state = ctx.prot()->getState<SpdzWiseState>();
++      Begin(state);
++      auto x = state->publicBoolean(Plain(1025).as(makeType<Pub2kTy>(FM64)));
++      ring::ConversionTestAccess::tamperOpening(state, active);
++      try {
++        state->b2a(x);
++        FAIL() << "accepted opening equivocation";
++      } catch (const std::exception& e) {
++        EXPECT_NE(std::string(e.what()).find("Boolean transcript disagreement"),
++                  std::string::npos);
++      }
++      EXPECT_TRUE(state->failed());
++      EXPECT_ANY_THROW(state->exportedValue("out"));
++    });
++  }
++}
+ }  // namespace
+ }  // namespace spu::mpc::spdzwise
+diff --git a/src/libspu/mpc/spdzwise/state.h b/src/libspu/mpc/spdzwise/state.h
+index f173b43e..d5b0de6e 100644
+--- a/src/libspu/mpc/spdzwise/state.h
++++ b/src/libspu/mpc/spdzwise/state.h
+@@ -27,6 +27,7 @@ class SpdzWiseState final : public ProtocolSession {
+   friend class SpdzWiseBenchmarkAccess;
+   friend class BooleanTestAccess;
+   friend class ring::TruncationTestAccess;
++  friend class ring::ConversionTestAccess;
+   std::unique_ptr<BooleanState> boolean_;
+   std::unique_ptr<ring::ArithmeticState> ring_;
+   bool isRing() const {
+@@ -43,6 +44,12 @@ class SpdzWiseState final : public ProtocolSession {
+   uint64_t execution_ = 0;
+   uint64_t arithmetic_checks_ = 0;
+   std::vector<AuthShare> pending_;
++  // Last B2A: material, circuit, verification, opening/linear output. Only
++  // benchmark friends inspect these; no secret-dependent metrics are stored.
++  std::array<double, 4> b2a_ms_{};
++  std::array<size_t, 4> b2a_bytes_{};
++  size_t b2a_and_bits_ = 0;
++  NdArrayRef finishB2A(const NdArrayRef& mask, const NdArrayRef& masked);
+ 
+   std::string tag(std::string_view operation);
+   std::vector<uint64_t> exchange(const std::vector<uint64_t>& local,
+@@ -88,6 +95,8 @@ class SpdzWiseState final : public ProtocolSession {
+   void finalize();
+   // Value-only split-3 RING A2B; AND checks are deferred to finalize().
+   NdArrayRef a2b(const NdArrayRef& in);
++  // Zero-extend 1..64 Boolean bits; verify both domains before masked opening.
++  NdArrayRef b2a(const NdArrayRef& in);
+   void validateBoolean(const NdArrayRef& value) const;
+   NdArrayRef publicBoolean(const NdArrayRef& value) const;
+   NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,

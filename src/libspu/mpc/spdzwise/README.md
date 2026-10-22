@@ -39,7 +39,8 @@ preserve the domain, which is also included in execution agreement.
   private bit inputs, public challenges, bitness checks and scratch storage.
 - `conversion.h/.cc`: reserved checked field A2B/B2A registration; currently
   registers no conversions. FIELD truncation and comparisons remain future work.
-  `ring_conversion.h/.cc` implements value-only split-3 RING A2B.
+  `ring_conversion.h/.cc` implements value-only split-3 RING A2B and
+  authenticated-mask B2A.
   `ring_truncation.h/.cc` implements signed RING `TruncPrRandomBit`, routed
   through `TruncASelector`.
 - `state.h/.cc`: checked session lifecycle, field authentication and checks;
@@ -102,7 +103,7 @@ as a runtime dependency.
 | Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
 | FIELD A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
 | RING A2B | `SpdzWiseRingShare::split`, `Rep3Share2::split(case 3)` | Value-only local split-3, bit-sliced CSA + RCA, existing ABFL final verification |
-| B2A | `Compiler/types.py` secret conversion and `bit_compose` | Plaintext oracle only; requires validated daBits and checked Boolean opens |
+| RING B2A | `Compiler/types.py::_secret.bit_compose` splitting branch | Authenticated random mask, split-3 A2B, RCA, checks before Boolean opening; FIELD and daBit paths outstanding |
 | FIELD truncation | KnownPrime decomposition route, adapted to SPU rounding | Plaintext floor oracle only; A2B/shift/B2A kernels outstanding |
 | RING probabilistic truncation | `floatingpoint.py::TruncPrRing`, signed, k=63 | Authenticated random masks, low-64-bit opening and signed offset correction |
 
@@ -148,8 +149,9 @@ prototype registration. The implementation provides input authentication,
 matrix multiplication. Matrices accumulate each dot product locally before
 exchanging two 128-bit words per output cell. A fixed status exchange also
 rejects malformed wire lengths; payload does not grow with the inner dimension.
-RING `a2b` converts the application value to 64-bit Boolean RSS. B2A, exact
-truncation, comparison and PPML integration remain unimplemented. Signed
+RING `a2b` converts the application value to 64-bit Boolean RSS; `b2a` converts
+1–64 Boolean bits to an authenticated arithmetic value. Exact truncation,
+comparison and PPML integration remain unimplemented. Signed
 probabilistic truncation is described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
@@ -491,6 +493,76 @@ in the session. No artificial ANDs or new verifier parameters are introduced.
 The security assumptions and outstanding ABFL composition review described
 above are unchanged by this conversion implementation.
 
+## RING split-3 masked B2A
+
+The RING prototype registers `b2a` for `BShrTy(session, nbits)`, with
+`1 <= nbits <= 64`. The result is `ring::AShrTy(session)`, preserving shape
+and dtype. Narrow words are **zero-extended**, independent of dtype; this is
+not a signed narrow-integer conversion. FIELD B2A and daBits are not provided.
+
+Reference: MP-SPDZ commit `113c4e47dd94bca9ecab029d2f0abe649bea5c52`,
+`Compiler/types.py::_secret.bit_compose` ring
+splitting branch and `Protocols/SpdzWise.hpp` random-value authentication,
+used by `Machines/sy-rep-ring-party.cpp`. We retain its full-word masking
+construction, with the existing ABFL backend and RCA selected for A2B:
+
+```
+r_A = fresh authenticated random extended-ring element
+r_B = split3_a2b(r_A)                 # low 64 value bits
+masked_B = x_B + r_B mod 2^64
+check pending arithmetic records
+check all pending Boolean ANDs once  # includes r_B and masked_B circuits
+c = checked_open(masked_B)
+x_A = public_authenticated(c) - r_A
+```
+
+Fresh PRSS draws produce uniform 128-bit replicated components; secret
+multiplication by the MAC key authenticates the mask and saves immutable
+records. Value draws and multiplication masks consume disjoint portions of
+the existing mask stream; keys and checking coefficients use separate streams.
+The low 64 bits of the mask are uniform even when the input is narrow. The
+output retains the extended-ring representative `c-r`, with MAC
+`alpha*c - mac_r`; only its low 64 bits are the application value.
+
+The mask's A2B result stays bit-sliced until after the second addition. A2B
+costs 125 ANDs per input, and the full-word RCA costs 63, for
+`188 * ceil(numel/64)` packed AND words. Tail lanes participate in verification.
+There are 126 online AND layers before the combined check. No short-width
+carry correction or single-bit daBit optimization is used.
+
+Both arithmetic verification and ABFL verification finish **before** any
+`b2a-open` payload is sent. Opening reuses replicated-copy checks and agreement
+on ordered message views. Failed checks abort the session and prevent export.
+Successful B2A flushes existing pending checks, then returns an internal value
+that can feed further arithmetic or conversions. Later finalization does not
+repeat a nonempty ABFL check unless new ANDs were executed. A2B's deferred
+checking behavior remains unchanged.
+
+Empty inputs consume no randomness, send no messages and trigger no checks.
+For nonempty inputs the existing ABFL minimum of 1024 packed AND words still
+applies **at this opening checkpoint**. With an otherwise empty Boolean queue,
+321 elements (six SIMD blocks) suffice; 320 or fewer do not. A smaller call
+can use real AND work already pending in the same session. Insufficient
+batches abort before opening; no virtual gates or verifier changes are added.
+
+Run the comparable 100K full-word benchmark with:
+
+```sh
+bash build.sh //:conversion_bench
+python3 run_conversion.py NEW_OUTPUT_DIRECTORY --operation b2a
+```
+
+From the benchmark directory, this measures fresh mask/MAC generation,
+transposes, both circuits, arithmetic and ABFL checks, opening and subtraction.
+The native ABY3 selector supplies the semi-honest baseline. External input
+preparation/import, context setup, export and plaintext comparisons are outside
+timing. `online_ms` in the shared CSV means total minus verification, including
+material generation. Four additional phase columns separate material, circuit,
+check and opening/linear output; their medians must not be added. The default
+operation remains A2B. See the [100K B2A report](benchmarks/b2a-split3-100k-2026-10-22/RESULTS.md).
+The existing protocol assumptions and outstanding whole-execution ABFL review
+remain applicable; these tests are not an independent security proof.
+
 ## Numerical contract
 
 Public and Boolean words retain SPU's 64-bit two's-complement representation.
@@ -563,12 +635,14 @@ Validation record for this change is maintained in `VALIDATION.md`.
 
 Remaining acceptance gates, in order:
 
-1. The three native prototype test targets pass (23 cases, including MAC
-   corruption at all three server positions); see `VALIDATION.md`. Next test
+1. The six RING/Boolean/conversion/session regression targets pass (67 cases,
+   including faults at all three server positions); see `VALIDATION.md`. Next test
    real device execution and additional fault paths. Review input/key/check composition and
    derive the bound rather than inferring it from finite fault tests.
-2. Review the ABFL prototype and implement malicious daBits; prove/check the combined opening
-   schedule before enabling A2B/B2A, precise truncation and F4 comparisons.
+2. Review the ABFL prototype and the combined opening schedule before enabling
+   mixed-domain execution in the production factory. Malicious daBits for
+   dedicated bit conversion, FIELD conversions, precise truncation and F4
+   comparisons remain future work.
 3. Add the specified LR/tree/CNN fixtures, pinned data splits and weights,
    actual secure executions, interval/range records and float/quantized
    numerical acceptance. Plaintext oracle tests do not satisfy this gate.
@@ -581,6 +655,6 @@ Remaining acceptance gates, in order:
 Benchmark sources, build targets, parameters and measurement archives are in
 [`benchmarks`](benchmarks/).
 The retained workloads cover the two-input F61 circuit, native ABY3 ring64
-arithmetic and a recorded native ABY3 Boolean AND measurement.
+arithmetic, Boolean AND, and RING split-3 A2B/masked B2A comparisons.
 For the project progress and complete test/build commands, see
 [`readme-malicious-ppml.md`](../../../../readme-malicious-ppml.md).

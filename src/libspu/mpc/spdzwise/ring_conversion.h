@@ -16,4 +16,12 @@ class A2B final : public UnaryKernel {
   Kind kind() const override { return Kind::Dynamic; }
   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
 };
+// Authenticated random mask -> split-3 A2B -> Boolean add -> checked open.
+class B2A final : public UnaryKernel {
+ public:
+  static constexpr const char* kBindName() { return "b2a"; }
+  void evaluate(KernelEvalContext* ctx) const override;
+  Kind kind() const override { return Kind::Dynamic; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
+};
 }  // namespace spu::mpc::spdzwise::ring

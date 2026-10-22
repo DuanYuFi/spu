@@ -1,0 +1,26 @@
+ M .vscode/settings.json
+ M .vscode/tasks.json
+ M src/libspu/mpc/spdzwise/README.md
+ M src/libspu/mpc/spdzwise/VALIDATION.md
+ M src/libspu/mpc/spdzwise/benchmarks/README.md
+ M src/libspu/mpc/spdzwise/benchmarks/conversion_bench.cc
+ M src/libspu/mpc/spdzwise/benchmarks/run_conversion.py
+ M src/libspu/mpc/spdzwise/boolean.cc
+ M src/libspu/mpc/spdzwise/boolean.h
+ M src/libspu/mpc/spdzwise/protocol.cc
+ M src/libspu/mpc/spdzwise/protocol_test.cc
+ M src/libspu/mpc/spdzwise/ring.cc
+ M src/libspu/mpc/spdzwise/ring.h
+ M src/libspu/mpc/spdzwise/ring_conversion.cc
+ M src/libspu/mpc/spdzwise/ring_conversion.h
+ M src/libspu/mpc/spdzwise/ring_conversion_test.cc
+ M src/libspu/mpc/spdzwise/state.h
+?? .vscode/refresh_compile_commands.py
+?? docs/research/
+?? examples/python/ml/flax_resnet/operation_counts/
+?? examples/python/ml/flax_resnet/profile_operation_counts.py
+?? examples/python/ml/flax_resnet/summarize_operation_counts.py
+?? examples/python/ml/operation_counts/
+?? examples/python/ml/profile_stax_training.py
+?? examples/python/ml/profile_task_operation_counts.py
+?? examples/python/ml/summarize_stax_training.py
