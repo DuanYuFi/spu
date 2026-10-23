@@ -510,34 +510,57 @@ NdArrayRef ArithmeticState::matmul(const NdArrayRef& x, const NdArrayRef& y,
               "ring matmul requires compatible matrices");
   const int64_t m = x.shape()[0], k = x.shape()[1], n = y.shape()[1];
   NdArrayRef result(x.eltype(), {m, n});
-  const NdArrayView<AuthShare> a(x);
+  // Pack strided inputs once, rather than resolving NdArrayView indices for
+  // every scalar product. RHS columns are contiguous in the inner dot loop.
+  const auto lhs = x.isCompact() ? x : x.clone();
+  const auto* a = lhs.data<AuthShare>();
+  // A cell costs O(k), so schedule by scalar work rather than output size.
+  const int64_t grain = std::max<int64_t>(1, kMinTaskSize / std::max<int64_t>(k, 1));
   auto* out = result.data<AuthShare>();
   if (public_rhs) {
     const NdArrayView<uint64_t> b(y);
-    for (int64_t i = 0; i < m; ++i) {
-      for (int64_t j = 0; j < n; ++j) {
-        out[i * n + j] = {};
+    std::vector<uint64_t> columns(y.numel());
+    pforeach(0, n, [&](int64_t j) {
+      for (int64_t t = 0; t < k; ++t) columns[j * k + t] = b[t * n + j];
+    });
+    yacl::parallel_for(0, result.numel(), grain, [&](int64_t begin, int64_t end) {
+      for (int64_t cell = begin; cell < end; ++cell) {
+        const int64_t row = (cell / n) * k, col = (cell % n) * k;
+        AuthShare sum{};
         for (int64_t t = 0; t < k; ++t) {
+          const Word rhs = columns[col + t];
           for (size_t c = 0; c < 4; ++c) {
-            out[i * n + j][c] += a[i * k + t][c] * Word(b[t * n + j]);
+            sum[c] += a[row + t][c] * rhs;
           }
         }
+        out[cell] = sum;
       }
-    }
+    });
     return result;
   }
   const NdArrayView<AuthShare> b(y);
-  std::vector<Word> local(2 * result.numel());
-  for (int64_t i = 0; i < m; ++i) {
-    for (int64_t j = 0; j < n; ++j) {
-      const int64_t pos = 2 * (i * n + j);
-      for (int64_t t = 0; t < k; ++t) {
-        local[pos] += LocalProduct(Values(a[i * k + t]), Values(b[t * n + j]));
-        local[pos + 1] +=
-            LocalProduct(Macs(a[i * k + t]), Values(b[t * n + j]));
-      }
+  std::vector<RepShare> columns(y.numel());
+  pforeach(0, n, [&](int64_t j) {
+    for (int64_t t = 0; t < k; ++t) {
+      const auto& rhs = b[t * n + j];
+      columns[j * k + t] = {rhs[0] + rhs[1], rhs[0]};
     }
-  }
+  });
+  std::vector<Word> local(2 * result.numel());
+  yacl::parallel_for(0, result.numel(), grain, [&](int64_t begin, int64_t end) {
+    for (int64_t cell = begin; cell < end; ++cell) {
+      const int64_t row = (cell / n) * k, col = (cell % n) * k;
+      Word value = 0, mac = 0;
+      for (int64_t t = 0; t < k; ++t) {
+        const auto& lhs = a[row + t];
+        const auto& rhs = columns[col + t];
+        value += lhs[0] * rhs[0] + lhs[1] * rhs[1];
+        mac += lhs[2] * rhs[0] + lhs[3] * rhs[1];
+      }
+      local[2 * cell] = value;
+      local[2 * cell + 1] = mac;
+    }
+  });
   // Exchange exactly two words per output, independent of inner dimension k.
   const auto products = reshare(std::move(local), "ring-matmul");
   for (int64_t i = 0; i < result.numel(); ++i) {

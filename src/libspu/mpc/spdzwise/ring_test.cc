@@ -202,9 +202,14 @@ TEST(SpdzWiseRing, ArithmeticChainingInternal128AndChecked64Export) {
 
 TEST(SpdzWiseRing, MatrixSecretAndPublicWithStrides) {
   SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
-  for (int64_t k : {0, 1, 7, 16}) {
-    const auto a = Plain({k, 2}).transpose({1, 0});
-    const auto b = Plain({3, k}).transpose({1, 0});
+  for (const auto& dims : std::vector<Shape>{{2, 0, 3}, {2, 1, 3}, {2, 7, 3},
+                                           {2, 16, 3}, {0, 7, 3}, {2, 7, 0},
+                                           {17, 65, 19}, {128, 128, 10},
+                                           {1, 129, 17}, {17, 129, 1}}) {
+    const auto m = dims[0], k = dims[1], n = dims[2];
+    SCOPED_TRACE(fmt::format("m={} k={} n={}", m, k, n));
+    const auto a = Plain({k, m}).transpose({1, 0});
+    const auto b = Plain({n, k}).transpose({1, 0});
     const auto shares_a = io.toShares(a, VIS_SECRET);
     const auto shares_b = io.toShares(b, VIS_SECRET);
     const auto results = utils::simulate(3, [&](const auto& link) {
@@ -218,32 +223,48 @@ TEST(SpdzWiseRing, MatrixSecretAndPublicWithStrides) {
           {x, y});
       x = import_s(&ctx, x);
       y = import_s(&ctx, y);
+      // Exercise genuine 128-bit representatives, including overflow, and
+      // strides on authenticated inputs (import itself makes compact arrays).
+      x = dynDispatch(&ctx, "mul_aa", x, x);
+      y = dynDispatch(&ctx, "mul_aa", y, y);
+      x = Value(x.data().transpose({1, 0}).clone().transpose({1, 0}), DT_I64);
+      y = Value(y.data().transpose({1, 0}).clone().transpose({1, 0}), DT_I64);
       auto before = link->GetStats()->sent_bytes.load();
       auto secret = dynDispatch(&ctx, "mmul_aa", x, y);
       const auto bytes = link->GetStats()->sent_bytes.load() - before;
-      // Six output cells; the wire includes a fixed malformed-message status.
-      EXPECT_EQ(bytes, 6 * 32 + 4);
+      // Two words per output cell, plus the fixed malformed-message status.
+      EXPECT_EQ(bytes, m * n == 0 ? 0 : m * n * 32 + 4);
       auto public_result = dynDispatch(
           &ctx, "mmul_ap", x, Value(b.as(makeType<Pub2kTy>(FM64)), DT_I64));
       state->prepareOutputs(&ctx, {"s", "p"}, {secret, public_result});
       state->commit();
-      return std::make_pair(state->exportedValue("s").data(),
-                            state->exportedValue("p").data());
+      return std::array<NdArrayRef, 4>{state->exportedValue("s").data(),
+                                     state->exportedValue("p").data(),
+                                     secret.data(), public_result.data()};
     });
     std::vector<NdArrayRef> secret, public_result;
     for (auto& r : results) {
-      secret.push_back(r.first);
-      public_result.push_back(r.second);
+      secret.push_back(r[0]);
+      public_result.push_back(r[1]);
     }
     const auto s = io.fromShares(secret), p = io.fromShares(public_result);
     const NdArrayView<uint64_t> av(a), bv(b);
-    for (int64_t i = 0; i < 2; ++i)
-      for (int64_t j = 0; j < 3; ++j) {
-        uint64_t expected = 0;
-        for (int64_t t = 0; t < k; ++t)
-          expected += av[i * k + t] * bv[t * 3 + j];
-        EXPECT_EQ(s.data<uint64_t>()[i * 3 + j], expected);
-        EXPECT_EQ(p.data<uint64_t>()[i * 3 + j], expected);
+    for (int64_t i = 0; i < m; ++i)
+      for (int64_t j = 0; j < n; ++j) {
+        Word expected_s = 0, expected_p = 0, internal_s = 0, internal_p = 0;
+        for (int64_t t = 0; t < k; ++t) {
+          const Word lhs = av[i * k + t], rhs = bv[t * n + j];
+          expected_s += lhs * lhs * rhs * rhs;
+          expected_p += lhs * lhs * rhs;
+        }
+        for (const auto& r : results) {
+          internal_s += r[2].data<AuthShare>()[i * n + j][0];
+          internal_p += r[3].data<AuthShare>()[i * n + j][0];
+        }
+        EXPECT_EQ(internal_s, expected_s);
+        EXPECT_EQ(internal_p, expected_p);
+        EXPECT_EQ(s.data<uint64_t>()[i * n + j], uint64_t(expected_s));
+        EXPECT_EQ(p.data<uint64_t>()[i * n + j], uint64_t(expected_p));
       }
   }
 }
