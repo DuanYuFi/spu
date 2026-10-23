@@ -283,6 +283,7 @@ NdArrayRef SpdzWiseState::b2a(const NdArrayRef& in) {
     b2a_and_bits_ = 0;
     if (!in.numel())
       return NdArrayRef(makeType<ring::AShrTy>(session_), in.shape());
+    maybeCheck();
     auto start = Clock::now();
     auto bytes = link_->GetStats()->sent_bytes.load();
     const auto mask = ring_->randomAuthenticated(in.shape());
@@ -290,11 +291,11 @@ NdArrayRef SpdzWiseState::b2a(const NdArrayRef& in) {
     b2a_bytes_[0] = link_->GetStats()->sent_bytes.load() - bytes;
     start = Clock::now();
     bytes = link_->GetStats()->sent_bytes.load();
-    const auto before = pendingBooleanBits();
+    const auto before = boolean_->totalBits();
     const auto r = Sliced(this, mask);
     const auto x = SliceBoolean(in, makeType<BShrTy>(session_, 64));
     const auto masked = Unslice(Add(this, x, r), in.shape());
-    b2a_and_bits_ = pendingBooleanBits() - before;
+    b2a_and_bits_ = boolean_->totalBits() - before;
     b2a_ms_[1] = Ms(start);
     b2a_bytes_[1] = link_->GetStats()->sent_bytes.load() - bytes;
     return finishB2A(mask, masked);

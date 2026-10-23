@@ -76,6 +76,7 @@ NdArrayRef SpdzWiseState::mulA1B(const NdArrayRef& x, const NdArrayRef& bit) {
     SPU_ENFORCE(x.shape() == bit.shape(), "MulA1B shape mismatch");
     mula1b_ms_ = {};
     if (!x.numel()) return NdArrayRef(x.eltype(), x.shape());
+    maybeCheck();
     const auto b = bit2a(bit);
     const auto start = Clock::now();
     auto out = multiply(x, b);

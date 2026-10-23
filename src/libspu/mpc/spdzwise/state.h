@@ -69,6 +69,8 @@ class SpdzWiseState final : public ProtocolSession {
   void agree(const std::string& descriptor);
   NdArrayRef authenticateInput(const std::vector<RepShare>& values,
                                const Shape& shape);
+  // Operation-entry soft limit. Never called by verification internals.
+  void maybeCheck();
 
  protected:
   void onBegin(const ExecutableProto& exec,

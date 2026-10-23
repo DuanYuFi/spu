@@ -258,6 +258,116 @@ TEST(SpdzWiseProtocol, SelectiveAndCombinedVerificationCheckpoints) {
   }
 }
 
+TEST(SpdzWiseProtocol,
+     CheckThresholdFlushesQueuesIndependentlyBeforeOperations) {
+  for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
+    auto config = Config();
+    config.spdzwise_config.domain = domain;
+    config.spdzwise_config.check_threshold = 3;
+    const auto outputs = utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* s = ctx.prot()->getState<SpdzWiseState>();
+      s->begin(ExecutableProto("threshold", {}, {"a", "b"}, "test"), {});
+      const auto p = Matrix({1, 1}, {7}).as(makeType<Pub2kTy>(FM64));
+      const auto a = s->publicValue(p), b = s->publicBoolean(p);
+      s->multiply(a, a);
+      s->multiply(a, a);
+      s->booleanBinary(b, b, true, false);
+      s->matmul(a, a, false);  // Reaches exactly three arithmetic records.
+      EXPECT_EQ(s->arithmeticChecks(), 0);
+      EXPECT_EQ(s->booleanChecks(), 0);
+      s->booleanBinary(b, b, true, false);  // Flush arithmetic only.
+      EXPECT_EQ(s->arithmeticChecks(), 1);
+      EXPECT_EQ(s->booleanChecks(), 0);
+      EXPECT_EQ(s->pendingBooleanBits(), 128);
+      auto bit_product = s->booleanBinary(b, b, true, false);
+      EXPECT_EQ(s->booleanChecks(), 0);  // Reaches three packed triples.
+      auto product = s->multiply(a, a);  // Flush Boolean only, then append.
+      EXPECT_EQ(s->arithmeticChecks(), 1);
+      EXPECT_EQ(s->booleanChecks(), 1);
+      EXPECT_EQ(s->pendingBooleanBits(), 0);
+      // Finalization must check the one remaining arithmetic record (< 3).
+      s->prepareOutputs(&ctx, {"a", "b"},
+                        {Value(product, DT_I64), Value(bit_product, DT_I64)});
+      s->commit();
+      EXPECT_EQ(s->arithmeticChecks(), 2);
+      EXPECT_EQ(s->booleanChecks(), 1);
+      return std::array<NdArrayRef, 2>{s->exportedValue("a").data(),
+                                       s->exportedValue("b").data()};
+    });
+    SpdzWiseIo io(FM64, 3, domain);
+    for (size_t i = 0; i < 2; ++i) {
+      const auto plain =
+          io.fromShares({outputs[0][i], outputs[1][i], outputs[2][i]});
+      EXPECT_EQ(plain.data<uint64_t>()[0], i == 0 ? 49 : 7);
+    }
+  }
+}
+
+TEST(SpdzWiseProtocol, CheckThresholdIsSoftForLargeMultiplyAndMatmul) {
+  for (bool matrix : {false, true}) {
+    auto config = Config();
+    config.spdzwise_config.domain = SpdzWiseConfig::RING;
+    config.spdzwise_config.check_threshold = 2;
+    utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* s = ctx.prot()->getState<SpdzWiseState>();
+      s->begin(ExecutableProto("overshoot", {}, {}, "test"), {});
+      const auto a = s->publicValue(
+          Matrix({2, 2}, {1, 2, 3, 4}).as(makeType<Pub2kTy>(FM64)));
+      auto operation = [&] {
+        return matrix ? s->matmul(a, a, false) : s->multiply(a, a);
+      };
+      operation();  // Four new records may exceed the threshold of two.
+      EXPECT_EQ(s->arithmeticChecks(), 0);
+      operation();
+      EXPECT_EQ(s->arithmeticChecks(), 1);
+      s->finalize();
+      EXPECT_EQ(s->arithmeticChecks(), 2);
+      s->prepareOutputs(&ctx, {}, {});
+      s->commit();
+    });
+  }
+}
+
+TEST(SpdzWiseProtocol, CheckThresholdCountsPackedBooleanRecordsIncludingTail) {
+  auto config = Config();
+  config.spdzwise_config.check_threshold = 2;
+  utils::simulate(3, [&](const auto& link) {
+    SPUContext ctx(config, link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* s = ctx.prot()->getState<SpdzWiseState>();
+    s->begin(ExecutableProto("packed-threshold", {}, {}, "test"), {});
+    const auto bits = s->randomBoolean({63});
+    s->booleanBinary(bits, bits, true, false);
+    EXPECT_EQ(s->pendingBooleanBits(), 63);
+    s->booleanBinary(bits, bits, true, false);
+    EXPECT_EQ(s->booleanChecks(), 0);  // 63 bits count as one, not 63 records.
+    EXPECT_EQ(s->pendingBooleanBits(), 126);  // Includes a partial second word.
+    s->booleanBinary(bits, bits, true, false);
+    EXPECT_EQ(s->booleanChecks(), 1);
+    EXPECT_EQ(s->pendingBooleanBits(), 63);
+    s->prepareOutputs(&ctx, {}, {});  // No-output finalization still flushes.
+    s->commit();
+    EXPECT_EQ(s->booleanChecks(), 2);
+    EXPECT_EQ(s->pendingBooleanBits(), 0);
+  });
+}
+
+TEST(SpdzWiseProtocol, CheckThresholdMismatchRejectedAtBegin) {
+  utils::simulate(3, [&](const auto& link) {
+    auto config = Config();
+    config.spdzwise_config.check_threshold = link->Rank() == 0 ? 2 : 3;
+    SPUContext ctx(config, link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* s = ctx.prot()->getState<SpdzWiseState>();
+    EXPECT_ANY_THROW(s->begin(ExecutableProto("mismatch", {}, {}, "test"), {}));
+    EXPECT_TRUE(s->failed());
+  });
+}
+
 TEST(SpdzWiseProtocol, PublicAndSpecificPartyRevealRemainClosed) {
   for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
     auto config = Config();

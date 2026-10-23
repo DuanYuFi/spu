@@ -234,6 +234,7 @@ NdArrayRef SpdzWiseState::truncPrRandomBit(const NdArrayRef& x, size_t bits,
   try {
     requireRunning();
     SPU_ENFORCE(isRing() && ring_, "probabilistic truncation requires RING");
+    maybeCheck();
     // All hints use the same signed protocol; no secret sign is computed.
     SPU_ENFORCE(sign == SignType::Unknown || sign == SignType::Positive ||
                     sign == SignType::Negative,

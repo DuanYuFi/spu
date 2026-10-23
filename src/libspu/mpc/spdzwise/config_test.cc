@@ -23,6 +23,7 @@ namespace {
 TEST(RuntimeConfig, SpdzWiseDefaultsToFieldForLegacyConfigurations) {
   const auto config = makeFullRuntimeConfig(RuntimeConfig(SPDZWISE, FM64));
   EXPECT_EQ(config.spdzwise_config.domain, SpdzWiseConfig::FIELD);
+  EXPECT_EQ(config.spdzwise_config.check_threshold, 5'000'000);
   EXPECT_EQ(config.fxp_fraction_bits,
             makeFullRuntimeConfig(RuntimeConfig(ABY3, FM64)).fxp_fraction_bits);
   EXPECT_EQ(config.fxp_fraction_bits, 18);
@@ -30,6 +31,7 @@ TEST(RuntimeConfig, SpdzWiseDefaultsToFieldForLegacyConfigurations) {
   ASSERT_TRUE(
       parsed.ParseFromJsonString(R"({"protocol":"SPDZWISE","field":"FM64"})"));
   EXPECT_EQ(parsed.spdzwise_config.domain, SpdzWiseConfig::FIELD);
+  EXPECT_EQ(parsed.spdzwise_config.check_threshold, 5'000'000);
   EXPECT_NO_THROW(populateRuntimeConfig(parsed));
 }
 
@@ -50,6 +52,27 @@ TEST(RuntimeConfig, SpdzWiseDomainSurvivesProtoBinaryAndJson) {
         name + R"("}})"));
     EXPECT_EQ(parsed.spdzwise_config.domain, domain);
     EXPECT_NE(parsed.DumpToString().find("domain: " + name), std::string::npos);
+  }
+}
+
+TEST(RuntimeConfig, SpdzWiseCheckThresholdSerializationAndDefault) {
+  for (uint64_t threshold : {0ULL, 1ULL, 5'000'000ULL, 10'000'000ULL}) {
+    RuntimeConfig config(SPDZWISE, FM64);
+    config.spdzwise_config.check_threshold = threshold;
+    const auto expected = threshold ? threshold : 5'000'000;
+    EXPECT_EQ(config.ToProto().spdzwise_config().check_threshold(), expected);
+    EXPECT_EQ(RuntimeConfig(config.ToProto()).spdzwise_config.check_threshold,
+              expected);
+    RuntimeConfig parsed;
+    ASSERT_TRUE(parsed.ParseFromString(config.SerializeAsString()));
+    EXPECT_EQ(parsed.spdzwise_config.check_threshold, expected);
+    ASSERT_TRUE(parsed.ParseFromJsonString(
+        R"({"protocol":"SPDZWISE","field":"FM64","spdzwise_config":{"check_threshold":)" +
+        std::to_string(threshold) + "}}"));
+    EXPECT_EQ(parsed.spdzwise_config.check_threshold, expected);
+    EXPECT_NE(parsed.DumpToString().find("check_threshold: " +
+                                         std::to_string(expected)),
+              std::string::npos);
   }
 }
 

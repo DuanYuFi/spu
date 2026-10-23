@@ -391,6 +391,9 @@ message SpdzWiseConfig {
 
   // Selects arithmetic, conversion and PPML kernels. Boolean kernels use ABFL.
   Domain domain = 1;
+  // Soft check threshold per queue: arithmetic records or packed 64-bit AND
+  // triples. Zero/omitted selects 5,000,000. Mandatory checks are unconditional.
+  uint64 check_threshold = 2;
 }
 
 message ClientSSLConfig {

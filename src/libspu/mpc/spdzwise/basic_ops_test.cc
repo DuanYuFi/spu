@@ -150,6 +150,25 @@ void ExpectOutputs(const std::vector<std::vector<NdArrayRef>>& results,
   }
 }
 
+TEST(BasicOps, CheckThresholdRejectsCorruptMacBeforeNextOperation) {
+  for (size_t party = 0; party < 3; ++party) {
+    utils::simulate(3, [&](const auto& link) {
+      auto config = Config();
+      config.spdzwise_config.check_threshold = 1;
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* s = ctx.prot()->getState<SpdzWiseState>();
+      Begin(s);
+      s->randomArithmetic({1});
+      BasicOpsTestAccess::corrupt(s, party, false);
+      EXPECT_ANY_THROW(s->randomArithmetic({1}));
+      EXPECT_TRUE(s->failed());
+      EXPECT_ANY_THROW(s->commit());
+      EXPECT_ANY_THROW(s->exportedValue("out"));
+    });
+  }
+}
+
 struct BooleanCase {
   std::string name;
   Sizes shifts;

@@ -441,6 +441,33 @@ TEST(RingConversion, MsbRejectsCorruptCarryAndPaddingAtEveryParty) {
   }
 }
 
+TEST(RingConversion, B2ACheckThresholdPreservesOpeningChecksAndGateCounts) {
+  SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
+  const auto plain = Plain(65);
+  const auto shares = io.toBooleanShares(plain, 64);
+  const auto results = utils::simulate(3, [&](const auto& link) {
+    auto config = Config();
+    config.spdzwise_config.check_threshold = 32;
+    SPUContext ctx(config, link);
+    registerArithmeticPrototype(&ctx, link);
+    auto* s = ctx.prot()->getState<SpdzWiseState>();
+    Value input(shares[link->Rank()], DT_U64);
+    Begin(s, {input});
+    const auto x = import_s(&ctx, input);
+    const auto y = b2a(&ctx, x);
+    EXPECT_EQ(s->arithmeticChecks(), 1);
+    EXPECT_GT(s->booleanChecks(), 1);
+    EXPECT_EQ(s->pendingBooleanBits(), 0);
+    EXPECT_EQ(ring::ConversionTestAccess::gates(s), 188 * 2 * 64);
+    s->prepareOutputs(&ctx, {"out"}, {y});
+    s->commit();
+    return s->exportedValue("out").data();
+  });
+  const auto actual = io.fromShares(results);
+  for (int64_t i = 0; i < plain.numel(); ++i)
+    EXPECT_EQ(actual.data<uint64_t>()[i], plain.data<uint64_t>()[i]);
+}
+
 TEST(RingConversion, B2AWidthsShapesAndAuthenticatedOutput) {
   SpdzWiseIo io(FM64, 3, SpdzWiseConfig::RING);
   struct Result {

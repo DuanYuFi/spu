@@ -294,6 +294,27 @@ TEST(Abfl, DirectBufferOpeningChecksLastReplicaAndLengths) {
   });
 }
 
+TEST(Abfl, CheckThresholdRejectsCorruptAndBeforeNextOperation) {
+  for (size_t party = 0; party < 3; ++party) {
+    utils::simulate(3, [&](const auto& link) {
+      auto config = Config();
+      config.spdzwise_config.check_threshold = 1;
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* s = ctx.prot()->getState<SpdzWiseState>();
+      Begin(s);
+      const auto bits = s->randomBoolean({1});
+      s->booleanBinary(bits, bits, true, false);
+      BooleanTestAccess::corrupt(s, party, false);
+      ExpectFailure([&] { s->booleanBinary(bits, bits, true, false); },
+                    "Boolean replicated copies disagree");
+      EXPECT_TRUE(s->failed());
+      EXPECT_ANY_THROW(s->commit());
+      EXPECT_ANY_THROW(s->exportedValue("out"));
+    });
+  }
+}
+
 TEST(Abfl, PackingAllWidthsAndOverflowOccupancies) {
   utils::simulate(3, [&](const auto& link) {
     SPUContext ctx(Config(), link);

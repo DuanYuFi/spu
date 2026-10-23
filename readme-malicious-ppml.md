@@ -41,8 +41,8 @@ MulA1B: dabit Bit2A -> MulAA
 | 原有文件 | 修改内容及原因 |
 | --- | --- |
 | [`src/libspu/mpc/factory.cc`](src/libspu/mpc/factory.cc)、[`mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel) | `Factory::RegisterProtocol()` / `CreateIO()` 分别调用协议目录的 `regSpdzWiseProtocol()` / `makeSpdzWiseIo()`，并增加链接依赖。正常 Python/device 入口需要这两条工厂分支；RING/FM64 限制在协议入口校验。BUILD 中另外保留新增会话库及测试的目标声明。 |
-| [`src/libspu/spu.h`](src/libspu/spu.h)、[`spu.proto`](src/libspu/spu.proto)、[`spu.cc`](src/libspu/spu.cc) | `SPDZWISE = 7`、`SpdzWiseConfig`、protobuf 字段 74 及配置转换用于选择后端、选择 RING，并使 C++/protobuf/JSON 配置一致。`DumpToString()` 记录实际 domain。沿用现有 FIELD/RING 配置格式。 |
-| [`spu/api.py`](spu/api.py)、[`libspu.cc`](spu/libspu.cc)、[`libspu.pyi`](spu/libspu.pyi)、[`__init__.py`](spu/__init__.py) 的配置绑定 | 字符串解析、协议枚举、domain 绑定、包级导出与类型声明服务于现有 Python 配置接口。Python 用户需能显式指定 `SPDZWISE + FM64 + RING`。 |
+| [`src/libspu/spu.h`](src/libspu/spu.h)、[`spu.proto`](src/libspu/spu.proto)、[`spu.cc`](src/libspu/spu.cc) | `SPDZWISE = 7`、`SpdzWiseConfig`、protobuf 字段 74 及配置转换用于选择后端、选择 RING，并使 C++/protobuf/JSON 配置一致。`SpdzWiseConfig` 新增 `uint64 check_threshold`（子消息字段 2），默认 5,000,000，零或省略均使用默认值；配置转换保留有效阈值，`DumpToString()` 记录 domain 和有效阈值，使大电路的待检队列阈值可配置、可诊断。沿用现有 FIELD/RING 配置格式。 |
+| [`spu/api.py`](spu/api.py)、[`libspu.cc`](spu/libspu.cc)、[`libspu.pyi`](spu/libspu.pyi)、[`__init__.py`](spu/__init__.py) 的配置绑定 | 字符串解析、协议枚举、domain 绑定、包级导出与类型声明服务于现有 Python 配置接口。Python 用户需能显式指定 `SPDZWISE + FM64 + RING`。本次阈值功能在 `libspu.cc` 增加 `SpdzWiseConfig.check_threshold` 读写绑定，在 `libspu.pyi` 增加 `int` 类型声明，支持 `config.spdzwise_config.check_threshold = 10_000_000`；复用现有配置复制、protobuf 和 JSON 接口，无需为阈值修改 `api.py` 或 `__init__.py`。 |
 | [`src/libspu/device/api.cc`](src/libspu/device/api.cc)、Python `RuntimeWrapper`；[`device/BUILD.bazel`](src/libspu/device/BUILD.bazel)、[`spu/BUILD.bazel`](spu/BUILD.bazel) 的库依赖 | `executeImpl()` 在执行前认证秘密输入，发布结果前调用 `ProtocolSession::prepareOutputs()`，成功后提交；`ProtocolRunGuard` 使包括解析失败在内的异常中止会话。Python SetVar/DelVar/Clear 维护导出状态，GetVar/metadata/chunks 仅读取已提交视图。仅 identity/reshape、空输出和最后一批延迟 MAC/AND 检查都需要执行边界，不能只靠注册算术算子覆盖。内部环境继续保留 MAC，支持连续执行。 |
 | [`src/libspu/core/object.h`](src/libspu/core/object.h) 的 `hasState()` | `getProtocolSession()` 用它检测可选会话；普通协议不安装会话，继续原路径。检查必须基于 State 是否存在，不能用 `finalize_protocol` 内核是否存在替代，否则会把“已安装会话但缺少最终检查”的错误静默跳过。 |
 | [`src/libspu/core/type.h`](src/libspu/core/type.h)、[`value.cc`](src/libspu/core/value.cc) 的序列化策略 | `Value::toMetaProto()/toProto()` 在复制前检查 `isSerializable()`；协议内部算术 MAC 类型和 Boolean 类型返回 false。自定义 Type 的 `fromString()` 只能防伪造导入，不能禁止已有内部值从通用 C++ ValueProto 路径导出。默认返回 true，原协议行为不变。 |
@@ -50,7 +50,9 @@ MulA1B: dabit Bit2A -> MulAA
 
 生命周期实现位于新增的 [`protocol_session.h`](src/libspu/mpc/protocol_session.h)/[`protocol_session.cc`](src/libspu/mpc/protocol_session.cc)，通过原有 State 机制按需安装。算术、Boolean、A2B/B2A、MSB、截断、随机数和 shape 内核均位于 [`spdzwise/`](src/libspu/mpc/spdzwise/)，使用现有注册接口。上述框架修改服务于当前延迟校验、内部 MAC 保留及外部 wire 格式。
 
-验证覆盖 **15 个 C++ 目标、477 个用例，以及 6 个 Python 配置/IO/JAX 用例**；LR 小图同时检查默认 18 位和显式 16 位精度。验证命令及结果见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md)。
+阈值触发逻辑也位于协议目录：秘密乘法、矩阵乘法、AND 等操作入口按 `>= check_threshold` 独立检查算术与 Boolean 队列。算术按认证结果记录计数，Boolean 按打包后的 64 位 AND triple 计数（含末尾不满一字的记录）；阈值是软上限，单次大操作可以超限。有效阈值通过现有会话开始时的配置一致性校验确保各方一致。输入认证、masked open、显式检查和最终导出前的强制检查保持原有语义，校验内部不递归触发阈值检查，因此本次无需增加通用 HAL、device 或 `ProtocolSession` 的执行 hook。B2A 的 AND 工作量统计改用累计计数，以兼容中途清空队列。
+
+此前框架验收覆盖 **15 个 C++ 目标、477 个用例，以及 6 个 Python 配置/IO/JAX 用例**；LR 小图同时检查默认 18 位和显式 16 位精度。本次阈值改动验证通过 **8 个 C++ 目标、97 个用例，以及 7 个 Python 用例**，包括配置默认值/序列化、阈值边界、两类队列独立检查、损坏记录拒绝及小阈值运行；[`spu/tests/spdzwise_runtime_test.py`](spu/tests/spdzwise_runtime_test.py) 补充配置往返断言和阈值为 2 的乘法链测试。两次验证范围有重叠，不累加用例数。验证命令及结果见 [VALIDATION.md](src/libspu/mpc/spdzwise/VALIDATION.md)。
 
 ## Benchmark
 

@@ -1,5 +1,35 @@
 # Development validation record
 
+## Pending-check threshold — 2026-10-23
+
+Added `spdzwise_config.check_threshold`, defaulting to 5,000,000 records per
+queue. Zero selects the default. Eligible operation entries check queues
+independently at `>= threshold`; existing mandatory checkpoints remain
+unconditional. Boolean counts include a partial packed word. B2A work metrics
+use cumulative AND counts so intermediate checks do not cause underflow.
+
+All 97 cases across eight C++ targets passed: `config_test`, `protocol_test`,
+`basic_ops_test`, `boolean_test`, `ring_conversion_test`, `ring_test`,
+`ring_truncation_test`, and `ring_mula1b_test`. New cases exercise exact and
+exceeded thresholds, independent queues, packed/tail Boolean counting,
+no-output finalization below threshold, configuration disagreement, corrupt
+MAC/AND rejection at the next operation, and B2A with intermediate checks.
+Existing input/pre-opening/finalization fault tests also pass.
+
+From `src`, run the bundled Bazel 7.7.1 with
+`--batch --output_user_root=/tmp/malicious-spu-bazel test -c opt`, the eight
+`//libspu/mpc/spdzwise:<target>` labels above, and
+`--lockfile_mode=off --jobs=12 --test_env=YACL_NUM_THREADS=4 --test_timeout=180
+--extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain`.
+
+The root `//spu:libspu` extension build passed. All seven cases in
+`spu.tests.spdzwise_runtime_test` passed against that extension, including
+threshold configuration round trips and a threshold-two multiplication chain.
+Python 3.11 came from the user-owned uv installation, with dependencies from
+the existing TransformerInference virtualenv and the temporary runtime-only
+package described below. No throughput or peak-RSS benchmark was performed;
+the threshold is a soft trigger and does not bound a single large operation.
+
 ## RING framework modification audit — 2026-10-23
 
 The root README's **Original SPU Modification** section now records a

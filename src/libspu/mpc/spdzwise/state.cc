@@ -55,6 +55,10 @@ void RequirePublic(const NdArrayRef& x) {
 SpdzWiseState::SpdzWiseState(const RuntimeConfig& config,
                              std::shared_ptr<yacl::link::Context> link)
     : link_(std::move(link)), config_(config) {
+  if (!config_.spdzwise_config.check_threshold) {
+    config_.spdzwise_config.check_threshold =
+        SpdzWiseConfig::kDefaultCheckThreshold;
+  }
   SPU_ENFORCE(link_ && link_->WorldSize() == 3,
               "SPDZWISE requires three parties");
   SPU_ENFORCE(config.field == FM64, "SPDZWISE requires FM64");
@@ -355,6 +359,14 @@ uint64_t SpdzWiseState::openRaw(const RepShare& value) {
     SPU_ENFORCE(shares[i][1] == shares[(i + 1) % 3][0], "inconsistent opening");
   }
   return Add(Add(shares[0][0], shares[1][0]), shares[2][0]);
+}
+
+void SpdzWiseState::maybeCheck() {
+  requireRunning();
+  const auto threshold = config_.spdzwise_config.check_threshold;
+  const auto arithmetic = isRing() ? ring_->pendingRecords() : pending_.size();
+  if (arithmetic >= threshold) checkMac();
+  if (boolean_->pendingRecords() >= threshold) checkBoolean();
 }
 
 void SpdzWiseState::checkMac() {

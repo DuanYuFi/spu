@@ -108,6 +108,10 @@ void convertFromPB(const pb::RuntimeConfig& src, RuntimeConfig& dst) {
   dst.trunc_allow_msb_error = src.trunc_allow_msb_error();
   dst.spdzwise_config.domain =
       SpdzWiseConfig::Domain(src.spdzwise_config().domain());
+  dst.spdzwise_config.check_threshold =
+      src.spdzwise_config().check_threshold()
+          ? src.spdzwise_config().check_threshold()
+          : SpdzWiseConfig::kDefaultCheckThreshold;
   dst.experimental_disable_mmul_split = src.experimental_disable_mmul_split();
   dst.experimental_enable_inter_op_par = src.experimental_enable_inter_op_par();
   dst.experimental_enable_intra_op_par = src.experimental_enable_intra_op_par();
@@ -206,6 +210,10 @@ void convertToPB(const RuntimeConfig& src, pb::RuntimeConfig& dst) {
   if (src.protocol == ProtocolKind::SPDZWISE) {
     dst.mutable_spdzwise_config()->set_domain(
         pb::SpdzWiseConfig::Domain(src.spdzwise_config.domain));
+    dst.mutable_spdzwise_config()->set_check_threshold(
+        src.spdzwise_config.check_threshold
+            ? src.spdzwise_config.check_threshold
+            : SpdzWiseConfig::kDefaultCheckThreshold);
   }
   dst.set_experimental_disable_mmul_split(src.experimental_disable_mmul_split);
   dst.set_experimental_enable_inter_op_par(
@@ -301,6 +309,10 @@ std::string RuntimeConfig::DumpToString() const {
   if (this->protocol == ProtocolKind::SPDZWISE) {
     ss += "\nspdzwise_config {\n  domain: ";
     ss += magic_enum::enum_name(this->spdzwise_config.domain);
+    ss += "\n  check_threshold: " +
+          std::to_string(this->spdzwise_config.check_threshold
+                             ? this->spdzwise_config.check_threshold
+                             : SpdzWiseConfig::kDefaultCheckThreshold);
     ss += "\n}";
   }
 

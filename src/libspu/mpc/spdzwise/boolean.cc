@@ -374,9 +374,9 @@ NdArrayRef BooleanState::andBB(const NdArrayRef& x, const NdArrayRef& y,
                               y.eltype().as<BShrTy>()->nbits());
   const auto mask = BooleanMask(width);
   SPU_ENFORCE(x.shape() == y.shape(), "Boolean AND shape mismatch");
-  SPU_ENFORCE(
-      size_t(x.numel()) <= (std::numeric_limits<size_t>::max() - bits_) / width,
-      "ABFL bit count overflow");
+  SPU_ENFORCE(size_t(x.numel()) <=
+                  (std::numeric_limits<size_t>::max() - total_bits_) / width,
+              "ABFL bit count overflow");
   if (width == 64) {
     const auto count = size_t(x.numel());
     const auto new_bits = bits_ + count * 64;
@@ -430,6 +430,7 @@ NdArrayRef BooleanState::andBB(const NdArrayRef& x, const NdArrayRef& y,
     }
     if (count) pending_batches_.push_back(std::move(snapshots));
     bits_ = new_bits;
+    total_bits_ += count * 64;
     layout_ += fmt::format("{}:{};", x.shape(), width);
     return out;
   }
@@ -448,6 +449,7 @@ NdArrayRef BooleanState::andBB(const NdArrayRef& x, const NdArrayRef& y,
     ov[i] = c[i];
   }
   append(a, b, c, width);
+  total_bits_ += a.size() * width;
   layout_ += fmt::format("{}:{};", x.shape(), width);
   return out;
 }
@@ -835,6 +837,7 @@ NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
       validateBoolean(y);
     }
     if (is_and && !public_rhs) {
+      maybeCheck();
       return boolean_->andBB(x, y, session_);
     }
     const size_t xbits = x.eltype().as<BShrTy>()->nbits();

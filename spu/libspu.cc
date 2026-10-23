@@ -762,7 +762,8 @@ void BindSPU(py::module& m) {
       .value("RING", SpdzWiseConfig::RING)
       .export_values();
   spdzwise_cls.def(py::init<>())
-      .def_readwrite("domain", &SpdzWiseConfig::domain);
+      .def_readwrite("domain", &SpdzWiseConfig::domain)
+      .def_readwrite("check_threshold", &SpdzWiseConfig::check_threshold);
 
   py::class_<RuntimeConfig> rt_cls(m, "RuntimeConfig");
 

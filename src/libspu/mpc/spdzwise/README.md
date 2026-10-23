@@ -143,6 +143,36 @@ work and are required before enabling external use.
 general reveal kernel. Application-level reveal kernels explicitly reject.
 No destructor performs network communication.
 
+## Pending-check threshold
+
+`spdzwise_config.check_threshold` defaults to 5,000,000 (zero or omitted also
+selects this default). Set it in JSON, C++, or Python, for example
+`config.spdzwise_config.check_threshold = 10_000_000`. All parties must use the
+same effective threshold; it participates in execution-start configuration
+agreement.
+
+At entry to secret multiplication, secret matrix multiplication, secret AND,
+and authenticated random/mask generation entry points, each queue at or above
+the threshold is checked independently. Arithmetic counts authenticated result
+elements; Boolean counts packed 64-bit AND triples, including a partial final
+word, rather than individual AND bits. Conversion circuits use the same AND
+entry point. Public linear operations do not trigger threshold checks.
+
+This is a soft threshold: a single operation can append more than the limit,
+and its records are checked at the next eligible entry point or mandatory
+checkpoint. It does not split large operations or impose a hard memory cap.
+Five million RING records occupy 320 MB per party before vector capacity and
+checking scratch space; five million packed Boolean triples occupy 240 MB
+before random verification pools and scratch space. Cleared vectors can retain
+capacity for reuse.
+
+Input authentication, pre-opening checks in conversions/truncation, explicit
+checkpoints, and finalization (including executions with no outputs) retain
+their unconditional checks. Verification-internal openings do not recursively
+trigger threshold checks. Any check failure aborts the session and prevents
+exports. Additional checks count toward the whole-execution security budget
+discussed below.
+
 ## RING arithmetic prototype
 
 Use `SPDZWISE + FM64 + spdzwise_config.domain=RING` with the explicit C++

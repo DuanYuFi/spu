@@ -213,6 +213,7 @@ class SpdzWiseConfig:
     FIELD: Domain
     RING: Domain
     domain: Domain
+    check_threshold: int
 
     def __init__(self): ...
 

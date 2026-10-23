@@ -96,5 +96,6 @@ class ArithmeticState {
   NdArrayRef exportValue(const NdArrayRef& value, const Type& type) const;
   bool checkMac();
   bool empty() const { return pending_.empty(); }
+  size_t pendingRecords() const { return pending_.size(); }
 };
 }  // namespace spu::mpc::spdzwise::ring

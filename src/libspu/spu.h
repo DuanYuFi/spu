@@ -218,6 +218,10 @@ struct SpdzWiseConfig {
 
   // Both domains require FM64. FIELD preserves existing F61 configurations.
   Domain domain = FIELD;
+  static constexpr uint64_t kDefaultCheckThreshold = 5'000'000;
+  // Soft limit per queue: arithmetic records or packed 64-bit AND triples.
+  // Zero selects the default; mandatory checks never use this threshold.
+  uint64_t check_threshold = kDefaultCheckThreshold;
 };
 
 // The SPU runtime configuration.

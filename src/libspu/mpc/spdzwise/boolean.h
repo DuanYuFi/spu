@@ -60,6 +60,7 @@ class BooleanState {
   Triple overflow_{};
   size_t overflow_bits_ = 0;
   size_t bits_ = 0;
+  size_t total_bits_ = 0;  // Circuit work, including already checked batches.
   std::string layout_;
   uint64_t checks_ = 0;
 
@@ -89,6 +90,8 @@ class BooleanState {
   BooleanState(std::shared_ptr<yacl::link::Context> link,
                std::function<std::string(std::string_view)> tag);
   size_t pendingBits() const { return bits_; }
+  size_t pendingRecords() const { return bits_ / 64 + (bits_ % 64 != 0); }
+  size_t totalBits() const { return total_bits_; }
   uint64_t checks() const { return checks_; }
   void checkCopies(const std::vector<RepShare>& shares);
   NdArrayRef randomBit(const Shape& shape, const std::string& session);

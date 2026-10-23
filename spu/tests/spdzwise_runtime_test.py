@@ -34,13 +34,17 @@ class SpdzWiseRuntimeTest(unittest.TestCase):
             field=libspu.FieldType.FM64,
         )
         self.assertEqual(config.spdzwise_config.domain, libspu.SpdzWiseConfig.FIELD)
+        self.assertEqual(config.spdzwise_config.check_threshold, 5_000_000)
         for domain in (libspu.SpdzWiseConfig.FIELD, libspu.SpdzWiseConfig.RING):
             config.spdzwise_config.domain = domain
+            config.spdzwise_config.check_threshold = 10_000_000
             restored = libspu.RuntimeConfig()
             self.assertTrue(restored.ParseFromString(config.SerializeToString()))
             self.assertEqual(restored.spdzwise_config.domain, domain)
+            self.assertEqual(restored.spdzwise_config.check_threshold, 10_000_000)
             copied = libspu.RuntimeConfig(config)
             self.assertEqual(copied.spdzwise_config.domain, domain)
+            self.assertEqual(copied.spdzwise_config.check_threshold, 10_000_000)
         self.assertTrue(
             config.ParseFromJsonString(
                 json.dumps(
@@ -53,6 +57,30 @@ class SpdzWiseRuntimeTest(unittest.TestCase):
             )
         )
         self.assertEqual(config.spdzwise_config.domain, libspu.SpdzWiseConfig.FIELD)
+
+        self.assertEqual(config.spdzwise_config.check_threshold, 5_000_000)
+        self.assertTrue(
+            config.ParseFromJsonString(
+                json.dumps(
+                    {
+                        "protocol": "SPDZWISE",
+                        "field": "FM64",
+                        "spdzwise_config": {
+                            "domain": "RING",
+                            "check_threshold": 123,
+                        },
+                    }
+                )
+            )
+        )
+        self.assertEqual(config.spdzwise_config.check_threshold, 123)
+
+    def test_small_check_threshold_runtime(self):
+        cfg = config()
+        cfg.spdzwise_config.check_threshold = 2
+        x = np.array([-3, -1, 0, 5], np.int32)
+        actual = sim_jax(Simulator(3, cfg), lambda a: (a * a) * a)(x)
+        np.testing.assert_array_equal(actual, x**3)
 
     def test_io_rank_metadata(self):
         io = api.Io(3, config())

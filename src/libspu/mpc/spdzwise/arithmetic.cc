@@ -87,6 +87,7 @@ NdArrayRef SpdzWiseState::randomArithmetic(const Shape& shape) {
   try {
     requireRunning();
     SPU_ENFORCE(isRing(), "rand_a requires RING");
+    maybeCheck();
     // Full-ring random values: shifting each PRSS share does not bound the
     // reconstructed secret. MSB(x-y) comparison still requires the caller
     // to ensure that the signed difference does not overflow.
@@ -118,6 +119,7 @@ NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
 
 NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
   requireRunning();
+  maybeCheck();
   if (isRing()) {
     try {
       return ring_->multiply(x, y);
@@ -150,6 +152,7 @@ NdArrayRef SpdzWiseState::multiply(const NdArrayRef& x, const NdArrayRef& y) {
 NdArrayRef SpdzWiseState::matmul(const NdArrayRef& x, const NdArrayRef& y,
                                  bool public_rhs) {
   requireRunning();
+  if (!public_rhs) maybeCheck();
   if (isRing()) {
     try {
       return ring_->matmul(x, y, public_rhs);
