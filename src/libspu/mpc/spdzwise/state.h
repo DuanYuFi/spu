@@ -46,8 +46,9 @@ class SpdzWiseState final : public ProtocolSession {
   uint64_t execution_ = 0;
   uint64_t arithmetic_checks_ = 0;
   std::vector<AuthShare> pending_;
-  // Last B2A: material, circuit, verification, opening/linear output. Only
-  // benchmark friends inspect these; no secret-dependent metrics are stored.
+  // Last split-3 B2A: material, circuit, verification, opening/linear output.
+  // The one-bit daBit path leaves these zero. Only benchmark friends inspect
+  // these; no secret-dependent metrics are stored.
   std::array<double, 4> b2a_ms_{};
   std::array<size_t, 4> b2a_bytes_{};
   size_t b2a_and_bits_ = 0;

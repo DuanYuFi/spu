@@ -284,6 +284,9 @@ NdArrayRef SpdzWiseState::b2a(const NdArrayRef& in) {
     if (!in.numel())
       return NdArrayRef(makeType<ring::AShrTy>(session_), in.shape());
     maybeCheck();
+    // Reuse the checked daBit conversion for a single Boolean bit. Wider
+    // words, including signed exact-truncation results, retain split-3 B2A.
+    if (width == 1) return bit2a(in);
     auto start = Clock::now();
     auto bytes = link_->GetStats()->sent_bytes.load();
     const auto mask = ring_->randomAuthenticated(in.shape());

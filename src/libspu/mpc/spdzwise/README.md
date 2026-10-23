@@ -665,7 +665,17 @@ and [checked 100K results](benchmarks/comparison-msb-checked-100k-2026-10-22/RES
 The RING prototype registers `b2a` for `BShrTy(session, nbits)`, with
 `1 <= nbits <= 64`. The result is `ring::AShrTy(session)`, preserving shape
 and dtype. Narrow words are **zero-extended**, independent of dtype; this is
-not a signed narrow-integer conversion. FIELD B2A and daBits are not provided.
+not a signed narrow-integer conversion. FIELD B2A is not provided.
+
+For `nbits == 1`, generic B2A reuses the existing daBit-based Bit2A used by
+MulA1B: generate a fresh authenticated daBit, verify all pending arithmetic
+and Boolean dependencies before opening the masked bit, then return an
+authenticated zero or one. Session and canonical-share validation still run
+at the B2A entry, and empty inputs retain their no-communication behavior.
+This selection depends on the Boolean storage width, not the logical dtype.
+The split-3 phase/gate counters remain zero for this fast path.
+
+For `2 <= nbits <= 64`, the full-word masking construction below is unchanged.
 
 Reference: MP-SPDZ commit `113c4e47dd94bca9ecab029d2f0abe649bea5c52`,
 `Compiler/types.py::_secret.bit_compose` ring
@@ -694,8 +704,8 @@ output retains the extended-ring representative `c-r`, with MAC
 The mask's A2B result stays bit-sliced until after the second addition. A2B
 costs 125 ANDs per input, and the full-word RCA costs 63, for
 `188 * ceil(numel/64)` packed AND words. Tail lanes participate in verification.
-There are 126 online AND layers before the combined check. No short-width
-carry correction or single-bit daBit optimization is used.
+There are 126 online AND layers before the combined check. This multi-bit
+path does not use short-width carry correction.
 
 Both arithmetic verification and ABFL verification finish **before** any
 `b2a-open` payload is sent. Opening reuses replicated-copy checks and agreement

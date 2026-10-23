@@ -2,6 +2,65 @@
 
 更新日期：2026-10-23。当前实现是三方 **SPDZwise FIELD/RING 算术原型**，尚未完成恶意安全 PPML 后端验收。`SPDZWISE RING/FM64` 已接入正常协议工厂、device 和 Python 执行入口，使用认证导入、最终校验与事务导出。FIELD 仍仅供 `registerArithmeticPrototype()` 开发入口使用；功能接通不代表完成组合安全证明。
 
+## Technical Report
+
+目标：实现malicious security、基于MPC的PPML协议栈，能够运行例如线性回归、决策树、CNN、DNN等模型任务，并且于semi-honest版本协议相比开销不能超过5倍。需要综合考虑开发难度和上层应用难度。
+
+Baseline：SPU ABY3协议栈。
+
+### 协议栈设计overview
+
+Arithmetic multiplication protocol: SPDZwise ring. 
+
+Binary AND protocol: ABFL+17.
+
+Arithmetic-to-Binary share conversion (A2B): split-3 in ABY3 with maliciously-secure AND protocol.
+
+Binary-to-Arithmetic share conversion (B2A): edabit (generated via split-3).
+
+Bit Binary share to arithmetic (Bit2A): dabit.
+
+Truncation: Exact truncation. First A2B, then local truncation, then B2A.
+
+Comparison: dispatched to msb_a2b(x-y). msb_a2b is implemented via split-3.
+
+### Arithmetic
+
+Paper: An Efficient Passive-to-Active Compiler forst-Majority MPC over Rings
+
+支持底层64-bit value，但协议整体运行在$Z_{2^{128}}$环上。实现表明SPDZwise ring比64bit ABY3 ring乘法慢3.73-5.52倍。
+
+### Binary
+
+Paper: Optimized Honest-Majority MPC for Malicious Adversaries — Breaking the 1 Billion-Gate Per Second Barrier
+
+Online部分使用semi-honest乘法，最后采用sacrifice验证。实现表明ABFL比ABY3 Boolean AND慢13.94倍。
+
+### A2B
+
+Paper: 
+
+- ABY3: A Mixed Protocol Framework for Machine Learning (Section 5.3)
+- Improved Garbled Circuit Building Blocks and Applications to Auctions and Computing Minima (Section 3.1)
+
+采用ABY3的电路思想，但把电路替换为Kolesnikov–Sadeghi–Schneider的论文中提到的full adder，它更加MPC友好，只需要1个AND门。实验表明于ABY3效率相当。
+
+### B2A
+
+Paper: 
+
+- Improved Primitives for MPC over Mixed Arithmetic-Binary Circuits
+
+在Arithmetic生成random share，并使用A2B分解获得Boolean share，以此获得edabit。在binary使用全加器电路计算x + r并打开，然后在Arithmetic上减去r的share获得对应arithmetic share。实验表明SPDZwise开销比ABY3高1.83倍。
+
+### Truncation
+
+概率Truncation在决策树训练任务中只能拿到33.33%准确率（明文版本为97.33%），因此实验采用exact truncation，先把share转化为Binary share，然后丢弃低位，然后转化回Arithmetic。实验表明SPDZwise开销比ABY3高1.27倍。
+
+### Comparison
+
+Comparison操作由上层编译器拆解到msb_a2b的操作上，具体实现选择是split-3 A2B。
+
 ## 目前代码进展
 
 - **域与分享**：`p=2^61-1`，FM64 存储；秘密数采用中心化有符号解释；FM64 默认精度沿用 SPU 的 18 位小数，示例显式使用 16 位。实现域运算、输入范围检查、带 MAC 的内部分享及客户端输入/输出类型。
@@ -17,7 +76,7 @@ ABFL/post-sacrifice 的 C++ Boolean 原型已实现：三方 replicated XOR shar
 
 RING/FM64 已实现 split-3 A2B：仅转换 authenticated share 的 value 低 64 位，采用 CSA + bit-sliced RCA，所有秘密 AND 纳入会话最终 ABFL 验证；不转换 MAC share。技术与论文依据见 [SPDZwise README](src/libspu/mpc/spdzwise/README.md#ring-split-3-a2b)，测量见下方 Building Blocks Benchmark。
 
-当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B/B2A、FIELD 截断、FIELD 比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。已有 LR、MLP、Conv/BatchNorm/ReLU 的最小 Python/JAX 小图验证，完整模型及全数据集训练尚未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
+当前缺口：ABFL 的安全界限及组合审查、恶意安全 daBits、FIELD A2B/B2A、FIELD 截断、FIELD 比较及非线性算子尚未完成；Python 明文规格仅为正确性参照。已有 LR、MLP、Conv/BatchNorm/ReLU 的最小 Python/JAX 小图验证，下方 PPML 性能实测已覆盖完整推理图及单 batch 训练，SPDZwise 全数据集训练尚未运行；客户端完整旧输出包重放防护、真实部署、协议组合安全论证及总失败概率仍待完成。域算术测试通过不等于这些验收已完成。
 
 实现位于 [`src/libspu/mpc/spdzwise`](src/libspu/mpc/spdzwise/)，协议参考映射和数值约定见其 [README](src/libspu/mpc/spdzwise/README.md)。
 
@@ -38,15 +97,15 @@ MulA1B: dabit Bit2A -> MulAA
 
 本节以原 SPU 基线 `826537d90d60c1a94286852c5ba13c8eb470a785` 为参照，列出当前 SPDZwise RING/FM64 全套执行路径对原有 SPU 文件的修改及原因。
 
-| 原有文件 | 修改内容及原因 |
-| --- | --- |
-| [`src/libspu/mpc/factory.cc`](src/libspu/mpc/factory.cc)、[`mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel) | `Factory::RegisterProtocol()` / `CreateIO()` 分别调用协议目录的 `regSpdzWiseProtocol()` / `makeSpdzWiseIo()`，并增加链接依赖。正常 Python/device 入口需要这两条工厂分支；RING/FM64 限制在协议入口校验。BUILD 中另外保留新增会话库及测试的目标声明。 |
-| [`src/libspu/spu.h`](src/libspu/spu.h)、[`spu.proto`](src/libspu/spu.proto)、[`spu.cc`](src/libspu/spu.cc) | `SPDZWISE = 7`、`SpdzWiseConfig`、protobuf 字段 74 及配置转换用于选择后端、选择 RING，并使 C++/protobuf/JSON 配置一致。`SpdzWiseConfig` 新增 `uint64 check_threshold`（子消息字段 2），默认 5,000,000，零或省略均使用默认值；配置转换保留有效阈值，`DumpToString()` 记录 domain 和有效阈值，使大电路的待检队列阈值可配置、可诊断。沿用现有 FIELD/RING 配置格式。 |
-| [`spu/api.py`](spu/api.py)、[`libspu.cc`](spu/libspu.cc)、[`libspu.pyi`](spu/libspu.pyi)、[`__init__.py`](spu/__init__.py) 的配置绑定 | 字符串解析、协议枚举、domain 绑定、包级导出与类型声明服务于现有 Python 配置接口。Python 用户需能显式指定 `SPDZWISE + FM64 + RING`。本次阈值功能在 `libspu.cc` 增加 `SpdzWiseConfig.check_threshold` 读写绑定，在 `libspu.pyi` 增加 `int` 类型声明，支持 `config.spdzwise_config.check_threshold = 10_000_000`；复用现有配置复制、protobuf 和 JSON 接口，无需为阈值修改 `api.py` 或 `__init__.py`。 |
-| [`src/libspu/device/api.cc`](src/libspu/device/api.cc)、Python `RuntimeWrapper`；[`device/BUILD.bazel`](src/libspu/device/BUILD.bazel)、[`spu/BUILD.bazel`](spu/BUILD.bazel) 的库依赖 | `executeImpl()` 在执行前认证秘密输入，发布结果前调用 `ProtocolSession::prepareOutputs()`，成功后提交；`ProtocolRunGuard` 使包括解析失败在内的异常中止会话。Python SetVar/DelVar/Clear 维护导出状态，GetVar/metadata/chunks 仅读取已提交视图。仅 identity/reshape、空输出和最后一批延迟 MAC/AND 检查都需要执行边界，不能只靠注册算术算子覆盖。内部环境继续保留 MAC，支持连续执行。 |
-| [`src/libspu/core/object.h`](src/libspu/core/object.h) 的 `hasState()` | `getProtocolSession()` 用它检测可选会话；普通协议不安装会话，继续原路径。检查必须基于 State 是否存在，不能用 `finalize_protocol` 内核是否存在替代，否则会把“已安装会话但缺少最终检查”的错误静默跳过。 |
-| [`src/libspu/core/type.h`](src/libspu/core/type.h)、[`value.cc`](src/libspu/core/value.cc) 的序列化策略 | `Value::toMetaProto()/toProto()` 在复制前检查 `isSerializable()`；协议内部算术 MAC 类型和 Boolean 类型返回 false。自定义 Type 的 `fromString()` 只能防伪造导入，不能禁止已有内部值从通用 C++ ValueProto 路径导出。默认返回 true，原协议行为不变。 |
-| [`src/libspu/device/io.cc`](src/libspu/device/io.cc)、Python `IoWrapper` 的重构适配 | `combineShares()` 校验三方外层 dtype/shape/complex 元数据；协议 `IoInterface` 只收到 NdArrayRef，不能检查 Value 的 dtype。Python 允许 SPDZwise 各 rank 的 wire type 不同，再由协议 `fromShares()` 检查 rank 顺序、domain、binding、位宽和副本。直接删除 Python 适配会拒绝正常分享，删除外层校验会失去 C++ 重构路径的元数据检查。 |
+| 原有文件                                                                                                                                                                              | 修改内容及原因                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/libspu/mpc/factory.cc`](src/libspu/mpc/factory.cc)、[`mpc/BUILD.bazel`](src/libspu/mpc/BUILD.bazel)                                                                             | `Factory::RegisterProtocol()` / `CreateIO()` 分别调用协议目录的 `regSpdzWiseProtocol()` / `makeSpdzWiseIo()`，并增加链接依赖。正常 Python/device 入口需要这两条工厂分支；RING/FM64 限制在协议入口校验。BUILD 中另外保留新增会话库及测试的目标声明。                                                                                                                                                |
+| [`src/libspu/spu.h`](src/libspu/spu.h)、[`spu.proto`](src/libspu/spu.proto)、[`spu.cc`](src/libspu/spu.cc)                                                                            | `SPDZWISE = 7`、`SpdzWiseConfig`、protobuf 字段 74 及配置转换用于选择后端、选择 RING，并使 C++/protobuf/JSON 配置一致。`SpdzWiseConfig` 新增 `uint64 check_threshold`（子消息字段 2），默认 5,000,000，零或省略均使用默认值；配置转换保留有效阈值，`DumpToString()` 记录 domain 和有效阈值，使大电路的待检队列阈值可配置、可诊断。沿用现有 FIELD/RING 配置格式。                                   |
+| [`spu/api.py`](spu/api.py)、[`libspu.cc`](spu/libspu.cc)、[`libspu.pyi`](spu/libspu.pyi)、[`__init__.py`](spu/__init__.py) 的配置绑定                                                 | 字符串解析、协议枚举、domain 绑定、包级导出与类型声明服务于现有 Python 配置接口。Python 用户需能显式指定 `SPDZWISE + FM64 + RING`。本次阈值功能在 `libspu.cc` 增加 `SpdzWiseConfig.check_threshold` 读写绑定，在 `libspu.pyi` 增加 `int` 类型声明，支持 `config.spdzwise_config.check_threshold = 10_000_000`；复用现有配置复制、protobuf 和 JSON 接口，无需为阈值修改 `api.py` 或 `__init__.py`。 |
+| [`src/libspu/device/api.cc`](src/libspu/device/api.cc)、Python `RuntimeWrapper`；[`device/BUILD.bazel`](src/libspu/device/BUILD.bazel)、[`spu/BUILD.bazel`](spu/BUILD.bazel) 的库依赖 | `executeImpl()` 在执行前认证秘密输入，发布结果前调用 `ProtocolSession::prepareOutputs()`，成功后提交；`ProtocolRunGuard` 使包括解析失败在内的异常中止会话。Python SetVar/DelVar/Clear 维护导出状态，GetVar/metadata/chunks 仅读取已提交视图。仅 identity/reshape、空输出和最后一批延迟 MAC/AND 检查都需要执行边界，不能只靠注册算术算子覆盖。内部环境继续保留 MAC，支持连续执行。                  |
+| [`src/libspu/core/object.h`](src/libspu/core/object.h) 的 `hasState()`                                                                                                                | `getProtocolSession()` 用它检测可选会话；普通协议不安装会话，继续原路径。检查必须基于 State 是否存在，不能用 `finalize_protocol` 内核是否存在替代，否则会把“已安装会话但缺少最终检查”的错误静默跳过。                                                                                                                                                                                              |
+| [`src/libspu/core/type.h`](src/libspu/core/type.h)、[`value.cc`](src/libspu/core/value.cc) 的序列化策略                                                                               | `Value::toMetaProto()/toProto()` 在复制前检查 `isSerializable()`；协议内部算术 MAC 类型和 Boolean 类型返回 false。自定义 Type 的 `fromString()` 只能防伪造导入，不能禁止已有内部值从通用 C++ ValueProto 路径导出。默认返回 true，原协议行为不变。                                                                                                                                                  |
+| [`src/libspu/device/io.cc`](src/libspu/device/io.cc)、Python `IoWrapper` 的重构适配                                                                                                   | `combineShares()` 校验三方外层 dtype/shape/complex 元数据；协议 `IoInterface` 只收到 NdArrayRef，不能检查 Value 的 dtype。Python 允许 SPDZwise 各 rank 的 wire type 不同，再由协议 `fromShares()` 检查 rank 顺序、domain、binding、位宽和副本。直接删除 Python 适配会拒绝正常分享，删除外层校验会失去 C++ 重构路径的元数据检查。                                                                   |
 
 生命周期实现位于新增的 [`protocol_session.h`](src/libspu/mpc/protocol_session.h)/[`protocol_session.cc`](src/libspu/mpc/protocol_session.cc)，通过原有 State 机制按需安装。算术、Boolean、A2B/B2A、MSB、截断、随机数和 shape 内核均位于 [`spdzwise/`](src/libspu/mpc/spdzwise/)，使用现有注册接口。上述框架修改服务于当前延迟校验、内部 MAC 保留及外部 wire 格式。
 
@@ -406,6 +465,54 @@ Stax 完整训练数值对照通过：最终 MNIST 测试准确率为 **96.45%**
 
 [ResNet 统计结果与 trace](examples/python/ml/flax_resnet/operation_counts/2026-10-22-aby3-fm64/)、[ResNet 复现脚本](examples/python/ml/flax_resnet/profile_operation_counts.py)。
 [新增任务统计结果、源码快照与 trace](examples/python/ml/operation_counts/2026-10-22-aby3-fm64/)、[新增任务复现脚本](examples/python/ml/profile_task_operation_counts.py)、[统一计数脚本](examples/python/ml/flax_resnet/summarize_operation_counts.py)。
+
+
+### PPML Runtime Benchmark
+
+**2026-10-23 实测**，范围为推理及单 batch 训练。两协议均使用 FM64、18 位小数；
+ABY3 使用精确 `A2B → ARShiftB → B2A` 截断，SPDZwise RING 使用默认精确
+`TruncNaive`，显式设置 **`check_threshold=5_000_000`**。
+固定 **64 个后台 worker（`YACL_NUM_THREADS=65`）**，每组预热 1 次、正式测量 7 次，
+三方同进程 FactoryMem，所有任务和协议串行运行。
+
+耗时为每轮三方 `runtime.run()` 最大墙钟时间的七轮中位数，包含输入认证、
+随机材料、MAC/ABFL 校验及最终输出检查，排除编译、输入分享、初始化和重构。
+通信直接读取链路计数器，表中为 **三方发送合计的七轮中位数 / 3**（平均每方），
+仅统计应用 payload；`1 MiB=1,048,576 B`。耗时比为 SPDZwise / ABY3。
+共享服务器负载未隔离；本机内存通信不代表 LAN/WAN 性能。
+
+**最新更新：通用 B2A 在 `nbits == 1` 时已分流到现有 Bit2A。** 下表 LR、DNN、
+决策树推理的 SPDZwise 列采用分流后的最新七轮数据；ABY3 列及其余任务仍采用
+此前完整实验的数据，未重测，因此这三行的耗时比属于跨批次比较。
+同批次修改前后的决策树对照为 **99.861 → 66.913 ms**、
+**7.602437 → 4.706980 MiB/方**，分别降低约 **33.0%**、**38.1%**。
+
+
+| 任务                     | ABY3 exact 耗时 ms | SPDZwise RING 耗时 ms | ABY3 发送 MiB/方 | SPDZwise 发送 MiB/方 |  耗时比 |
+| ------------------------ | -----------------: | --------------------: | ---------------: | -------------------: | ------: |
+| LR 推理（1 样本）        |             11.669 |                99.093 |         0.004021 |             7.388306 |  8.492× |
+| LR 训练（batch 10,000）  |            392.625 |              1198.052 |        40.252655 |           320.995837 |  3.051× |
+| DNN 推理（1 样本）       |              7.133 |                64.789 |         0.075556 |             3.924109 |  9.083× |
+| DNN 训练（batch 128）    |           1103.204 |              2246.683 |       101.732992 |           742.478996 |  2.037× |
+| 决策树推理（1 样本）     |              5.173 |                66.913 |         0.022948 |             4.706980 | 12.934× |
+| 决策树训练（batch 150）  |          21445.342 |             56702.811 |       619.397300 |          4320.823281 |  2.644× |
+| ResNet-50 推理（1 样本） |          65667.831 |            129255.083 |      5811.428772 |         41246.133078 |  1.968× |
+
+初次完整实验的 **112 次执行、336 条逐方记录**全部通过核对，七个任务的两协议
+最终输出均逐元素一致。本次修改前/后补测三个推理任务，共 **48 次执行、144 条逐方记录**，
+也全部通过 CPU 数值核对，修改前后最终输出逐元素一致；主表中的最新数据取修改后组。
+决策树精确截断训练的 CPU 对照准确率均为 **97.33%**，与下方历史概率截断统计中的
+失败实验分开记录。ResNet 沿用原统计入口的合成图像/参数；DNN 训练使用真实 MNIST，
+其余任务的数据和规模与统计入口一致。本次不运行全数据集多 epoch 训练。
+
+[最新 Bit2A 分流结果与回归验证](examples/python/ml/benchmarks/b2a-bit2a-2026-10-23/RESULTS.md)、
+[最新推理逐方数据与日志](examples/python/ml/benchmarks/b2a-bit2a-2026-10-23/after/)、
+[修改前后汇总](examples/python/ml/benchmarks/b2a-bit2a-2026-10-23/comparison.json)、
+[初次完整结果、数据规格和计时口径](examples/python/ml/benchmarks/ppml-exact-5m-64worker-2026-10-23/RESULTS.md)、
+[初次完整汇总 CSV](examples/python/ml/benchmarks/ppml-exact-5m-64worker-2026-10-23/summary.csv)、
+[逐方数据及运行/构建记录](examples/python/ml/benchmarks/ppml-exact-5m-64worker-2026-10-23/)、
+[统一运行入口](examples/python/ml/benchmark_ppml.py)。ABY3 精确截断和链路统计绑定
+仅用于独立实验构建；临时改动已恢复，默认 Python 扩展已重新构建并包含本次 B2A 优化。
 
 ## 构建准备
 
