@@ -72,6 +72,7 @@ spu_cc_library(
         "//libspu/mpc/securenn",
         "//libspu/mpc/semi2k",
         "//libspu/mpc/spdzwise:io",
+        "//libspu/mpc/spdzwise:protocol",
     ],
 )
 

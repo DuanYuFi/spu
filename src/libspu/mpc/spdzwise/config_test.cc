@@ -13,6 +13,8 @@
 
 #include "gtest/gtest.h"
 
+#include "libspu/mpc/spdzwise/io.h"
+
 #include "libspu/spu.pb.h"
 
 namespace spu {
@@ -21,7 +23,9 @@ namespace {
 TEST(RuntimeConfig, SpdzWiseDefaultsToFieldForLegacyConfigurations) {
   const auto config = makeFullRuntimeConfig(RuntimeConfig(SPDZWISE, FM64));
   EXPECT_EQ(config.spdzwise_config.domain, SpdzWiseConfig::FIELD);
-  EXPECT_EQ(config.fxp_fraction_bits, 16);
+  EXPECT_EQ(config.fxp_fraction_bits,
+            makeFullRuntimeConfig(RuntimeConfig(ABY3, FM64)).fxp_fraction_bits);
+  EXPECT_EQ(config.fxp_fraction_bits, 18);
   RuntimeConfig parsed;
   ASSERT_TRUE(
       parsed.ParseFromJsonString(R"({"protocol":"SPDZWISE","field":"FM64"})"));
@@ -49,17 +53,19 @@ TEST(RuntimeConfig, SpdzWiseDomainSurvivesProtoBinaryAndJson) {
   }
 }
 
-TEST(RuntimeConfig, SpdzWiseRejectsUnsupportedStorageAndDomains) {
+TEST(RuntimeConfig, SpdzWiseRejectsUnsupportedStorageAndDomainsAtIoEntry) {
   for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
     for (auto storage : {FM32, FM128}) {
       RuntimeConfig config(SPDZWISE, storage);
       config.spdzwise_config.domain = domain;
-      EXPECT_ANY_THROW(populateRuntimeConfig(config));
+      EXPECT_ANY_THROW(
+          mpc::spdzwise::makeSpdzWiseIo(makeFullRuntimeConfig(config), 3));
     }
   }
   RuntimeConfig config(SPDZWISE, FM64);
   config.spdzwise_config.domain = static_cast<SpdzWiseConfig::Domain>(99);
-  EXPECT_ANY_THROW(populateRuntimeConfig(config));
+  EXPECT_ANY_THROW(
+      mpc::spdzwise::makeSpdzWiseIo(makeFullRuntimeConfig(config), 3));
 }
 
 TEST(RuntimeConfig, OtherProtocolsRetainTheirStorageChoices) {

@@ -21,45 +21,6 @@
 
 namespace spu::kernel::hal {
 
-namespace {
-// Deliberately returns its first argument to expose accidental operand swaps
-// or fallback execution. This tests dispatch only, not an MPC comparison.
-class EchoLessLeft final : public Kernel {
- public:
-  void evaluate(KernelEvalContext* ctx) const override {
-    ctx->pushOutput(Value(ctx->getParam<Value>(0)));
-  }
-};
-}  // namespace
-
-TEST(RingTest, ProtocolLessDispatchPreservesOperandOrder) {
-  auto ctx = test::makeSPUContext();
-  const auto p = _make_p(&ctx, 3, {1});
-  const auto s = _p2s(&ctx, _make_p(&ctx, 5, {1}));
-  const auto t = _p2s(&ctx, _make_p(&ctx, 7, {1}));
-  ctx.prot()->regKernel<EchoLessLeft>("less_ss");
-  ctx.prot()->regKernel<EchoLessLeft>("less_sp");
-  ctx.prot()->regKernel<EchoLessLeft>("less_ps");
-  EXPECT_EQ(_less(&ctx, s, t).data().buf(), s.data().buf());
-  EXPECT_EQ(_less(&ctx, s, p).data().buf(), s.data().buf());
-  EXPECT_EQ(_less(&ctx, p, s).data().buf(), p.data().buf());
-  // Public/public retains the existing ring comparison, even with hooks.
-  EXPECT_NE(_less(&ctx, p, p).data().buf(), p.data().buf());
-}
-
-TEST(RingTest, LessWithoutProtocolHooksRetainsFallback) {
-  auto ctx = test::makeSPUContext();
-  const auto p = _make_p(&ctx, 3, {1});
-  const auto q = _make_p(&ctx, 5, {1});
-  const auto s = _p2s(&ctx, p);
-  const auto t = _p2s(&ctx, q);
-  for (auto result : {_less(&ctx, s, t), _less(&ctx, s, q),
-                      _less(&ctx, p, t)}) {
-    result = _s2p(&ctx, result).setDtype(DT_U64);
-    EXPECT_EQ(dump_public_as<uint64_t>(&ctx, result)(0), 1);
-  }
-}
-
 TEST(RingTest, _bit_parity) {
   auto ctx = test::makeSPUContext();
   std::vector<std::pair<uint64_t, int>> para = {

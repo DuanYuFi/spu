@@ -29,6 +29,20 @@ class Negate final : public UnaryKernel {
   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in) const override;
 };
 
+class LShiftA final : public ShiftKernel {
+ public:
+  static constexpr const char* kBindName() { return "lshift_a"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                  const Sizes& bits) const override;
+};
+
+class RandA final : public RandKernel {
+ public:
+  static constexpr const char* kBindName() { return "rand_a"; }
+  Kind kind() const override { return Kind::Dynamic; }
+  NdArrayRef proc(KernelEvalContext* ctx, const Shape& shape) const override;
+};
+
 class AddAA final : public BinaryKernel {
  public:
   static constexpr const char* kBindName() { return "add_aa"; }

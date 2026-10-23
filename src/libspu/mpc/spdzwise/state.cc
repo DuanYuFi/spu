@@ -16,6 +16,7 @@
 
 #include "yacl/crypto/hash/blake3.h"
 #include "yacl/crypto/rand/rand.h"
+#include "yacl/crypto/tools/prg.h"
 #include "yacl/link/algorithm/allgather.h"
 
 #include "libspu/mpc/common/pv2k.h"
@@ -112,6 +113,50 @@ void SpdzWiseState::agree(const std::string& descriptor) {
   }
 }
 
+NdArrayRef SpdzWiseState::randomPublic(const Shape& shape) {
+  try {
+    requireRunning();
+    NdArrayRef out(makeType<Pub2kTy>(FM64), shape);
+    if (!out.numel()) return out;
+    // Separate public coins from all private masks and checking randomness.
+    const auto draw =
+        session_ + "/" + tag("public-random") + fmt::format("/{}", shape);
+    const auto nonce = yacl::crypto::SecureRandSeed();
+    const std::string bytes(reinterpret_cast<const char*>(&nonce), sizeof(nonce));
+    const auto commitment = Digest(draw + bytes);
+    const auto commitments = yacl::link::AllGather(
+        link_, yacl::ByteContainerView(commitment), tag("public-random-commit"));
+    std::string descriptor = draw;
+    for (const auto& item : commitments) Append(descriptor, std::string_view(item));
+    agree(descriptor);
+    const auto nonces = yacl::link::AllGather(
+        link_, yacl::ByteContainerView(bytes), tag("public-random-reveal"));
+    uint128_t seed = 0;
+    bool valid = true;
+    for (size_t rank = 0; rank < nonces.size(); ++rank) {
+      valid &= nonces[rank].size() == sizeof(nonce) &&
+               Digest(draw + std::string(std::string_view(nonces[rank]))) ==
+                   std::string_view(commitments[rank]);
+      if (nonces[rank].size() == sizeof(nonce)) {
+        uint128_t contribution;
+        std::memcpy(&contribution, nonces[rank].data(), sizeof(contribution));
+        seed ^= contribution;
+      }
+      Append(descriptor, std::string_view(nonces[rank]));
+    }
+    Append(descriptor, std::to_string(valid));
+    agree(descriptor);
+    SPU_ENFORCE(valid, "SPDZWISE public random commitment mismatch");
+    yacl::crypto::FillPRand(
+        PrgState::kAesType, seed, 0, 0,
+        absl::MakeSpan(out.data<uint64_t>(), size_t(out.numel())));
+    return out;
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
 void SpdzWiseState::onBegin(const ExecutableProto& exec,
                             const std::vector<Value>& inputs) {
   SPU_ENFORCE(execution_ != std::numeric_limits<uint64_t>::max(),
@@ -120,7 +165,14 @@ void SpdzWiseState::onBegin(const ExecutableProto& exec,
   SPU_ENFORCE(inputs.size() == exec.input_names.size(), "input count mismatch");
   std::string descriptor;
   Append(descriptor, exec.SerializeAsString());
-  Append(descriptor, config_.SerializeAsString());
+  auto agreed_config = config_;
+  // Simulators commonly profile only rank zero. These flags affect local
+  // logging, not protocol messages or numerical semantics.
+  agreed_config.enable_action_trace = false;
+  agreed_config.enable_hal_profile = false;
+  agreed_config.enable_pphlo_profile = false;
+  agreed_config.enable_pphlo_trace = false;
+  Append(descriptor, agreed_config.SerializeAsString());
   for (const auto& value : inputs) {
     SPU_ENFORCE(!value.isComplex() && !value.isPrivate(),
                 "unsupported input kind");

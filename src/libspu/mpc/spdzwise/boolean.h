@@ -21,6 +21,7 @@
 #include "libspu/mpc/spdzwise/type.h"
 
 namespace spu::mpc::spdzwise {
+class BasicOpsTestAccess;
 namespace ring {
 class ConversionTestAccess;
 class MulA1BTestAccess;
@@ -33,6 +34,7 @@ size_t AbflBucketSize(size_t words);
 
 // Owned by the checked session. No application reveal API is exposed.
 class BooleanState {
+  friend class BasicOpsTestAccess;
   friend class BooleanTestAccess;
   friend class SpdzWiseState;
   friend class ring::ConversionTestAccess;
@@ -89,6 +91,7 @@ class BooleanState {
   size_t pendingBits() const { return bits_; }
   uint64_t checks() const { return checks_; }
   void checkCopies(const std::vector<RepShare>& shares);
+  NdArrayRef randomBit(const Shape& shape, const std::string& session);
   NdArrayRef andBB(const NdArrayRef& x, const NdArrayRef& y,
                    const std::string& session);
   void check();

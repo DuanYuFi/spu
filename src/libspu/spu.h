@@ -127,7 +127,7 @@ enum ProtocolKind {
   // (https://eprint.iacr.org/2020/592)
   SWIFT = 6,
 
-  // Under development; factory execution is gated until PPML acceptance.
+  // SPDZ-wise; factory execution currently supports the RING domain.
   SPDZWISE = 7,
 };
 
@@ -212,7 +212,7 @@ struct SpdzWiseConfig {
   enum Domain {
     // Mersenne prime field p = 2^61 - 1, stored in FM64.
     FIELD = 0,
-    // Ring modulo 2^64; implementation reserved.
+    // Application ring modulo 2^64, stored in FM64.
     RING = 1,
   };
 

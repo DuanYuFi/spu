@@ -88,8 +88,6 @@ enum class TruncLsbRounding {
   Probabilistic,
   // For some deterministic truncation, the LSB is deterministic.
   Nearest,
-  // Exact signed floor(x / 2^bits), including negative inputs.
-  Floor,
 };
 
 class TruncAKernel : public Kernel {

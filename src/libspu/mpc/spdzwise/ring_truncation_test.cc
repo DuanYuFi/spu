@@ -91,8 +91,6 @@ std::vector<int64_t> RunTruncation(const std::vector<int64_t>& values, size_t m,
     EXPECT_NE(selector, nullptr);
     if (selector) {
       EXPECT_EQ(selector->kind(), Kernel::Kind::Dynamic);
-      EXPECT_FALSE(selector->hasMsbError());
-      EXPECT_EQ(selector->lsbRounding(), TruncLsbRounding::Floor);
     }
     auto* s = ctx.prot()->getState<SpdzWiseState>();
     ProtocolRunGuard guard(&ctx);

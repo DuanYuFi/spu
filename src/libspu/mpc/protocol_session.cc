@@ -49,7 +49,8 @@ void ProtocolSession::prepareOutputs(SPUContext* ctx,
                 "invalid protocol output transaction");
     // Mandatory for a session: silently skipping this hook would release
     // unchecked outputs. Ordinary protocols never enter this path.
-    dynDispatch(ctx, "finalize_protocol");
+    KernelEvalContext finalization(ctx);
+    ctx->prot()->getKernel("finalize_protocol")->evaluate(&finalization);
     std::map<std::string, Value> exports;
     for (size_t i = 0; i < outputs.size(); ++i) {
       SPU_ENFORCE(!outputs[i].isComplex(),

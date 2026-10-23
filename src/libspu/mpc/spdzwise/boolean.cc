@@ -11,6 +11,7 @@
 
 #include "libspu/mpc/spdzwise/boolean.h"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -758,6 +759,41 @@ void BooleanState::check() {
   checkPrepared(generate(PoolWords(words, bucket)));
 }
 
+NdArrayRef BooleanState::randomBit(const Shape& shape,
+                                   const std::string& session) {
+  NdArrayRef out(makeType<BShrTy>(session, 1), shape);
+  if (!out.numel()) return out;
+  std::vector<uint64_t> first(out.numel()), second(out.numel());
+  random_prg_.fillPrssPair(first.data(), second.data(), first.size(),
+                           PrgState::GenPrssCtrl::Both);
+  auto* data = out.data<RepShare>();
+  pforeach(0, out.numel(),
+           [&](int64_t i) { data[i] = {first[i] & 1, second[i] & 1}; });
+  return out;
+}
+
+NdArrayRef SpdzWiseState::randomBoolean(const Shape& shape) {
+  try {
+    requireRunning();
+    return boolean_->randomBit(shape, session_);
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
+Type SpdzWiseState::commonBooleanType(const Type& x, const Type& y) const {
+  requireRunning();
+  for (const auto* type : {&x, &y}) {
+    SPU_ENFORCE(
+        type->isa<BShrTy>() && type->as<BShrTy>()->session() == session_,
+        "Boolean type belongs to a different session/type");
+    BooleanMask(type->as<BShrTy>()->nbits());
+  }
+  return makeType<BShrTy>(
+      session_, std::max(x.as<BShrTy>()->nbits(), y.as<BShrTy>()->nbits()));
+}
+
 void SpdzWiseState::validateBoolean(const NdArrayRef& value) const {
   requireRunning();
   SPU_ENFORCE(value.eltype().isa<BShrTy>() &&
@@ -831,6 +867,125 @@ NdArrayRef SpdzWiseState::booleanBinary(const NdArrayRef& x,
 
 namespace {
 
+class CommonTypeB final : public Kernel {
+ public:
+  static constexpr const char* kBindName() { return "common_type_b"; }
+  void evaluate(KernelEvalContext* ctx) const override {
+    ctx->pushOutput(ctx->getState<SpdzWiseState>()->commonBooleanType(
+        ctx->getParam<Type>(0), ctx->getParam<Type>(1)));
+  }
+};
+
+class CastTypeB final : public CastTypeKernel {
+ public:
+  static constexpr const char* kBindName() { return "cast_type_b"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                  const Type& to_type) const override {
+    auto* state = ctx->getState<SpdzWiseState>();
+    state->validateBoolean(in);
+    state->commonBooleanType(in.eltype(), to_type);
+    const auto mask = BooleanMask(to_type.as<BShrTy>()->nbits());
+    NdArrayRef out(to_type, in.shape());
+    const NdArrayView<RepShare> input(in);
+    auto* output = out.data<RepShare>();
+    pforeach(0, in.numel(), [&](int64_t i) {
+      output[i] = {input[i][0] & mask, input[i][1] & mask};
+    });
+    return out;
+  }
+};
+
+enum class ShiftKind { Left, LogicalRight, ArithmeticRight };
+
+template <ShiftKind Op>
+class BooleanShift final : public ShiftKernel {
+ public:
+  static constexpr const char* kBindName() {
+    if constexpr (Op == ShiftKind::Left) return "lshift_b";
+    if constexpr (Op == ShiftKind::LogicalRight) return "rshift_b";
+    return "arshift_b";
+  }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                  const Sizes& bits) const override {
+    auto* state = ctx->getState<SpdzWiseState>();
+    state->validateBoolean(in);
+    SPU_ENFORCE(bits.size() == 1 || int64_t(bits.size()) == in.numel(),
+                "shift count shape mismatch");
+    for (auto bit : bits) {
+      SPU_ENFORCE(bit >= 0 && bit < 64, "shift count must be in [0,63]");
+    }
+    const auto width = in.eltype().as<BShrTy>()->nbits();
+    size_t out_width = width;
+    if constexpr (Op == ShiftKind::ArithmeticRight) {
+      SPU_ENFORCE(width == 64, "arshift_b requires 64-bit Boolean input");
+    } else if (in.numel()) {
+      if constexpr (Op == ShiftKind::Left) {
+        out_width = std::min<size_t>(
+            64, width + *std::max_element(bits.begin(), bits.end()));
+      } else {
+        const auto shift = size_t(*std::min_element(bits.begin(), bits.end()));
+        out_width = std::max<size_t>(1, width - std::min(width, shift));
+      }
+    }
+    NdArrayRef out(makeType<BShrTy>(state->session(), out_width), in.shape());
+    const NdArrayView<RepShare> input(in);
+    auto* output = out.data<RepShare>();
+    pforeach(0, in.numel(), [&](int64_t i) {
+      const auto shift = bits.size() == 1 ? bits[0] : bits[i];
+      for (size_t j = 0; j < 2; ++j) {
+        const auto word = input[i][j];
+        if constexpr (Op == ShiftKind::Left) {
+          output[i][j] = word << shift;
+        } else if constexpr (Op == ShiftKind::LogicalRight) {
+          output[i][j] = word >> shift;
+        } else {
+          // Copy each share's bit 63. This map is XOR-linear, including
+          // sign extension, and never needs the reconstructed sign.
+          output[i][j] =
+              shift == 0 ? word
+                         : (word >> shift) |
+                               ((uint64_t{0} - (word >> 63)) << (64 - shift));
+        }
+      }
+    });
+    return out;
+  }
+};
+
+class BitrevB final : public BitrevKernel {
+ public:
+  static constexpr const char* kBindName() { return "bitrev_b"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t start,
+                  size_t end) const override {
+    auto* state = ctx->getState<SpdzWiseState>();
+    state->validateBoolean(in);
+    SPU_ENFORCE(start <= end && end <= 64, "invalid bit reversal interval");
+    const auto width = std::max(in.eltype().as<BShrTy>()->nbits(), end);
+    NdArrayRef out(makeType<BShrTy>(state->session(), width), in.shape());
+    const NdArrayView<RepShare> input(in);
+    auto* output = out.data<RepShare>();
+    pforeach(0, in.numel(), [&](int64_t i) {
+      output[i] = input[i];
+      for (size_t bit = start; bit < end; ++bit) {
+        const auto target = end - 1 - bit + start;
+        for (size_t j = 0; j < 2; ++j) {
+          output[i][j] = (output[i][j] & ~(uint64_t{1} << target)) |
+                         (((input[i][j] >> bit) & 1) << target);
+        }
+      }
+    });
+    return out;
+  }
+};
+
+class RandB final : public RandKernel {
+ public:
+  static constexpr const char* kBindName() { return "rand_b"; }
+  NdArrayRef proc(KernelEvalContext* ctx, const Shape& shape) const override {
+    return ctx->getState<SpdzWiseState>()->randomBoolean(shape);
+  }
+};
+
 class P2B final : public UnaryKernel {
  public:
   static constexpr const char* kBindName() { return "p2b"; }
@@ -856,7 +1011,10 @@ class BooleanBinary final : public BinaryKernel {
 
 void registerBooleanKernels(Object* object) {
   object->regKernel<P2B, BooleanBinary<true, false>, BooleanBinary<true, true>,
-                    BooleanBinary<false, false>, BooleanBinary<false, true>>();
+                    BooleanBinary<false, false>, BooleanBinary<false, true>,
+                    CommonTypeB, CastTypeB, BooleanShift<ShiftKind::Left>,
+                    BooleanShift<ShiftKind::LogicalRight>,
+                    BooleanShift<ShiftKind::ArithmeticRight>, BitrevB, RandB>();
 }
 
 }  // namespace spu::mpc::spdzwise

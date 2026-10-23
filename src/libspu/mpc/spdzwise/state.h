@@ -22,6 +22,7 @@ namespace spu::mpc::spdzwise {
 // Checked session for separate FIELD/RING arithmetic and shared Boolean
 // kernels. The production factory remains closed.
 class SpdzWiseState final : public ProtocolSession {
+  friend class BasicOpsTestAccess;
   // The benchmark separates MAC generation from the final batched check.
   // Normal imports retain their mandatory immediate check.
   friend class SpdzWiseBenchmarkAccess;
@@ -89,6 +90,9 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef publicValue(const NdArrayRef& value) const;
   NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef negate(const NdArrayRef& x) const;
+  NdArrayRef leftShift(const NdArrayRef& x, const Sizes& bits) const;
+  NdArrayRef randomArithmetic(const Shape& shape);
+  NdArrayRef randomPublic(const Shape& shape);
   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
   // One-bit mixed multiplication. Final product MAC check remains deferred.
@@ -112,6 +116,8 @@ class SpdzWiseState final : public ProtocolSession {
   // Zero-extend 1..64 Boolean bits; verify both domains before masked opening.
   NdArrayRef b2a(const NdArrayRef& in);
   void validateBoolean(const NdArrayRef& value) const;
+  Type commonBooleanType(const Type& x, const Type& y) const;
+  NdArrayRef randomBoolean(const Shape& shape);
   NdArrayRef publicBoolean(const NdArrayRef& value) const;
   NdArrayRef booleanBinary(const NdArrayRef& x, const NdArrayRef& y,
                            bool is_and, bool public_rhs);

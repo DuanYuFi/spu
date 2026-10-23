@@ -360,7 +360,7 @@ TEST(RingConversion, MsbHalComparisonSecretAndPublicOperands) {
       py.data<uint64_t>()[i] = random();
     }
   }
-  // Explicit overflowing differences: retain the requested modular MSB semantics.
+  // Overflowing differences retain the original HAL modular MSB semantics.
   px.data<uint64_t>()[513] = uint64_t{1} << 63;
   py.data<uint64_t>()[513] = 1;
   px.data<uint64_t>()[514] = (uint64_t{1} << 63) - 1;

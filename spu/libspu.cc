@@ -581,9 +581,11 @@ class IoWrapper {
  private:
   std::unique_ptr<spu::device::IoClient> ptr_;
   size_t max_chunk_size_;
+  ProtocolKind protocol_;
 
  public:
-  IoWrapper(size_t world_size, const spu::RuntimeConfig& config) {
+  IoWrapper(size_t world_size, const spu::RuntimeConfig& config)
+      : protocol_(config.protocol) {
     ptr_ = std::make_unique<spu::device::IoClient>(world_size, config);
     max_chunk_size_ = config.share_max_chunk_size;
     if (max_chunk_size_ == 0) {
@@ -644,7 +646,10 @@ class IoWrapper {
     for (size_t idx = 1; idx < shares.size(); ++idx) {
       const auto& cur = shares[idx];
       const auto& prev = shares[idx - 1];
-      SPU_ENFORCE(cur.storage_type() == prev.storage_type(),
+      // SPDZWISE wire types bind each share to its destination rank. Its IO
+      // checks ordered ranks, output bindings, domains and replicated copies.
+      SPU_ENFORCE(protocol_ == ProtocolKind::SPDZWISE ||
+                      cur.storage_type() == prev.storage_type(),
                   "storage type mismatch, {} {}", cur.storage_type(),
                   prev.storage_type());
       SPU_ENFORCE(cur.dtype() == prev.dtype(), "data type mismatch, {} {}",

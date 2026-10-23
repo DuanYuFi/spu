@@ -62,9 +62,46 @@ class DenyReveal final : public Kernel {
   }
 };
 
+class RandP final : public RandKernel {
+ public:
+  static constexpr const char* kBindName() { return "rand_p"; }
+  Kind kind() const override { return Kind::Dynamic; }
+  NdArrayRef proc(KernelEvalContext* ctx, const Shape& shape) const override {
+    return ctx->getState<SpdzWiseState>()->randomPublic(shape);
+  }
+};
+
+// Reuse standard kernels through Object's existing registration API, while
+// keeping SPDZwise's public-random implementation local to this protocol.
+class StandardKernel final : public Kernel {
+  std::shared_ptr<const Object> owner_;
+  const Kernel* kernel_;
+
+ public:
+  StandardKernel(std::shared_ptr<const Object> owner, const std::string& name)
+      : owner_(std::move(owner)), kernel_(owner_->getKernel(name)) {}
+  Kind kind() const override { return kernel_->kind(); }
+  ce::CExpr latency() const override { return kernel_->latency(); }
+  ce::CExpr comm() const override { return kernel_->comm(); }
+  float getCommTolerance() const override {
+    return kernel_->getCommTolerance();
+  }
+  void evaluate(KernelEvalContext* ctx) const override {
+    kernel_->evaluate(ctx);
+  }
+};
+
 void registerCommonKernels(SPUContext* ctx) {
   ctx->prot()->addState<Z2kState>(FM64);
-  regPV2kKernels(ctx->prot());
+  const auto standard = std::make_shared<Object>("spdzwise/standard");
+  regPV2kKernels(standard.get());
+  for (const auto& name : standard->getKernelNames()) {
+    if (name != RandP::kBindName()) {
+      ctx->prot()->regKernel(name,
+                             std::make_unique<StandardKernel>(standard, name));
+    }
+  }
+  ctx->prot()->regKernel<RandP>();
   regStandardShapeOps(ctx);
   ctx->prot()->regKernel<Import, Export, Finalize>();
   for (const auto* name : {"a2p", "b2p", "a2v", "b2v", "s2p", "s2v"}) {
@@ -99,8 +136,9 @@ void registerRingArithmeticPrototype(
   ctx->prot()->addState<SpdzWiseState>(ctx->config(), link);
   registerCommonKernels(ctx);
   ring::registerArithmeticKernels(ctx->prot());
-  ctx->prot()->regKernel<ring::TruncASelector, ring::A2B, ring::B2A,
-                        ring::MsbA2B, ring::MulA1B>();
+  ctx->prot()
+      ->regKernel<ring::TruncASelector, ring::A2B, ring::B2A, ring::MsbA2B,
+                  ring::MulA1B>();
   registerBooleanKernels(ctx->prot());
 }
 
@@ -115,6 +153,14 @@ void registerArithmeticPrototype(
       SPU_THROW("Invalid SPDZWISE arithmetic domain {}",
                 static_cast<int>(ctx->config().spdzwise_config.domain));
   }
+}
+
+void regSpdzWiseProtocol(SPUContext* ctx,
+                         const std::shared_ptr<yacl::link::Context>& link) {
+  SPU_ENFORCE(ctx->config().spdzwise_config.domain == SpdzWiseConfig::RING,
+              "SPDZWISE runtime requires spdzwise_config.domain=RING; "
+              "FIELD only supports the arithmetic development entrypoint");
+  registerRingArithmeticPrototype(ctx, link);
 }
 
 }  // namespace spu::mpc::spdzwise

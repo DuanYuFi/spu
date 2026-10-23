@@ -17,8 +17,7 @@ namespace spu::mpc::spdzwise {
 
 // Dispatches by spdzwise_config.domain. FIELD uses p = 2^61 - 1; RING uses
 // internal Z/(2^128) and external Z/(2^64). Both require FM64.
-// This arithmetic/ABFL integration harness is not a complete PPML protocol and
-// remains unreachable through Factory::RegisterProtocol until acceptance.
+// Explicit development entrypoint, including the incomplete FIELD domain.
 void registerArithmeticPrototype(
     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
 
@@ -27,5 +26,9 @@ void registerFieldArithmeticPrototype(
 
 void registerRingArithmeticPrototype(
     SPUContext* ctx, const std::shared_ptr<yacl::link::Context>& link);
+
+// Runtime entrypoint: only the RING/FM64 backend supports PPML execution.
+void regSpdzWiseProtocol(SPUContext* ctx,
+                         const std::shared_ptr<yacl::link::Context>& link);
 
 }  // namespace spu::mpc::spdzwise

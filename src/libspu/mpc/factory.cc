@@ -29,6 +29,7 @@
 #include "libspu/mpc/semi2k/io.h"
 #include "libspu/mpc/semi2k/protocol.h"
 #include "libspu/mpc/spdzwise/io.h"
+#include "libspu/mpc/spdzwise/protocol.h"
 
 namespace spu::mpc {
 
@@ -37,8 +38,7 @@ void Factory::RegisterProtocol(
   // TODO: support multi-protocols.
   switch (ctx->config().protocol) {
     case ProtocolKind::SPDZWISE: {
-      SPU_THROW("SPDZWISE is under development: mixed protocols and security "
-                "acceptance are incomplete; production execution is disabled");
+      return spdzwise::regSpdzWiseProtocol(ctx, lctx);
     }
     case ProtocolKind::REF2K: {
       return regRef2kProtocol(ctx, lctx);

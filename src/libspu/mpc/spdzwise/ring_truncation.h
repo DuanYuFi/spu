@@ -25,34 +25,27 @@ class TruncPrRandomBit final : public TruncAKernel {
                   SignType sign) const override;
 };
 
-// Exact signed floor(x / 2^bits), for full-width int64 inputs and bits in [0,63].
-class TruncNaive final : public TruncAKernel {
+// Exact signed floor(x / 2^bits), for full-width int64 inputs and bits in
+// [0,63].
+class TruncNaive final : public Kernel {
  public:
   static constexpr const char* kBindName() { return "trunc_a"; }
   void evaluate(KernelEvalContext* ctx) const override;
   Kind kind() const override { return Kind::Dynamic; }
-  bool hasMsbError() const override { return false; }
-  TruncLsbRounding lsbRounding() const override {
-    return TruncLsbRounding::Floor;
-  }
   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t bits,
-                  SignType sign) const override;
+                  SignType sign) const;
 };
 
 // Public trunc_a entry point. Add future algorithm selection in proc(), using
-// public parameters only. Selected algorithms must honor these error/rounding
-// contracts, which SPU queries without an evaluation context.
-class TruncASelector final : public TruncAKernel {
+// public parameters only. The default computes exact signed floor; no generic
+// rounding metadata is needed by the runtime dispatcher.
+class TruncASelector final : public Kernel {
  public:
   static constexpr const char* kBindName() { return "trunc_a"; }
   void evaluate(KernelEvalContext* ctx) const override;
   Kind kind() const override { return Kind::Dynamic; }
-  bool hasMsbError() const override { return TruncNaive().hasMsbError(); }
-  TruncLsbRounding lsbRounding() const override {
-    return TruncNaive().lsbRounding();
-  }
   NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& in, size_t bits,
-                  SignType sign) const override;
+                  SignType sign) const;
 };
 
 }  // namespace spu::mpc::spdzwise::ring

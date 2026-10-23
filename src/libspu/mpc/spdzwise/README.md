@@ -1,10 +1,11 @@
 # SPDZ-wise development status
 
-This directory is **not a completed malicious PPML backend**. The runtime
-factory deliberately rejects `SPDZWISE` execution until the acceptance gates
-below pass. There is no fallback to ABY3, a trusted dealer, or plaintext
-execution. `registerArithmeticPrototype()` is an explicit C++ development
-entrypoint, not a production configuration.
+The runtime factory supports **SPDZWISE RING/FM64** through
+`regSpdzWiseProtocol()`, with checked client import, mixed arithmetic/Boolean
+execution, mandatory final verification and transactional export. FIELD remains
+an arithmetic development backend. There is no fallback to another protocol
+or plaintext. Functional execution support does not establish a composed
+malicious-security proof; the review obligations below remain open.
 
 ## Arithmetic domain configuration and source layout
 
@@ -15,14 +16,15 @@ domain independently from the SPU word size:
 {
   "protocol": "SPDZWISE",
   "field": "FM64",
-  "spdzwise_config": {"domain": "FIELD"}
+  "spdzwise_config": {"domain": "RING"}
 }
 ```
 
 `FIELD` (the default, including legacy configurations) selects the Mersenne
 prime `p = 2^61 - 1` with FM64 storage. `RING` implements arithmetic modulo
 `2^64` using internal value/MAC components modulo `2^128` (64 extension bits).
-Both domains reject FM32 and FM128. Neither setting enables the production runtime factory.
+Both domains reject FM32 and FM128. The runtime factory enables RING only;
+FIELD configurations receive an explicit error before execution.
 
 In Python, use `config.spdzwise_config.domain = spu.SpdzWiseConfig.FIELD`
 or `spu.SpdzWiseConfig.RING`. JSON/protobuf serialization and config copies
@@ -58,7 +60,7 @@ available as an alias. Existing F61/ABFL development calls continue to use
 - Three replicated-share servers, one static malicious corruption at most,
   honest external clients, authenticated confidential channels, security with
   abort. Network identities and client authorization belong to the deployment.
-- FIELD arithmetic: `p = 2^61 - 1`, FM64 storage, default 16 fractional bits. Boolean
+- FIELD arithmetic: `p = 2^61 - 1`, FM64 storage, SPU default 18 fractional bits (examples request 16). Boolean
   prototype: ABFL post-sacrifice. Forty-bit statistical checking parameters are
   per reference procedure; a complete task needs a separately derived composed
   error bound. No security bound is certified for this prototype.
@@ -100,7 +102,7 @@ as a runtime dependency.
 | Multiplication and dot product | `Protocols/SpdzWise.hpp::prepare_mul`, `prepare_dotprod` | Multiply value/value and tag/value, enqueue result; matrix terms accumulated locally before one batched exchange |
 | FIELD arithmetic check | `Protocols/SpdzWise.hpp::check`, `zero_check` | Secret random coefficients, two shared dot products, shared-key product, independently blinded zero opening |
 | Boolean online and checking | ABY3 online AND; `Protocols/ShuffleSacrifice.h`, `MalRepRingPrep.hpp` | ABFL prototype with 64-bit word buckets, final post-sacrifice and checked Boolean IO; uses one fresh random pool rather than `PostSacriBin`'s two-level pools |
-| Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | **Not implemented**; do not substitute unchecked daBits |
+| Correlated bits | `Protocols/ReplicatedPrep.hpp`, `DabitSacrifice`, `ShuffleSacrifice` | RING authenticated random bits/daBits support MulA1B and retained probabilistic truncation; FIELD conversion material remains outstanding |
 | FIELD A2B | `Compiler/non_linear.py::KnownPrime`, `floatingpoint.py::BitDecFull` | Plaintext oracle only; cryptographic masking and binary circuits outstanding |
 | RING A2B | `SpdzWiseRingShare::split`, `Rep3Share2::split(case 3)` | Value-only local split-3, bit-sliced CSA + RCA, existing ABFL final verification |
 | RING B2A | `Compiler/types.py::_secret.bit_compose` splitting branch | Authenticated random mask, split-3 A2B, RCA, checks before Boolean opening; FIELD and daBit paths outstanding |
@@ -115,7 +117,7 @@ p after masking to 61 bits, consuming each correlated stream independently.
 Masks and checking coefficients are expanded locally and are not transmitted.
 The checked values still enter the authentication queue before release.
 Equivalence under malicious scheduling and input handling remains a review gate;
-these performance changes do not enable the production factory.
+these performance changes alone do not discharge the security review obligations.
 
 External input types currently carry the destination rank, but no client-issued
 request nonce. Output types carry a common digest; reconstruction checks that
@@ -151,9 +153,10 @@ exchanging two 128-bit words per output cell. A fixed status exchange also
 rejects malformed wire lengths; payload does not grow with the inner dimension.
 RING `a2b` converts the application value to 64-bit Boolean RSS; `b2a` converts
 1–64 Boolean bits to an authenticated arithmetic value. RING `msb_a2b`
-supports comparison via `MSB(x-y)`, returning a one-bit Boolean share.
-RING exact truncation uses `TruncNaive`; FIELD truncation and full PPML
-integration remain unimplemented. Both RING truncation algorithms are described below.
+provides a one-bit sign share. Comparisons use the original HAL `MSB(x-y)`
+path; signed `<` requires the difference to fit int64.
+RING exact truncation uses `TruncNaive`; FIELD truncation and PPML execution
+remain unimplemented. Both RING truncation algorithms are described below.
 
 Client input words are zero-extended from 64 to 128 bits, then shared in
 Z/(2^128). Internal authenticated elements contain two value and two MAC words
@@ -200,7 +203,9 @@ The prototype registers `TruncASelector` as `trunc_a`; its default is
 including `INT64_MIN` and `INT64_MAX`, with `0 <= m <= 63`. All valid sign
 hints use the same implementation. Zero shift and empty inputs are identities.
 The kernel preserves dtype, shape, session binding and authenticated arithmetic
-storage; it reports `hasMsbError() == false` and `TruncLsbRounding::Floor`.
+storage. `TruncNaive` and `TruncASelector` use the existing `Kernel` interface
+with protocol-local evaluation; no extension to the global rounding enum is
+needed. Exact floor behavior is checked against cleartext integer division.
 
 A2B only converts the low 64 value bits. The local shift replicates each XOR
 share's sign bit and retains a full 64-bit Boolean word, so negative results
@@ -282,7 +287,7 @@ adaptation to this prototype is to apply the existing Protocol 9 `CheckZero`
 to the full 128-bit bitness sum, instead of opening only its low word. Honest
 generated bits are 0/1 in the full internal ring. No bitness residual, MAC
 residual or extension is revealed. This implementation does not establish a
-new composed malicious-security bound or enable the production factory.
+new composed malicious-security bound.
 
 Mask openings check low-word replicas, send only the missing 64-bit component,
 and compare reconstructed transcript hashes with all-party failure propagation.
@@ -338,7 +343,7 @@ multiplication. Its extra additive error enters the residual alongside the dot
 product errors. A composable proof must account for that error, repeated
 successful checks with a reused key, and authenticated-value reuse. The mapping
 above identifies these obligations; unit tests do not discharge them. The
-production factory remains closed pending that source/proof review.
+RING runtime entrypoint does not discharge that source/proof review.
 
 For q checks, the conditional union-bound budget is
 `min(1, q*65/2^64 + epsilon_hash(q) + epsilon_PRSS(q))`, **provided** the
@@ -357,7 +362,7 @@ different zero checker does not apply.
 
 The existing `registerArithmeticPrototype()` entrypoint also registers `p2b`,
 `and_bb`, `and_bp`, `xor_bb`, and `xor_bp`. This remains a C++ development
-entrypoint; the production factory is still closed. Boolean values have two
+entrypoint; the RING runtime entrypoint installs the same checked kernels. Boolean values have two
 64-bit XOR-share components and 1–64 effective bits. AND uses the smaller operand
 width; XOR uses the larger width; public operands and `p2b` have width 64.
 Unused share bits are zero. Generic shape operations preserve the complete pair.
@@ -537,6 +542,51 @@ no circuit ANDs and uses the existing B=5 parameters.
 The security assumptions and outstanding ABFL composition review described
 above are unchanged by this conversion implementation.
 
+## Local bit operations, Boolean types and random values
+
+RING/FM64 registers `lshift_a` and `rand_a`. The shared Boolean layer registers
+`lshift_b`, `rshift_b`, `arshift_b`, `bitrev_b`, `common_type_b`, `cast_type_b`
+and `rand_b` in both arithmetic domains.
+
+`lshift_a` shifts both value and MAC replicas in the full internal 128-bit
+ring. Boolean shifts operate independently on the two XOR replicas;
+`arshift_b` requires 64 valid bits and copies bit 63 of each replica.
+Shift counts are public, either broadcast or per element, and must be in
+`[0,63]`. Negative/out-of-range counts and mismatched lengths are rejected.
+Empty tensors and non-contiguous views are supported. Empty shifts preserve
+the input width; nonempty left/right shifts update the width, with a minimum
+of one valid bit even when the result is zero.
+
+`bitrev_b` reverses only `[start,end)`, with `0 <= start <= end <= 64`.
+Boolean common types take the maximum valid width within the current session.
+Casts zero-extend or mask to the requested width; they do not sign-extend.
+These local operations neither communicate nor append/flush deferred checks.
+
+`rand_b(shape)` uses the session's existing pairwise PRSS stream and returns
+one-bit Boolean shares, without communication after setup or new AND records.
+`rand_a(shape)` reuses `randomAuthenticated`: fresh 128-bit PRSS values,
+semi-honest multiplication by the shared MAC key, and immutable value/MAC
+records queued for the existing check. Its low 64 bits cover the full
+application ring. Empty random batches consume no PRSS material.
+
+RandA deliberately does not copy ABY3's per-share `>> 2`: bounding individual
+shares does not bound their reconstructed sum. Random output is not restricted
+to a safe signed-comparison interval. The registered RING comparison kernels
+correct signed subtraction overflow.
+Direct use of `MSB(x-y)` retains modular sign semantics; bounded random
+sampling remains separate work.
+
+`rand_p` uses a session-bound commit/reveal exchange of fresh public seeds,
+agrees on both ordered transcripts, then expands their XOR using AES-CTR.
+The draw binds its shape and execution/message tag. It consumes no private
+mask or checking stream; empty shapes send no messages. Standard kernels are reused through a protocol-local adapter over the
+existing Object registry. The common registration API and other protocols
+retain their original public PRG implementation.
+
+The `basic_ops_test` target exercises all nine kernels through checked sessions
+and external reconstruction, including PRSS continuation, deferred MAC/AND
+composition and MAC fault rejection. No server reveal path is enabled.
+
 ## RING MSB A2B and comparison
 
 The RING prototype registers `msb_a2b` for authenticated `ring::AShrTy`
@@ -558,12 +608,16 @@ generate merges and 55 propagate merges. Independent gates share one ABFL
 call per layer: eight online AND rounds in total. Padding to 64 input lanes
 remains covered by the deferred verifier. A2B/B2A retain their existing RCA.
 
-The existing HAL fallback computes `MSB((x-y) mod 2^64)`. This equals signed
-less-than when the difference does not overflow; the implementation does not
-add overflow correction for arbitrary full-width signed operands. Tests cover
-both non-overflowing comparisons and explicit modular-overflow cases, all
-output shapes and strides, extended-ring arithmetic composition, and corrupt
-carry/padding records rejected at finalization.
+RING uses the original HAL comparison `MSB(x-y)`, with one MSB circuit.
+Signed comparisons are correct when the mathematical difference fits int64;
+full-width operands with an overflowing difference retain modular subtraction
+semantics. No `less_ss/sp/ps` hooks or overflow-correction kernels are installed.
+The HAL tests cover all three secret/public operand combinations: bounded
+pairs are checked against signed `<`, while full-width random and explicit
+overflow pairs are checked against modular subtraction's MSB. Separate MSB
+tests cover shapes, strides, arithmetic composition and corrupt carry/padding
+records rejected at finalization. Historical comparison benchmark snapshots
+retain their original sources and input bounds.
 
 The comparison benchmark starts with imported, authenticated input pairs and
 uses the same HAL `i_less(DT_I64, DT_I64) -> DT_I1` interface for both protocols.
@@ -648,12 +702,13 @@ remain applicable; these tests are not an independent security proof.
 ## Numerical contract
 
 Public and Boolean words retain SPU's 64-bit two's-complement representation.
-Secret arithmetic represents the centered interval `[-(p-1)/2, (p-1)/2]`.
+FIELD secret arithmetic represents the centered interval `[-(p-1)/2, (p-1)/2]`.
 Ring encoding `2^64-1` means `-1` and maps to `p-1`, not to `7`.
 
-The external IO rejects out-of-range signed inputs. Intermediate arithmetic
+FIELD external IO rejects out-of-range signed inputs. Intermediate arithmetic
 does not secretly check ranges; models must supply a range argument and a
-plaintext trace. This is not full 64-bit wraparound compatibility. Complex
+plaintext trace. FIELD does not provide full 64-bit wraparound compatibility;
+RING does provide modulo-2^64 application arithmetic. Complex
 values, private/colocated input, snapshots and context parallelism are disabled
 in the prototype.
 
@@ -684,16 +739,43 @@ For the future mixed backend:
   view. `TypeObject::isSerializable()` defaults to true; the internal MAC type
   overrides it. `Value::toProto()` checks it before copying bytes. Client
   reconstruction checks dtype/shape as well as protocol wire metadata.
-- **F4**: HAL optionally dispatches `less_ss`, `less_sp`, and `less_ps`, preserving
-  operand order and the old fallback for protocols without these kernels.
-  Dispatch regression tests are supplied; FIELD comparison kernels still
-  require the unimplemented field conversion backend. RING uses the existing
-  fallback with its registered `msb_a2b` kernel.
+The original HAL comparison and global runtime defaults are unchanged.
+`SPDZWISE = 7` is registered in C++/protobuf/Python configuration. FM64 uses
+SPU's default 18 fractional bits; set `fxp_fraction_bits=16` explicitly for the
+16-bit example/benchmark configurations. Storage/domain validation runs at
+protocol/IO construction, without a SPDZwise branch in `core/config.cc`.
+The factory supports RING execution and rejects incomplete FIELD execution.
+The audit of retained and reverted framework changes is recorded in the root
+README's **Original SPU Modification** section.
+Snapshots, private/colocated inputs, complex values and context parallelism
+remain explicitly unsupported. Server-side reveals remain disabled.
 
-`SPDZWISE = 7` is registered in C++/protobuf/Python configuration with 16
-fractional bits by default. IO construction is available for development, but
-`Factory::RegisterProtocol` explicitly refuses execution. Do not remove that
-gate merely because normal-execution arithmetic tests pass.
+## Runtime usage
+
+Use `examples/python/conf/3pc_spdzwise.json` with the existing distributed
+node driver and model scripts, or configure an in-memory simulator:
+
+```python
+import spu
+from spu.utils.simulation import Simulator, sim_jax
+
+config = spu.RuntimeConfig(protocol=spu.ProtocolKind.SPDZWISE,
+                           field=spu.FieldType.FM64)
+config.spdzwise_config.domain = spu.SpdzWiseConfig.RING
+sim = Simulator(3, config)
+secure_square = sim_jax(sim, lambda x: x * x)
+```
+
+Build the Python extension from this checkout before running it. A previously
+installed extension does not acquire these registrations from Python sources.
+Run `python -m unittest spu.tests.spdzwise_runtime_test` for Python IO,
+consecutive executions, LR inference/update, and NN normalization fixtures.
+The device integration target is `//libspu/mpc/spdzwise:execution_test`
+from `src`; it uses the actual factory, PPHLO executor and checked export path.
+These small fixtures do not constitute full ResNet-50 or full-dataset training
+acceptance. Review measured accuracy and application ranges for each model;
+FM64/16-bit precision does not reproduce the ResNet example's FM128/36-bit
+configuration.
 
 ## Validation and remaining gates
 
@@ -718,12 +800,12 @@ Validation record for this change is maintained in `VALIDATION.md`.
 
 Remaining acceptance gates, in order:
 
-1. The six RING/Boolean/conversion/session regression targets pass (67 cases,
-   including faults at all three server positions); see `VALIDATION.md`. Next test
-   real device execution and additional fault paths. Review input/key/check composition and
-   derive the bound rather than inferring it from finite fault tests.
+1. Native protocol, device, IO and old-protocol regressions pass (14 targets,
+   475 cases, including faults at all three server positions); see
+   `VALIDATION.md`. Review input/key/check composition and derive the bound
+   rather than inferring it from finite fault tests.
 2. Review the ABFL prototype and the combined opening schedule before enabling
-   mixed-domain execution in the production factory. Malicious daBits for
+   asserting a composed malicious-security guarantee for mixed-domain execution. Malicious daBits for
    dedicated bit conversion, FIELD conversions, FIELD truncation and F4
    comparisons remain future work.
 3. Add the specified LR/tree/CNN fixtures, pinned data splits and weights,
@@ -731,7 +813,7 @@ Remaining acceptance gates, in order:
    numerical acceptance. Plaintext oracle tests do not satisfy this gate.
 4. Run old-protocol IO/kernel/device regression tests; measure preprocessing,
    computation, checks, export, communication and memory; publish composed
-   failure accounting. Only then enable the production factory.
+   failure accounting before claiming production security acceptance.
 
 ## Benchmark
 

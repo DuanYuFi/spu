@@ -1,5 +1,201 @@
 # Development validation record
 
+## RING framework modification audit — 2026-10-23
+
+The root README's **Original SPU Modification** section now records a
+per-entry audit against original SPU commit
+`826537d90d60c1a94286852c5ba13c8eb470a785`. The following original files are
+restored byte-for-byte to that baseline:
+
+- `kernel/hal/ring.cc` (the user's rollback) and its `ring_test.cc`.
+- `core/config.cc`, `core/BUILD.bazel`, and `core/context.h`.
+- `mpc/kernel.h`, `mpc/common/pv2k.h`, and `mpc/common/pv2k.cc`.
+- `spu/tests/spu_runtime_test.py`.
+
+The now-unreachable protocol-local `RingLess` kernels are removed. Comparison
+uses the unchanged HAL `MSB(x-y)` path: bounded differences are tested against
+signed `<`, while full-width random/overflow cases verify modular MSB
+semantics. Exact signed floor truncation is unchanged, including full-width
+inputs; its selector and implementation use existing plain `Kernel`
+registration instead of extending the global rounding enum. Finalization
+uses existing `KernelEvalContext` and `Kernel::evaluate()` without a zero-argument
+parameter-binding extension.
+
+SPDZwise-specific global configuration validation is removed because the
+protocol/IO constructors already enforce storage/domain constraints. FM64
+now uses SPU's default **18 fractional bits**; the example configuration
+continues to request **16** explicitly. Invalid configurations are rejected
+at protocol/IO creation rather than during generic configuration population.
+The C++ configuration fixture moved to `spdzwise/config_test.cc`; the Python
+domain round-trip fixture moved to `spdzwise_runtime_test.py`.
+
+Optional session boundaries, checked Python exports, internal MAC
+serialization guards, factory/configuration bindings and rank-aware IO remain
+in use. The common public-kernel registration API is unchanged; SPDZwise
+uses a local forwarding adapter and separately installs `rand_p`. Device
+execution tests live in `spdzwise/execution_test.cc`.
+
+Fresh validation after the rollback:
+
+- **15 native targets / 477 cases passed** (14 targets executed, one unchanged
+  target reused Bazel's passing cache). This includes four relocated config
+  cases, seven device execution cases, all SPDZwise kernel/IO suites, generic
+  device IO, ProtocolSession, original HAL tests and ABY3 protocol/IO regression.
+- **6 Python cases passed in 1.486 seconds** against the freshly rebuilt
+  optimized extension: configuration round-trips, rank-aware IO, repeated
+  runtime/export accessors, LR inference/gradient, MLP/log-softmax/BatchNorm,
+  and Conv/BatchNorm/ReLU. The LR fixture tests both default precision (18 after
+  population) and explicit 16; other numerical fixtures use the restored default.
+- Extension SHA-256:
+  `402be3987c2785bf697e0fd7fca6f0bf8dfbc70f772550f093c070719b2b96b4`.
+- All nine restored original files listed above match the baseline byte-for-byte;
+  Python syntax and `git diff --check` pass.
+
+The native command below also applies to this audit, adding
+`//libspu/mpc/spdzwise:config_test`. Python runs with
+`python -m unittest -v spu.tests.spdzwise_runtime_test` using the runtime-only
+package staging described below. Full logs for this run are
+`/tmp/spdzwise-framework-audit-native.log`,
+`/tmp/spdzwise-framework-audit-python-build.log`, and
+`/tmp/spdzwise-framework-audit-python-tests.log`.
+
+## Historical runtime registration validation before the audit — 2026-10-23
+
+The results in this section describe the earlier integration and its binary
+hashes. Its optional full-width comparison dispatch has since been removed;
+the audit above defines the current comparison and precision contracts.
+
+`Factory::RegisterProtocol` now selects `regSpdzWiseProtocol` for SPDZWISE.
+Only RING/FM64 is enabled; FIELD retains its explicit arithmetic-development
+entrypoint. Python reconstruction delegates ordered rank/type/binding checks
+to SPDZwise IO instead of rejecting the intentional rank-specific wire types.
+Local tracing/profiling flags are excluded from execution agreement; numerical
+and protocol configuration remain bound. Public random draws use a separate
+commit/reveal coin exchange and do not require a generic PRG state. Full-width
+signed `less_ss/sp/ps` kernels correct subtraction overflow and return
+deferred-check Boolean bits.
+
+All 14 native targets passed, totaling 475 cases after adding public random
+coverage and the final MAC fault fixture. The seven actual device-execution
+cases cover:
+
+- Checked output serialization and consecutive executions reusing internal MACs.
+- Full-width signed comparison, Boolean output and rank permutation rejection.
+- Empty-output final checking and successful transaction completion.
+- Fixed-point exp/reciprocal, rsqrt, ReLU and secret matrix multiplication,
+  compared with cleartext values at absolute tolerance 0.01.
+- Parsing failure revoking previous exports and poisoning subsequent execution.
+- Incomplete FIELD execution, snapshots and inter-op parallelism rejection.
+- MAC corruption at each server position preventing new environment publication
+  and revoking checked exports.
+
+The existing 1025-element HAL comparison fixture now checks signed comparisons
+for all random full-width pairs, including INT64_MIN/1 and INT64_MAX/-1.
+Other regression targets include all eight SPDZwise kernel/IO targets,
+ProtocolSession, generic device IO, HAL comparison dispatch, ABY3 protocol and
+ABY3 IO. This validates execution behavior, not a composed security proof or
+full ResNet-50/full-dataset model accuracy.
+
+Build/test from `src`, with the bundled Bazel 7.7.1 and
+`--output_user_root=/tmp/malicious-spu-bazel`:
+
+```sh
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch \
+  --output_user_root=/tmp/malicious-spu-bazel test -c opt \
+  //libspu/mpc/spdzwise:execution_test //libspu/device:io_test \
+  //libspu/mpc/spdzwise:basic_ops_test //libspu/mpc/spdzwise:boolean_test \
+  //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:protocol_test \
+  //libspu/mpc/spdzwise:io_test //libspu/mpc/spdzwise:ring_conversion_test \
+  //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc/spdzwise:ring_mula1b_test \
+  //libspu/mpc:protocol_session_test //libspu/mpc/aby3:protocol_test \
+  //libspu/mpc/aby3:io_test //libspu/kernel/hal:ring_test \
+  --lockfile_mode=off --jobs=12 --test_env=YACL_NUM_THREADS=4 --test_timeout=180 \
+  --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain \
+  --per_file_copt=libspu/dialect/pphlo/IR/type_inference.cc@-Wno-error=maybe-uninitialized
+```
+
+The per-file option handles an existing GCC/LLVM ArrayRef warning in type
+inference without changing that unrelated source. After the complete run,
+the device and protocol targets were rerun for the final public-random binding
+and passed.
+
+### Python binding and JAX execution
+
+The new optimized `//spu:libspu` extension built successfully. Its SHA-256 is
+`21b458ef7eac9663d0be4b004d5a5bd570fba7522e6f55ee1b3a19b8a13e5a0c`.
+All five `spu.tests.spdzwise_runtime_test` cases passed in 1.764 seconds using
+JAX 0.8.0 and NumPy 2.1.3:
+
+- Rank-specific Python IO reconstruction, with swapped ranks rejected.
+- Consecutive executions, metadata and chunk accessors, checked reconstruction.
+- Secret LR inference plus one gradient update (absolute/relative tolerance 0.01).
+- Secret MLP/ReLU, log-softmax and BatchNorm normalization (tolerance 0.02).
+- Secret Conv/BatchNorm/ReLU inference (tolerance 0.02).
+
+All inputs, weights and variance parameters in the JAX fixtures are secret.
+The tested extension uses the actual compiler, factory, PPHLO executor and
+checked IO. A temporary runtime-only package linked the repository's Python
+sources and this new extension; unrelated PSI bindings were not rebuilt.
+Python dependencies came from the existing TransformerInference virtualenv.
+Full dataset training and the original full ResNet-50 model were not run.
+
+Build from the repository root:
+
+```sh
+src/libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch \
+  --output_user_root=/tmp/malicious-spu-bazel build -c opt //spu:libspu \
+  --lockfile_mode=off --jobs=12 \
+  --extra_toolchains=@@rules_foreign_cc~//toolchains:preinstalled_cmake_toolchain \
+  --per_file_copt=libspu/dialect/pphlo/IR/type_inference.cc@-Wno-error=maybe-uninitialized
+python -m unittest -v spu.tests.spdzwise_runtime_test
+```
+
+The root lockfile was preserved byte-for-byte. The upstream registry had
+changed `ippcp/2021.8.bcr.2/source.json`; its original content was recovered
+from registry commit `109bae5dff96b2502b7b720c5a450073dd24fab6` and cached only
+after verifying its SHA-256 matched the locked
+`4a4a758ddf4292e9af6f7c6b1cd014758982a54c2dd3c50fb1912ceec68a5b69`.
+No dependency hash or integrity check was weakened.
+
+## RING basic operators and random shares — 2026-10-23
+
+Added the nine planned kernels: `lshift_a`, `lshift_b`, `rshift_b`,
+`arshift_b`, `bitrev_b`, `common_type_b`, `cast_type_b`, `rand_a`, `rand_b`.
+RandA preserves full-ring sampling and uses the existing deferred MAC path;
+the signed-comparison overflow restriction remains unchanged.
+
+All nine optimized-build targets passed, totaling 99 test cases:
+`basic_ops_test` (6), `boolean_test` (17), `ring_test` (15),
+`protocol_test` (13), `io_test` (8), `ring_conversion_test` (15),
+`ring_truncation_test` (11), `ring_mula1b_test` (7), and
+`protocol_session_test` (7).
+
+The new tests cover public scalar/per-element shifts, all planned boundary
+widths, empty and strided inputs, invalid parameters and sessions, checked
+external reconstruction, unchanged local-operation communication/check queues,
+extended-ring MAC composition, deterministic full-width PRSS draws and exact
+stream continuation, and inconsistent/consistent random-MAC faults at all
+three party positions. Test-only deterministic streams never enter production.
+
+Run from `src`:
+
+```sh
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 \
+  --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt \
+  //libspu/mpc/spdzwise:basic_ops_test \
+  //libspu/mpc/spdzwise:boolean_test //libspu/mpc/spdzwise:ring_test \
+  //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:io_test \
+  //libspu/mpc/spdzwise:ring_conversion_test \
+  //libspu/mpc/spdzwise:ring_truncation_test \
+  //libspu/mpc/spdzwise:ring_mula1b_test //libspu/mpc:protocol_session_test \
+  --lockfile_mode=off --jobs=16 --test_env=YACL_NUM_THREADS=4 \
+  --test_timeout=180 \
+  --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain
+```
+
+After the full run, the PRSS continuation assertions were strengthened and
+`basic_ops_test` was rerun successfully. No model benchmarks were run.
+
 ## Zero-padded ABFL and opening checkpoints — 2026-10-22
 
 `SpdzWiseState::checkMac()` is the arithmetic MAC checkpoint;
@@ -86,7 +282,7 @@ remain unchanged.
 ## Exact TruncNaive default — 2026-10-23
 
 `TruncASelector` now defaults to `TruncNaive`: A2B, local sign-extending right
-shift, and checked B2A. It reports `TruncLsbRounding::Floor` and no MSB error;
+shift, and checked B2A. It computes exact signed floor without MSB error;
 `TruncPrRandomBit` remains explicitly callable with its original rounding.
 
 Nine regression targets passed **323 cases**. The 11 truncation cases include

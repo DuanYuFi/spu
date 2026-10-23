@@ -16,6 +16,10 @@
 #include "libspu/mpc/common/prg_state.h"
 #include "libspu/mpc/spdzwise/ring_type.h"
 
+namespace spu::mpc::spdzwise {
+class BasicOpsTestAccess;
+}
+
 namespace spu::mpc::spdzwise::ring {
 class TruncationTestAccess;
 class ConversionTestAccess;
@@ -37,6 +41,7 @@ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
                const RepShare& value, std::string_view context);
 
 class ArithmeticState {
+  friend class spdzwise::BasicOpsTestAccess;
   friend class TruncationTestAccess;
   friend class ConversionTestAccess;
   friend class MulA1BTestAccess;
@@ -80,6 +85,7 @@ class ArithmeticState {
   NdArrayRef publicValue(const NdArrayRef& value) const;
   NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef negate(const NdArrayRef& x) const;
+  NdArrayRef leftShift(const NdArrayRef& x, const Sizes& bits) const;
   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
   NdArrayRef matmul(const NdArrayRef& x, const NdArrayRef& y, bool public_rhs);

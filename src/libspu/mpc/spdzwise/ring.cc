@@ -436,6 +436,25 @@ NdArrayRef ArithmeticState::negate(const NdArrayRef& x) const {
   return result;
 }
 
+NdArrayRef ArithmeticState::leftShift(const NdArrayRef& x,
+                                      const Sizes& bits) const {
+  validateInternal(x);
+  SPU_ENFORCE(bits.size() == 1 || int64_t(bits.size()) == x.numel(),
+              "shift count shape mismatch");
+  for (auto bit : bits) {
+    SPU_ENFORCE(bit >= 0 && bit < 64, "shift count must be in [0,63]");
+  }
+  NdArrayRef result(x.eltype(), x.shape());
+  const NdArrayView<AuthShare> in(x);
+  auto* out = result.data<AuthShare>();
+  pforeach(0, x.numel(), [&](int64_t i) {
+    const auto shift = bits.size() == 1 ? bits[0] : bits[i];
+    // Preserve the complete authenticated representative in Z/(2^128).
+    for (size_t c = 0; c < 4; ++c) out[i][c] = in[i][c] << shift;
+  });
+  return result;
+}
+
 NdArrayRef ArithmeticState::multiplyPublic(const NdArrayRef& x,
                                            const NdArrayRef& y) const {
   validateInternal(x);
@@ -537,6 +556,15 @@ NdArrayRef Negate::proc(KernelEvalContext* ctx, const NdArrayRef& in) const {
   return ctx->getState<SpdzWiseState>()->negate(in);
 }
 
+NdArrayRef LShiftA::proc(KernelEvalContext* ctx, const NdArrayRef& in,
+                         const Sizes& bits) const {
+  return ctx->getState<SpdzWiseState>()->leftShift(in, bits);
+}
+
+NdArrayRef RandA::proc(KernelEvalContext* ctx, const Shape& shape) const {
+  return ctx->getState<SpdzWiseState>()->randomArithmetic(shape);
+}
+
 NdArrayRef AddAA::proc(KernelEvalContext* ctx, const NdArrayRef& x,
                        const NdArrayRef& y) const {
   return ctx->getState<SpdzWiseState>()->add(x, y);
@@ -569,8 +597,8 @@ NdArrayRef MatmulAP::proc(KernelEvalContext* ctx, const NdArrayRef& x,
 }
 
 void registerArithmeticKernels(Object* object) {
-  object->regKernel<P2A, Negate, AddAA, AddAP, MulAA, MulAP, MatmulAA,
-                    MatmulAP>();
+  object->regKernel<P2A, Negate, AddAA, AddAP, MulAA, MulAP, MatmulAA, MatmulAP,
+                    LShiftA, RandA>();
 }
 
 }  // namespace spu::mpc::spdzwise::ring

@@ -76,6 +76,27 @@ NdArrayRef SpdzWiseState::negate(const NdArrayRef& x) const {
   return result;
 }
 
+NdArrayRef SpdzWiseState::leftShift(const NdArrayRef& x,
+                                    const Sizes& bits) const {
+  requireRunning();
+  SPU_ENFORCE(isRing(), "lshift_a requires RING");
+  return ring_->leftShift(x, bits);
+}
+
+NdArrayRef SpdzWiseState::randomArithmetic(const Shape& shape) {
+  try {
+    requireRunning();
+    SPU_ENFORCE(isRing(), "rand_a requires RING");
+    // Full-ring random values: shifting each PRSS share does not bound the
+    // reconstructed secret. MSB(x-y) comparison still requires the caller
+    // to ensure that the signed difference does not overflow.
+    return ring_->randomAuthenticated(shape);
+  } catch (...) {
+    abort();
+    throw;
+  }
+}
+
 NdArrayRef SpdzWiseState::multiplyPublic(const NdArrayRef& x,
                                          const NdArrayRef& y) const {
   requireRunning();

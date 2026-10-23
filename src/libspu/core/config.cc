@@ -44,24 +44,13 @@ void populateRuntimeConfig(RuntimeConfig& cfg) {
   SPU_ENFORCE(cfg.protocol != ProtocolKind::PROT_INVALID);
   SPU_ENFORCE(cfg.field != FieldType::FT_INVALID);
 
-  if (cfg.protocol == ProtocolKind::SPDZWISE) {
-    SPU_ENFORCE(cfg.field == FieldType::FM64,
-                "SPDZWISE FIELD and RING domains require FM64");
-    SPU_ENFORCE(cfg.spdzwise_config.domain == SpdzWiseConfig::FIELD ||
-                    cfg.spdzwise_config.domain == SpdzWiseConfig::RING,
-                "Invalid SPDZWISE arithmetic domain {}",
-                static_cast<int>(cfg.spdzwise_config.domain));
-  }
-
   if (cfg.max_concurrency == 0) {
     cfg.max_concurrency = yacl::get_num_threads();
   }
 
   //
   if (cfg.fxp_fraction_bits == 0) {
-    cfg.fxp_fraction_bits = cfg.protocol == ProtocolKind::SPDZWISE
-                                ? 16
-                                : defaultFxpBits(cfg.field);
+    cfg.fxp_fraction_bits = defaultFxpBits(cfg.field);
   }
 
   if (cfg.fxp_div_goldschmidt_iters == 0) {

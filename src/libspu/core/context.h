@@ -181,8 +181,6 @@ class KernelEvalContext final {
 
 namespace detail {
 
-inline void bindParams(KernelEvalContext*) {}
-
 template <typename First, typename... Args>
 void bindParams(KernelEvalContext* ectx, First&& head, Args&&... tail) {
   ectx->pushParam(std::forward<First>(head));

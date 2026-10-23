@@ -11,6 +11,8 @@
 
 #include "libspu/mpc/spdzwise/protocol.h"
 
+#include <cstring>
+
 #include "gtest/gtest.h"
 
 #include "libspu/mpc/api.h"
@@ -40,6 +42,48 @@ RuntimeConfig Config() {
   config.field = FM64;
   config.fxp_fraction_bits = 16;
   return config;
+}
+
+TEST(SpdzWiseProtocol, PublicRandomSharesAgreeAcrossCallsAndExecutions) {
+  for (auto domain : {SpdzWiseConfig::FIELD, SpdzWiseConfig::RING}) {
+    auto config = Config();
+    config.spdzwise_config.domain = domain;
+    const auto results = utils::simulate(3, [&](const auto& link) {
+      SPUContext ctx(config, link);
+      registerArithmeticPrototype(&ctx, link);
+      auto* state = ctx.prot()->getState<SpdzWiseState>();
+      std::vector<Value> draws;
+      for (int run = 0; run < 2; ++run) {
+        ProtocolRunGuard guard(&ctx);
+        state->begin(ExecutableProto("random", {}, {}, ""), {});
+        const auto before = link->GetStats()->sent_bytes.load();
+        EXPECT_EQ(rand_p(&ctx, {0}).numel(), 0);
+        EXPECT_EQ(link->GetStats()->sent_bytes.load(), before);
+        auto first = rand_p(&ctx, {2, 3}).setDtype(DT_U64);
+        auto second = rand_p(&ctx, {2, 3}).setDtype(DT_U64);
+        state->prepareOutputs(&ctx, {"first", "second"}, {first, second});
+        guard.commit();
+        draws.push_back(state->exportedValue("first"));
+        draws.push_back(state->exportedValue("second"));
+      }
+      return draws;
+    });
+    for (size_t draw = 0; draw < 4; ++draw) {
+      for (size_t rank = 1; rank < 3; ++rank) {
+        EXPECT_EQ(results[rank][draw].storage_type(), makeType<Pub2kTy>(FM64));
+        EXPECT_EQ(std::memcmp(results[0][draw].data().data(),
+                              results[rank][draw].data().data(),
+                              6 * sizeof(uint64_t)),
+                  0);
+      }
+      if (draw) {
+        EXPECT_NE(
+            std::memcmp(results[0][draw - 1].data().data(),
+                        results[0][draw].data().data(), 6 * sizeof(uint64_t)),
+            0);
+      }
+    }
+  }
 }
 
 TEST(SpdzWiseProtocol, PrssCopiesStayAlignedAcrossOddAndEmptyBatches) {
