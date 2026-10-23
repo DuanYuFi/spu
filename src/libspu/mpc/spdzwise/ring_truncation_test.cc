@@ -41,7 +41,7 @@ class TruncationTestAccess {
   static size_t pending(SpdzWiseState* s) { return s->ring_->pending_.size(); }
   static void checkBits(ArithmeticState& s, const NdArrayRef& b) {
     std::vector<uint64_t> coefficients;
-    s.checkTruncBits(b, coefficients);
+    s.checkRandomBits(b, coefficients);
   }
   static void observeOpening(SpdzWiseState* s, std::function<void()> observe) {
     auto original = s->ring_->tag_;

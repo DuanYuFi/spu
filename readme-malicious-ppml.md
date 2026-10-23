@@ -28,8 +28,9 @@ Binary AND: ABFL
 A2B: split 3
 Bit2A: dabit
 B2A: split 3
-TruncPr: DEK 
-MSBA2B: 
+TruncPr: exact truncation (A2B, local truncation, B2A)
+MSBA2B: split 3
+MulA1B: dabit Bit2A -> MulAA
 
 -->
 
@@ -340,6 +341,38 @@ MAC 关系、后续算术及打开前故障阻断。
 复现：在 `src/libspu/mpc/spdzwise/benchmarks` 执行 `bash build.sh //:truncation_bench`，
 再执行 `python3 run_truncation.py NEW_OUTPUT_DIRECTORY`；单独复现 ABY3 精确截断时添加
 `--protocols aby3-exact`。
+
+#### RING daBit MulA1B Benchmark
+
+测量日期：**2026-10-23**。仅保留最后一次优化版 SPDZwise 测量与最新 ABY3 测量。
+两组使用同一二进制、相同配置和明文，来自串行执行的不同批次；没有重新测量或混合样本。
+**1M = 1,000,000 对 FM64 算术 share 与一位 Boolean share**，计算
+`y = x*b mod 2^64`，不做截断；输入覆盖全宽随机 uint64、边界值和两种 bit。
+
+三方 FactoryMem、64 个后台 worker（`YACL_NUM_THREADS=65`），关闭 context
+inter/intra 并行分片。每轮新 session、新 shares，预热 1 次、正式测量 7 次；
+每轮取三方完整耗时最大值，再报告中位数和范围。
+
+| 协议 | 总耗时中位数（ms） | 范围（ms） | 三方总发送（B） | 吞吐量（对/秒） |
+|---|---:|---:|---:|---:|
+| SPDZwise RING daBit（含验证） | **1,031.242** | 1,011.883–1,083.038 | 321,502,535 | 969,704 |
+| 原生 ABY3（半诚实） | **103.164** | 65.967–119.252 | 64,000,000 | 9,693,316 |
+
+SPDZwise 主计时包含**新鲜 daBit 生成、bitness 与复制检查、打开前算术/Boolean
+依赖验证、Bit2A 一致性打开、MulAA 及最终 `checkMac()`**。输入分享、算术输入认证
+和 Boolean 输入验证在计时外；输出导出、重构和逐项核对也在计时外，并确认没有
+遗漏的非空验证。ABY3 为半诚实基线，计入原生 `mul_a1b` 的完整调用成本。
+
+每方每轮计时前完成 1 次非空输入 MAC 验证，计时内完成 2 次非空 MAC 验证；
+合法输入没有上游 AND，非空 Boolean 验证批次为 0，必要同步和一致性打开仍计时。
+两协议各核对 **8,000,000 个输出**，全部正确；相关 9 个测试目标共 **318 个用例通过**。
+分阶段耗时独立聚合，不能相加重建总耗时。结果仅代表本机 FactoryMem 与 1M 批量。
+
+[完整结果与阶段耗时](src/libspu/mpc/spdzwise/benchmarks/mula1b-dabit-1m-final-2026-10-23/RESULTS.md)、
+[原始数据、参数与源码/二进制指纹](src/libspu/mpc/spdzwise/benchmarks/mula1b-dabit-1m-final-2026-10-23/)、
+[回归验证](src/libspu/mpc/spdzwise/benchmarks/mula1b-dabit-1m-final-2026-10-23/validation/)。
+复现：在 `src/libspu/mpc/spdzwise/benchmarks` 下执行 `bash build.sh //:mula1b_bench`，
+再执行 `python3 run_mula1b.py NEW_OUTPUT_DIRECTORY`。
 
 ### PPML Tasks
 

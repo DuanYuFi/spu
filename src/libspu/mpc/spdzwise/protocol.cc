@@ -100,7 +100,7 @@ void registerRingArithmeticPrototype(
   registerCommonKernels(ctx);
   ring::registerArithmeticKernels(ctx->prot());
   ctx->prot()->regKernel<ring::TruncASelector, ring::A2B, ring::B2A,
-                        ring::MsbA2B>();
+                        ring::MsbA2B, ring::MulA1B>();
   registerBooleanKernels(ctx->prot());
 }
 

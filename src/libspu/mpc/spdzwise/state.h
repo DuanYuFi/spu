@@ -28,6 +28,7 @@ class SpdzWiseState final : public ProtocolSession {
   friend class BooleanTestAccess;
   friend class ring::TruncationTestAccess;
   friend class ring::ConversionTestAccess;
+  friend class ring::MulA1BTestAccess;
   std::unique_ptr<BooleanState> boolean_;
   std::unique_ptr<ring::ArithmeticState> ring_;
   bool isRing() const {
@@ -50,6 +51,11 @@ class SpdzWiseState final : public ProtocolSession {
   std::array<size_t, 4> b2a_bytes_{};
   size_t b2a_and_bits_ = 0;
   NdArrayRef finishB2A(const NdArrayRef& mask, const NdArrayRef& masked);
+  // Last MulA1B: daBit generation, pre-opening verification, masked opening
+  // and linear Bit2A, multiplication. Read only by the benchmark friend.
+  std::array<double, 4> mula1b_ms_{};
+  NdArrayRef bit2a(const NdArrayRef& bit);
+  NdArrayRef finishBit2A(ring::DaBit mask, const NdArrayRef& bit);
 
   std::string tag(std::string_view operation);
   std::vector<uint64_t> exchange(const std::vector<uint64_t>& local,
@@ -85,6 +91,8 @@ class SpdzWiseState final : public ProtocolSession {
   NdArrayRef negate(const NdArrayRef& x) const;
   NdArrayRef multiplyPublic(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef multiply(const NdArrayRef& x, const NdArrayRef& y);
+  // One-bit mixed multiplication. Final product MAC check remains deferred.
+  NdArrayRef mulA1B(const NdArrayRef& x, const NdArrayRef& bit);
   NdArrayRef truncPrRandomBit(const NdArrayRef& x, size_t bits, SignType sign);
   NdArrayRef truncNaive(const NdArrayRef& x, size_t bits, SignType sign);
   double truncMaterialMs() const {

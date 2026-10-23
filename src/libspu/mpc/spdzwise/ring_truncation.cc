@@ -110,10 +110,10 @@ NdArrayRef ArithmeticState::truncPrRandomBit(
   {
     // Include scratch destruction in the material phase as well as in the
     // primary interval; online timing starts with only the assembled masks.
-    TruncationBuffers buffers(x.eltype(), 64 * std::min(kTile, x.numel()));
+    RandomBitBuffers buffers(x.eltype(), 64 * std::min(kTile, x.numel()));
     for (int64_t offset = 0; offset < x.numel(); offset += kTile) {
       const auto count = std::min(kTile, x.numel() - offset);
-      const auto random = randomTruncBits(64 * count, buffers);
+      const auto random = randomBits(64 * count, buffers);
       const auto* rb = random.data<AuthShare>();
       // One input combines 64 authenticated bits: use a grain in input units,
       // not the generic 50K-element grain used for cheap scalar operations.

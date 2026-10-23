@@ -27,13 +27,13 @@ void RequireAll(const std::shared_ptr<yacl::link::Context>& link, bool ok,
                               context + "/status/" + std::to_string(round));
     for (const auto& item : all) ok &= std::string_view(item) == "1";
   }
-  SPU_ENFORCE(ok, "SPDZWISE ring check failed (truncation)");
+  SPU_ENFORCE(ok, "SPDZWISE ring check failed");
 }
 
 std::string Hash(std::string_view context, std::string_view bytes) {
   yacl::crypto::Blake3Hash hash;
-  hash.Update("SPDZWISE-RING-TRUNC-v1/" + std::to_string(context.size()) + ":" +
-              std::string(context));
+  hash.Update("SPDZWISE-RING-RANDOM-BIT-v1/" + std::to_string(context.size()) +
+              ":" + std::string(context));
   hash.Update(bytes);
   const auto digest = hash.CumulativeHash();
   return {reinterpret_cast<const char*>(digest.data()), digest.size()};
@@ -75,15 +75,15 @@ AuthShare Public(Word x, size_t rank, const RepShare& key) {
 }
 }  // namespace
 
-ArithmeticState::TruncationBuffers::TruncationBuffers(const Type& type,
-                                                     int64_t max_bits)
+ArithmeticState::RandomBitBuffers::RandomBitBuffers(const Type& type,
+                                                    int64_t max_bits)
     : first(2 * max_bits),
       second(2 * max_bits),
       private_words((max_bits + 63) / 64),
       inputs(type, {2 * max_bits}) {}
 
 NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
-                                              TruncationBuffers& buffers) {
+                                              RandomBitBuffers& buffers) {
   auto& [first, second, private_words, coefficients, storage] = buffers;
   const size_t total = 2 * count;
   first.resize(total);
@@ -93,9 +93,9 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
   auto* data = out.data<AuthShare>();
   const size_t rank = link_->Rank();
   if (rank == owner || rank == (owner + 1) % 3)
-    trunc_prg_->fillPriv(absl::MakeSpan(private_words));
-  trunc_prg_->fillPrssPair(first.data(), second.data(), total,
-                           PrgState::GenPrssCtrl::Both);
+    random_bit_prg_->fillPriv(absl::MakeSpan(private_words));
+  random_bit_prg_->fillPrssPair(first.data(), second.data(), total,
+                                PrgState::GenPrssCtrl::Both);
 
   // MP-SPDZ replicated private input, batched for the two rotating owners.
   // Owner o sets (s_o,s_{o+1},s_{o+2})=(r,b-r,0). The pairwise r is already
@@ -115,7 +115,7 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
       data[i] = {};
     }
   });
-  const auto context = tag_("trunc-private-input");
+  const auto context = tag_("random-bit-private-input");
   // Queue both independent inputs before receiving either one.
   for (size_t input = 0; input < 2; ++input) {
     if (rank != (owner + input) % 3) continue;
@@ -123,7 +123,8 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     link_->SendAsync(link_->NextRank(),
                      yacl::ByteContainerView(first.data() + input * count,
-                                             count * sizeof(Word)), tag);
+                                             count * sizeof(Word)),
+                     tag);
 #else
     const auto bytes = Encode(std::vector<Word>(
         first.begin() + input * count, first.begin() + (input + 1) * count));
@@ -134,8 +135,8 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
   for (size_t input = 0; input < 2; ++input) {
     const size_t input_owner = (owner + input) % 3;
     if (link_->PrevRank() != input_owner) continue;
-    const auto received = link_->Recv(
-        input_owner, context + "/" + std::to_string(input));
+    const auto received =
+        link_->Recv(input_owner, context + "/" + std::to_string(input));
     const bool length_ok = size_t(received.size()) == count * sizeof(Word);
     valid &= length_ok;
     if (!length_ok) continue;
@@ -145,20 +146,19 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
     const auto decoded = Decode(std::string_view(received), count);
     std::copy(decoded.begin(), decoded.end(), second.begin());
 #endif
-    pforeach(0, count, [&](int64_t i) {
-      data[input * count + i][0] = second[i];
-    });
+    pforeach(0, count,
+             [&](int64_t i) { data[input * count + i][0] = second[i]; });
   }
   RequireAll(link_, valid, context + "/wire");
   // Freeze/check both inputs before authenticating; both input MAC records
   // remain immutable until the same deferred session check as before.
-  CheckCopies(link_, out, tag_("trunc-input-copies"), false);
+  CheckCopies(link_, out, tag_("random-bit-input-copies"), false);
   mask_prg_->fillPrssPair(first.data(), second.data(), total,
                           PrgState::GenPrssCtrl::Both);
   pforeach(0, total, [&](int64_t i) {
     first[i] += LocalProduct({data[i][0], data[i][1]}, key_) - second[i];
   });
-  exchange(first, second, "trunc-input-mac");
+  exchange(first, second, "random-bit-input-mac");
   pforeach(0, total, [&](int64_t i) {
     data[i][2] = first[i];
     data[i][3] = second[i];
@@ -167,10 +167,10 @@ NdArrayRef ArithmeticState::privateRandomBits(size_t count, size_t owner,
   return out;
 }
 
-void ArithmeticState::checkTruncBits(
-    const NdArrayRef& bits, std::vector<uint64_t>& coefficients) {
+void ArithmeticState::checkRandomBits(const NdArrayRef& bits,
+                                      std::vector<uint64_t>& coefficients) {
   const NdArrayView<AuthShare> b(bits);
-  const auto context = tag_("trunc-bitness");
+  const auto context = tag_("random-bit-bitness");
   CheckCopies(link_, bits, context + "/freeze", true);
   const auto seed = PublicCoin(link_, session_ + "/" + context);
   coefficients.resize(bits.numel());
@@ -194,7 +194,7 @@ void ArithmeticState::checkTruncBits(
       [](const auto& a, const auto& b) {
         return std::array<Word, 2>{a[0] + b[0], a[1] + b[1]};
       });
-  const auto dot = reshare({sums[0], sums[1]}, "trunc-bitness-dot");
+  const auto dot = reshare({sums[0], sums[1]}, "random-bit-bitness-dot");
   pending_.push_back({dot[0][0], dot[0][1], dot[1][0], dot[1][1]});
   // Honest generated bits are bits in the full internal ring. Use the existing
   // full-128-bit zero test (stronger than checking only the low application
@@ -202,23 +202,55 @@ void ArithmeticState::checkTruncBits(
   CheckZero(link_, dot[0], context + "/zero");
 }
 
-NdArrayRef ArithmeticState::randomTruncBits(size_t count,
-                                            TruncationBuffers& buffers) {
-  if (!trunc_prg_) trunc_prg_ = std::make_unique<PrgState>(link_);
-  const auto inputs = privateRandomBits(count, trunc_input_owner_, buffers);
+NdArrayRef ArithmeticState::randomBits(size_t count,
+                                       RandomBitBuffers& buffers) {
+  if (!random_bit_prg_) random_bit_prg_ = std::make_unique<PrgState>(link_);
+  const auto inputs =
+      privateRandomBits(count, random_bit_input_owner_, buffers);
   const auto n = static_cast<int64_t>(count);
   auto a = inputs.slice({0}, {n}, {1});
   const auto b = inputs.slice({n}, {2 * n}, {1});
-  trunc_input_owner_ = (trunc_input_owner_ + 1) % 3;
-  const auto ab = multiply(a, b);
-  auto* out = a.data<AuthShare>();
+  random_bit_input_owner_ = (random_bit_input_owner_ + 1) % 3;
+  auto ab = multiply(a, b);
+  const auto* av = a.data<AuthShare>();
   const auto* bv = b.data<AuthShare>();
-  const auto* product = ab.data<AuthShare>();
+  auto* out = ab.data<AuthShare>();
+  // multiply() owns immutable MAC records. Reuse its N-element output for
+  // a+b-2ab, so a daBit does not retain the 2N-element private-input buffer.
   pforeach(0, count, [&](int64_t i) {
-    for (size_t c = 0; c < 4; ++c) out[i][c] += bv[i][c] - 2 * product[i][c];
+    for (size_t c = 0; c < 4; ++c)
+      out[i][c] = av[i][c] + bv[i][c] - 2 * out[i][c];
   });
-  checkTruncBits(a, buffers.coefficients);
-  return a;
+  checkRandomBits(ab, buffers.coefficients);
+  return ab;
+}
+
+DaBit ArithmeticState::randomDaBit(const Shape& shape) {
+  NdArrayRef boolean(makeType<spdzwise::BShrTy>(session_, 1), shape);
+  if (!boolean.numel())
+    return {NdArrayRef(makeType<AShrTy>(session_), shape), std::move(boolean)};
+  // Two private inputs, their XOR product, and one bitness dot product.
+  // Reserve once before recording any of them; no checks or records are elided.
+  const auto count = static_cast<size_t>(boolean.numel());
+  const auto available = pending_.max_size() - pending_.size();
+  SPU_ENFORCE(available > 0 && count <= (available - 1) / 3,
+              "daBit record count overflow");
+  const auto required = pending_.size() + 3 * count + 1;
+  if (required > pending_.capacity()) {
+    // Keep amortized growth when callers queue several batches before checking.
+    const auto grown = pending_.capacity() +
+                       std::min(pending_.capacity(),
+                                pending_.max_size() - pending_.capacity());
+    pending_.reserve(std::max(required, grown));
+  }
+  RandomBitBuffers buffers(makeType<AShrTy>(session_), boolean.numel());
+  auto arithmetic = randomBits(boolean.numel(), buffers).reshape(shape);
+  const auto* a = arithmetic.data<AuthShare>();
+  auto* b = boolean.data<spdzwise::RepShare>();
+  pforeach(0, boolean.numel(), [&](int64_t i) {
+    b[i] = {uint64_t(a[i][0]) & 1, uint64_t(a[i][1]) & 1};
+  });
+  return {std::move(arithmetic), std::move(boolean)};
 }
 
 }  // namespace spu::mpc::spdzwise::ring

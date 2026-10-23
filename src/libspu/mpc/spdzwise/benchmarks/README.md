@@ -1,5 +1,30 @@
 # Malicious PPML Benchmark
 
+## Ring daBit MulA1B
+
+`mula1b_bench` 仅比较正常注册的 SPDZ-wise Ring `mul_a1b` 和原生 ABY3
+`mul_a1b`。SPDZ-wise 使用新鲜 daBit → Bit2A → MulAA，不做截断。
+默认每轮 **1,000,000** 对 FM64 算术值与一位 Boolean 值，两个协议使用相同明文。
+
+```sh
+bash build.sh //:mula1b_bench
+python3 run_mula1b.py NEW_OUTPUT_DIRECTORY
+```
+
+输入分享、认证与 Boolean 输入验证在计时外；主区间包含 daBit 生成、bitness、
+打开前全部依赖检查、64 bit 打包一致性打开、算术乘法和最终 `checkMac()`。
+输出导出、重构及逐项正确性检查在计时外，并检查没有遗留的非空验证。
+ABY3 为半诚实基线，计入原生算子的完整调用成本。
+
+三方 FactoryMem，64 个后台 worker，关闭 context 并行分片；协议串行运行。
+每轮新 session、新 shares，预热 1 次、测量 7 次，先取各轮三方总耗时最大值，
+再报告中位数和范围。分阶段中位数不能相加。小规模 smoke 可使用
+`--count 1025 --repetitions 1`。
+
+实现说明见 [daBit MulA1B](../../../../../docs/research/mula1b_spdzwise_ring.md)，
+实测及原始数据见 [最终 1M 结果](mula1b-dabit-1m-final-2026-10-23/RESULTS.md)，
+汇总见项目 [Building Blocks Benchmark](../../../../../readme-malicious-ppml.md#ring-dabit-mula1b-benchmark)。
+
 ## RING split-3 A2B
 
 `conversion_bench` 比较 SPDZwise RING 的 value-only split-3 A2B 与正常注册的

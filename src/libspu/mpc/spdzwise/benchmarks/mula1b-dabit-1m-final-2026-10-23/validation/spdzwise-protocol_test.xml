@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="13" failures="0" disabled="0" errors="0" time="0.267" timestamp="2026-10-23T00:55:00.730" name="AllTests">
+  <testsuite name="SpdzWiseProtocol" tests="13" failures="0" disabled="0" skipped="0" errors="0" time="0.267" timestamp="2026-10-23T00:55:00.730">
+    <testcase name="PrssCopiesStayAlignedAcrossOddAndEmptyBatches" file="libspu/mpc/spdzwise/protocol_test.cc" line="45" status="run" result="completed" time="0.004" timestamp="2026-10-23T00:55:00.730" classname="SpdzWiseProtocol" />
+    <testcase name="FieldRouteUsesF61MultiplicationAndSharedBooleanKernels" file="libspu/mpc/spdzwise/protocol_test.cc" line="67" status="run" result="completed" time="0.001" timestamp="2026-10-23T00:55:00.734" classname="SpdzWiseProtocol" />
+    <testcase name="RingRouteHasIndependentArithmeticAndSharedBoolean" file="libspu/mpc/spdzwise/protocol_test.cc" line="104" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.736" classname="SpdzWiseProtocol" />
+    <testcase name="MultiplicationPayloadAndConstantSizeVerification" file="libspu/mpc/spdzwise/protocol_test.cc" line="121" status="run" result="completed" time="0.105" timestamp="2026-10-23T00:55:00.736" classname="SpdzWiseProtocol" />
+    <testcase name="F61WireEncodingRejectsInvalidResiduesAndLengths" file="libspu/mpc/spdzwise/protocol_test.cc" line="164" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.842" classname="SpdzWiseProtocol" />
+    <testcase name="SelectiveAndCombinedVerificationCheckpoints" file="libspu/mpc/spdzwise/protocol_test.cc" line="173" status="run" result="completed" time="0.006" timestamp="2026-10-23T00:55:00.842" classname="SpdzWiseProtocol" />
+    <testcase name="PublicAndSpecificPartyRevealRemainClosed" file="libspu/mpc/spdzwise/protocol_test.cc" line="217" status="run" result="completed" time="0.003" timestamp="2026-10-23T00:55:00.848" classname="SpdzWiseProtocol" />
+    <testcase name="ArithmeticTransactionAndMacFreeExport" file="libspu/mpc/spdzwise/protocol_test.cc" line="246" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.852" classname="SpdzWiseProtocol" />
+    <testcase name="MatrixProductAndAuthenticatedReuse" file="libspu/mpc/spdzwise/protocol_test.cc" line="280" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.852" classname="SpdzWiseProtocol" />
+    <testcase name="PublicArithmeticAndShapeViewsPreserveMacs" file="libspu/mpc/spdzwise/protocol_test.cc" line="318" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.853" classname="SpdzWiseProtocol" />
+    <testcase name="CorruptedMacPoisonsSessionForEveryParty" file="libspu/mpc/spdzwise/protocol_test.cc" line="353" status="run" result="completed" time="0.002" timestamp="2026-10-23T00:55:00.854" classname="SpdzWiseProtocol" />
+    <testcase name="ParallelBatchRejectsMacCorruptionAtDifferentPositions" file="libspu/mpc/spdzwise/protocol_test.cc" line="388" status="run" result="completed" time="0.14" timestamp="2026-10-23T00:55:00.856" classname="SpdzWiseProtocol" />
+    <testcase name="RejectsMixedOutputBatchesBeforeAuthentication" file="libspu/mpc/spdzwise/protocol_test.cc" line="432" status="run" result="completed" time="0." timestamp="2026-10-23T00:55:00.997" classname="SpdzWiseProtocol" />
+  </testsuite>
+</testsuites>

@@ -23,6 +23,7 @@
 namespace spu::mpc::spdzwise {
 namespace ring {
 class ConversionTestAccess;
+class MulA1BTestAccess;
 }
 
 // Counts packed 64-bit triples (including one zero-extended partial word),
@@ -35,6 +36,7 @@ class BooleanState {
   friend class BooleanTestAccess;
   friend class SpdzWiseState;
   friend class ring::ConversionTestAccess;
+  friend class ring::MulA1BTestAccess;
   using Triple = std::array<RepShare, 3>;
   // Default-initialized storage: parallel writers touch each element once.
   // Unlike vector(size), this does not zero large buffers on the caller thread.

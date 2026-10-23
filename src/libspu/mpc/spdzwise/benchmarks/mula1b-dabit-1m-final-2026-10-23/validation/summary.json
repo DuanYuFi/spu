@@ -1,0 +1,59 @@
+{
+  "targets": [
+    {
+      "target": "protocol_session_test",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "aby3/protocol_test",
+      "tests": 225,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/io_test",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/boolean_test",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/protocol_test",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/ring_test",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/ring_truncation_test",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/ring_conversion_test",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "target": "spdzwise/ring_mula1b_test",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "total_cases": 318
+}

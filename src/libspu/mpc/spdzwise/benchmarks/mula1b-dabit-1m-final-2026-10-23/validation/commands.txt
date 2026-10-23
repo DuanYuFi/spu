@@ -1,0 +1,5 @@
+From src/:
+libspu/mpc/spdzwise/benchmarks/tools/bin/bazel-7.7.1 --batch --output_user_root=/tmp/malicious-spu-bazel test -c opt --lockfile_mode=update --jobs=16 --extra_toolchains=@rules_foreign_cc//toolchains:preinstalled_cmake_toolchain --test_env=YACL_NUM_THREADS=65 --test_output=errors //libspu/mpc/spdzwise:ring_mula1b_test //libspu/mpc/spdzwise:ring_test //libspu/mpc/spdzwise:ring_conversion_test //libspu/mpc/spdzwise:ring_truncation_test //libspu/mpc/spdzwise:boolean_test //libspu/mpc/spdzwise:protocol_test //libspu/mpc/spdzwise:io_test //libspu/mpc:protocol_session_test //libspu/mpc/aby3:protocol_test
+
+From project root:
+BENCHMARK_JOBS=16 bash src/libspu/mpc/spdzwise/benchmarks/build.sh //:mula1b_bench

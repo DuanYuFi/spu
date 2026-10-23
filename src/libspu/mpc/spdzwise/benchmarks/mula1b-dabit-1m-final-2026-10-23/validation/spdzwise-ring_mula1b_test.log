@@ -1,0 +1,156 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:ring_mula1b_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 7 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 1 test from RingDaBit
+[ RUN      ] RingDaBit.DomainsMacFreshCallsAndTruncationInterleave
+[       OK ] RingDaBit.DomainsMacFreshCallsAndTruncationInterleave (21 ms)
+[----------] 1 test from RingDaBit (21 ms total)
+
+[----------] 6 tests from RingMulA1B
+[ RUN      ] RingMulA1B.ValuesShapesStridesAndCheckedOutput
+[       OK ] RingMulA1B.ValuesShapesStridesAndCheckedOutput (30 ms)
+[ RUN      ] RingMulA1B.InvalidArgumentsAbortAndLifecycle
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[       OK ] RingMulA1B.InvalidArgumentsAbortAndLifecycle (3 ms)
+[ RUN      ] RingMulA1B.GenericDispatchAndOutputLifecycle
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[       OK ] RingMulA1B.GenericDispatchAndOutputLifecycle (3 ms)
+[ RUN      ] RingMulA1B.PendingBooleanCheckedBeforeOpening
+[       OK ] RingMulA1B.PendingBooleanCheckedBeforeOpening (2 ms)
+[ RUN      ] RingMulA1B.RejectsMaterialBooleanOpeningAndProductFaults
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[       OK ] RingMulA1B.RejectsMaterialBooleanOpeningAndProductFaults (21 ms)
+[ RUN      ] RingMulA1B.RejectsOpeningWireEquivocation
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1751/maps: errno=2
+[       OK ] RingMulA1B.RejectsOpeningWireEquivocation (3 ms)
+[----------] 6 tests from RingMulA1B (65 ms total)
+
+[----------] Global test environment tear-down
+[==========] 7 tests from 2 test suites ran. (87 ms total)
+[  PASSED  ] 7 tests.

@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/home/duanyufei/projects/Malicious-SPU/src/libspu/mpc/spdzwise/benchmarks/bazel-bin/mula1b_bench",
+    "aby3",
+    "1000000",
+    "7"
+  ],
+  "returncode": 0,
+  "wall_seconds": 10.86735451000277,
+  "user_seconds": 17.198618,
+  "system_seconds": 3.400867,
+  "max_rss_kib": 468020,
+  "minor_faults": 437844,
+  "major_faults": 0,
+  "voluntary_switches": 10419,
+  "involuntary_switches": 104
+}

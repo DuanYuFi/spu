@@ -11,14 +11,21 @@
 
 namespace spu::mpc::spdzwise::ring {
 
-// Scratch belongs to one truncation call. Reuse storage across tiles, but fill
-// every live entry with fresh randomness before use. No PRG runs on workers.
-struct ArithmeticState::TruncationBuffers {
+// Session-local, single-use conversion material; never imported from clients.
+struct DaBit {
+  NdArrayRef arithmetic;
+  NdArrayRef boolean;
+};
+
+// Scratch belongs to one random-bit generation call. Reuse storage across
+// tiles, but fill every live entry with fresh randomness before use. No PRG
+// runs on workers.
+struct ArithmeticState::RandomBitBuffers {
   std::vector<Word> first, second;
   std::vector<uint64_t> private_words, coefficients;
   NdArrayRef inputs;
 
-  TruncationBuffers(const Type& type, int64_t max_bits);
+  RandomBitBuffers(const Type& type, int64_t max_bits);
 };
 
 }  // namespace spu::mpc::spdzwise::ring

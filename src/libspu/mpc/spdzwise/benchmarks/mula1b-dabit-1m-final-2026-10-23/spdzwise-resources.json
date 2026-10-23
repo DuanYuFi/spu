@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/tmp/malicious-spu-bazel/53093b917b1433e6b1b5379b4207a5e2/execroot/_main/bazel-out/k8-opt/bin/mula1b_bench",
+    "spdzwise",
+    "1000000",
+    "7"
+  ],
+  "binary_sha256": "62a34cd69def6da3e181ebe3e249489f77b5c6541507c0524f535582d5828f54",
+  "source_parameters": "parameters.json",
+  "wall_seconds": 30.795075941015966,
+  "user_seconds": 55.288078,
+  "system_seconds": 28.630184,
+  "max_rss_kib": 2082740,
+  "returncode": 0
+}

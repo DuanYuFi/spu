@@ -1,0 +1,276 @@
+{
+  "spdzwise": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 1083.038486,
+        "operation_ms": 1024.422959,
+        "final_check_ms": 76.566179,
+        "dabit_ms": 641.178644,
+        "precheck_ms": 198.698032,
+        "bit2a_ms": 29.006284,
+        "multiply_ms": 175.283193,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 2,
+        "total_ms": 1049.060853,
+        "operation_ms": 992.600506,
+        "final_check_ms": 72.390676,
+        "dabit_ms": 637.051466,
+        "precheck_ms": 204.983424,
+        "bit2a_ms": 19.040472,
+        "multiply_ms": 140.411014,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 3,
+        "total_ms": 1031.242491,
+        "operation_ms": 984.313735,
+        "final_check_ms": 61.483531,
+        "dabit_ms": 647.65217,
+        "precheck_ms": 198.535825,
+        "bit2a_ms": 17.869347,
+        "multiply_ms": 135.272295,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 4,
+        "total_ms": 1013.244829,
+        "operation_ms": 964.554399,
+        "final_check_ms": 68.965429,
+        "dabit_ms": 623.000476,
+        "precheck_ms": 189.24128,
+        "bit2a_ms": 15.106527,
+        "multiply_ms": 141.875374,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 5,
+        "total_ms": 1041.631548,
+        "operation_ms": 992.695886,
+        "final_check_ms": 68.680194,
+        "dabit_ms": 644.922668,
+        "precheck_ms": 208.726565,
+        "bit2a_ms": 17.49802,
+        "multiply_ms": 137.597307,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 6,
+        "total_ms": 1015.737274,
+        "operation_ms": 966.786853,
+        "final_check_ms": 61.141522,
+        "dabit_ms": 613.581194,
+        "precheck_ms": 205.568617,
+        "bit2a_ms": 18.310575,
+        "multiply_ms": 138.498061,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      },
+      {
+        "iteration": 7,
+        "total_ms": 1011.883224,
+        "operation_ms": 959.567068,
+        "final_check_ms": 72.091411,
+        "dabit_ms": 615.579559,
+        "precheck_ms": 206.167561,
+        "bit2a_ms": 22.79572,
+        "multiply_ms": 140.831645,
+        "sent_bytes": 321502535,
+        "sent_actions": 371
+      }
+    ],
+    "stats": {
+      "total_ms": {
+        "median": 1031.242491,
+        "min": 1011.883224,
+        "max": 1083.038486
+      },
+      "operation_ms": {
+        "median": 984.313735,
+        "min": 959.567068,
+        "max": 1024.422959
+      },
+      "final_check_ms": {
+        "median": 68.965429,
+        "min": 61.141522,
+        "max": 76.566179
+      },
+      "dabit_ms": {
+        "median": 637.051466,
+        "min": 613.581194,
+        "max": 647.65217
+      },
+      "precheck_ms": {
+        "median": 204.983424,
+        "min": 189.24128,
+        "max": 208.726565
+      },
+      "bit2a_ms": {
+        "median": 18.310575,
+        "min": 15.106527,
+        "max": 29.006284
+      },
+      "multiply_ms": {
+        "median": 140.411014,
+        "min": 135.272295,
+        "max": 175.283193
+      },
+      "sent_bytes": {
+        "median": 321502535,
+        "min": 321502535,
+        "max": 321502535
+      },
+      "sent_actions": {
+        "median": 371,
+        "min": 371,
+        "max": 371
+      }
+    },
+    "pairs_per_second": 969704.0305527907,
+    "outputs_verified": 8000000
+  },
+  "aby3": {
+    "samples": [
+      {
+        "iteration": 1,
+        "total_ms": 119.252243,
+        "operation_ms": 119.251665,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 2,
+        "total_ms": 96.260365,
+        "operation_ms": 96.259879,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 3,
+        "total_ms": 93.45983,
+        "operation_ms": 93.45953,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 4,
+        "total_ms": 106.616999,
+        "operation_ms": 106.616726,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 5,
+        "total_ms": 114.833484,
+        "operation_ms": 114.832976,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 6,
+        "total_ms": 103.163867,
+        "operation_ms": 103.163468,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      },
+      {
+        "iteration": 7,
+        "total_ms": 65.967254,
+        "operation_ms": 65.966856,
+        "final_check_ms": 0.0,
+        "dabit_ms": 0.0,
+        "precheck_ms": 0.0,
+        "bit2a_ms": 0.0,
+        "multiply_ms": 0.0,
+        "sent_bytes": 64000000,
+        "sent_actions": 8
+      }
+    ],
+    "stats": {
+      "total_ms": {
+        "median": 103.163867,
+        "min": 65.967254,
+        "max": 119.252243
+      },
+      "operation_ms": {
+        "median": 103.163468,
+        "min": 65.966856,
+        "max": 119.251665
+      },
+      "final_check_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "dabit_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "precheck_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "bit2a_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "multiply_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "sent_bytes": {
+        "median": 64000000,
+        "min": 64000000,
+        "max": 64000000
+      },
+      "sent_actions": {
+        "median": 8,
+        "min": 8,
+        "max": 8
+      }
+    },
+    "pairs_per_second": 9693316.36240429,
+    "outputs_verified": 8000000
+  }
+}

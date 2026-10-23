@@ -57,6 +57,15 @@ class MulAP final : public BinaryKernel {
                   const NdArrayRef& y) const override;
 };
 
+class MulA1B final : public BinaryKernel {
+ public:
+  static constexpr const char* kBindName() { return "mul_a1b"; }
+  Kind kind() const override { return Kind::Dynamic; }
+  void evaluate(KernelEvalContext* ctx) const override;
+  NdArrayRef proc(KernelEvalContext* ctx, const NdArrayRef& x,
+                  const NdArrayRef& bit) const override;
+};
+
 class MatmulAA final : public MatmulKernel {
  public:
   static constexpr const char* kBindName() { return "mmul_aa"; }

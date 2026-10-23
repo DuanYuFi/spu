@@ -1,0 +1,46 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+WARNING: For repository 'platforms', the root module requires module version platforms@0.0.11, but got platforms@1.0.0 in the resolved dependency graph.
+WARNING: For repository 'rules_proto', the root module requires module version rules_proto@6.0.0-rc1, but got rules_proto@7.1.0 in the resolved dependency graph.
+WARNING: For repository 'rules_python', the root module requires module version rules_python@0.29.0, but got rules_python@1.6.0 in the resolved dependency graph.
+WARNING: For repository 'googletest', the root module requires module version googletest@1.15.2, but got googletest@1.17.0 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 9 targets (4 packages loaded, 0 targets configured)
+Analyzing: 9 targets (4 packages loaded, 0 targets configured)
+
+Analyzing: 9 targets (143 packages loaded, 3189 targets configured)
+
+Analyzing: 9 targets (267 packages loaded, 17745 targets configured)
+
+INFO: Analyzed 9 targets (267 packages loaded, 17817 targets configured).
+[1,634 / 1,658] Compiling libspu/mpc/spdzwise/arithmetic.cc; 0s processwrapper-sandbox ... (15 actions, 13 running)
+[1,638 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/arithmetic.cc; 1s processwrapper-sandbox ... (15 actions running)
+[1,640 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/arithmetic.cc; 11s processwrapper-sandbox ... (13 actions running)
+[1,643 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/protocol_test.cc; 12s processwrapper-sandbox ... (10 actions running)
+[1,645 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/protocol_test.cc; 13s processwrapper-sandbox ... (8 actions running)
+[1,647 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/protocol_test.cc; 14s processwrapper-sandbox ... (6 actions running)
+[1,648 / 1,659] 3 / 9 tests; Compiling libspu/mpc/spdzwise/protocol_test.cc; 15s processwrapper-sandbox ... (6 actions, 5 running)
+[1,652 / 1,661] 4 / 9 tests; Compiling libspu/mpc/spdzwise/protocol_test.cc; 17s processwrapper-sandbox ... (5 actions running)
+[1,656 / 1,662] 6 / 9 tests; Compiling libspu/mpc/spdzwise/ring_conversion_test.cc; 18s processwrapper-sandbox ... (3 actions running)
+[1,662 / 1,665] 7 / 9 tests; Testing //libspu/mpc/spdzwise:ring_test; 0s processwrapper-sandbox ... (3 actions running)
+[1,664 / 1,665] 8 / 9 tests; Testing //libspu/mpc/spdzwise:boolean_test; 2s processwrapper-sandbox
+[1,664 / 1,665] 9 / 9 tests; Testing //libspu/mpc/spdzwise:boolean_test; 6s processwrapper-sandbox
+INFO: Found 9 test targets...
+INFO: Elapsed time: 30.854s, Critical Path: 25.55s
+INFO: 28 processes: 1 internal, 27 processwrapper-sandbox.
+INFO: Build completed successfully, 28 total actions
+//libspu/mpc:protocol_session_test                              (cached) PASSED in 0.0s
+//libspu/mpc/aby3:protocol_test                                 (cached) PASSED in 0.4s
+//libspu/mpc/spdzwise:io_test                                   (cached) PASSED in 0.0s
+//libspu/mpc/spdzwise:boolean_test                                       PASSED in 6.5s
+//libspu/mpc/spdzwise:protocol_test                                      PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_conversion_test                               PASSED in 0.6s
+//libspu/mpc/spdzwise:ring_mula1b_test                                   PASSED in 0.1s
+//libspu/mpc/spdzwise:ring_test                                          PASSED in 0.3s
+//libspu/mpc/spdzwise:ring_truncation_test                               PASSED in 1.8s
+
+Executed 6 out of 9 tests: 9 tests pass.
+There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.

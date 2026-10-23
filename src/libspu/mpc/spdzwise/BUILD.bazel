@@ -31,6 +31,7 @@ spu_cc_library(
         "ring.cc",
         "ring_truncation.cc",
         "ring_conversion.cc",
+        "ring_mula1b.cc",
     ],
     hdrs = [
         "arithmetic.h",
@@ -170,6 +171,19 @@ spu_cc_test(
         ":protocol",
         ":state",
         "//libspu/kernel/hal:integer",
+        "//libspu/mpc:api",
+        "//libspu/mpc/common:pv2k",
+        "//libspu/mpc/utils:simulate",
+    ],
+)
+
+spu_cc_test(
+    name = "ring_mula1b_test",
+    srcs = ["ring_mula1b_test.cc"],
+    deps = [
+        ":io",
+        ":protocol",
+        ":state",
         "//libspu/mpc:api",
         "//libspu/mpc/common:pv2k",
         "//libspu/mpc/utils:simulate",

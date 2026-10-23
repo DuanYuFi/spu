@@ -1,0 +1,22 @@
+OpenJDK 64-Bit Server VM warning: Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release.
+Computing main repo mapping: 
+WARNING: For repository 'rules_cc', the root module requires module version rules_cc@0.0.12, but got rules_cc@0.2.13 in the resolved dependency graph.
+Computing main repo mapping: 
+Loading: 
+Loading: 1 packages loaded
+Analyzing: 2 targets (2 packages loaded, 0 targets configured)
+Analyzing: 2 targets (2 packages loaded, 0 targets configured)
+
+Analyzing: 2 targets (186 packages loaded, 3432 targets configured)
+
+Analyzing: 2 targets (265 packages loaded, 17681 targets configured)
+
+INFO: Analyzed 2 targets (265 packages loaded, 17713 targets configured).
+[1,581 / 1,594] Compiling libspu/mpc/spdzwise/ring_mula1b.cc; 1s processwrapper-sandbox ... (11 actions running)
+[1,585 / 1,594] Compiling libspu/mpc/spdzwise/arithmetic.cc; 11s processwrapper-sandbox ... (7 actions running)
+[1,587 / 1,594] Compiling libspu/mpc/spdzwise/state.cc; 12s processwrapper-sandbox ... (5 actions running)
+[1,592 / 1,594] [Prepa] Linking circuit_bench
+INFO: Found 2 targets...
+INFO: Elapsed time: 19.142s, Critical Path: 14.05s
+INFO: 14 processes: 1 internal, 13 processwrapper-sandbox.
+INFO: Build completed successfully, 14 total actions

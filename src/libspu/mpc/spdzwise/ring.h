@@ -19,6 +19,8 @@
 namespace spu::mpc::spdzwise::ring {
 class TruncationTestAccess;
 class ConversionTestAccess;
+class MulA1BTestAccess;
+struct DaBit;
 
 // Wire words are exactly 16 bytes, little endian, independent of host layout.
 std::string Encode(const std::vector<Word>& words);
@@ -37,21 +39,22 @@ void CheckZero(const std::shared_ptr<yacl::link::Context>& link,
 class ArithmeticState {
   friend class TruncationTestAccess;
   friend class ConversionTestAccess;
+  friend class MulA1BTestAccess;
   std::shared_ptr<yacl::link::Context> link_;
   std::string session_;
   std::function<std::string(std::string_view)> tag_;
   std::unique_ptr<PrgState> key_prg_, mask_prg_, check_prg_;
   RepShare key_{};
   std::vector<AuthShare> pending_;
-  std::unique_ptr<PrgState> trunc_prg_;
-  size_t trunc_input_owner_ = 0;
+  std::unique_ptr<PrgState> random_bit_prg_;
+  size_t random_bit_input_owner_ = 0;
   double trunc_material_ms_ = 0;
   // Random-bit generation and scratch storage live in correlated_randomness.
-  struct TruncationBuffers;
+  struct RandomBitBuffers;
   NdArrayRef privateRandomBits(size_t count, size_t owner,
-                               TruncationBuffers& buffers);
-  NdArrayRef randomTruncBits(size_t count, TruncationBuffers& buffers);
-  void checkTruncBits(const NdArrayRef& bits,
+                               RandomBitBuffers& buffers);
+  NdArrayRef randomBits(size_t count, RandomBitBuffers& buffers);
+  void checkRandomBits(const NdArrayRef& bits,
                       std::vector<uint64_t>& coefficients);
   std::vector<uint64_t> openTruncMask(const std::vector<RepShare>& values);
 
@@ -71,6 +74,9 @@ class ArithmeticState {
   NdArrayRef importValue(const NdArrayRef& value);
   // Fresh uniform extended-ring value with a MAC queued for checking.
   NdArrayRef randomAuthenticated(const Shape& shape);
+  // Fresh same-bit arithmetic/Boolean material. Arithmetic checks are pending;
+  // consumers must flush both domains before opening a masked secret.
+  DaBit randomDaBit(const Shape& shape);
   NdArrayRef publicValue(const NdArrayRef& value) const;
   NdArrayRef add(const NdArrayRef& x, const NdArrayRef& y) const;
   NdArrayRef negate(const NdArrayRef& x) const;

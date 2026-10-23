@@ -1,0 +1,153 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:ring_truncation_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 11 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 11 tests from SpdzWiseTruncation
+[ RUN      ] SpdzWiseTruncation.NaiveFullWidthExactFloorAndStrides
+[       OK ] SpdzWiseTruncation.NaiveFullWidthExactFloorAndStrides (498 ms)
+[ RUN      ] SpdzWiseTruncation.NaiveInvalidInputsAbort
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[       OK ] SpdzWiseTruncation.NaiveInvalidInputsAbort (3 ms)
+[ RUN      ] SpdzWiseTruncation.ExhaustiveSignedSmallRingFormula
+[       OK ] SpdzWiseTruncation.ExhaustiveSignedSmallRingFormula (2 ms)
+[ RUN      ] SpdzWiseTruncation.SignedEdgesStridesAndShiftBounds
+[       OK ] SpdzWiseTruncation.SignedEdgesStridesAndShiftBounds (12 ms)
+[ RUN      ] SpdzWiseTruncation.VerifiesBothDomainsBeforeEveryMaskedOpening
+[       OK ] SpdzWiseTruncation.VerifiesBothDomainsBeforeEveryMaskedOpening (14 ms)
+[ RUN      ] SpdzWiseTruncation.PendingFaultsRejectBeforeMaskedOpening
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[       OK ] SpdzWiseTruncation.PendingFaultsRejectBeforeMaskedOpening (62 ms)
+[ RUN      ] SpdzWiseTruncation.RotatingOwnersAndPartialTile
+[2026-10-23 00:54:59.428] [info] [thread_pool.cc:30] Create a fixed thread pool with size 64
+[       OK ] SpdzWiseTruncation.RotatingOwnersAndPartialTile (727 ms)
+[ RUN      ] SpdzWiseTruncation.SignedRoundingFrequency
+[       OK ] SpdzWiseTruncation.SignedRoundingFrequency (474 ms)
+[ RUN      ] SpdzWiseTruncation.BadParametersAndBindingsPoisonSession
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[       OK ] SpdzWiseTruncation.BadParametersAndBindingsPoisonSession (3 ms)
+[ RUN      ] SpdzWiseTruncation.BitnessRejectsNonBitsIncludingHighValuation
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1359/maps: errno=2
+[       OK ] SpdzWiseTruncation.BitnessRejectsNonBitsIncludingHighValuation (1 ms)
+[ RUN      ] SpdzWiseTruncation.NativeAby3RegisteredTruncAPr2MixedSigns
+[       OK ] SpdzWiseTruncation.NativeAby3RegisteredTruncAPr2MixedSigns (0 ms)
+[----------] 11 tests from SpdzWiseTruncation (1803 ms total)
+
+[----------] Global test environment tear-down
+[==========] 11 tests from 1 test suite ran. (1803 ms total)
+[  PASSED  ] 11 tests.

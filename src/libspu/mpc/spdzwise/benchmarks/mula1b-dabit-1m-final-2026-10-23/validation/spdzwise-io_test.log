@@ -1,0 +1,29 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //libspu/mpc/spdzwise:io_test
+-----------------------------------------------------------------------------
+Running main() from gmock_main.cc
+[==========] Running 8 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 8 tests from SpdzWiseIo
+[ RUN      ] SpdzWiseIo.CenteredRoundTrip
+[       OK ] SpdzWiseIo.CenteredRoundTrip (1 ms)
+[ RUN      ] SpdzWiseIo.RoutesByDomainAndRejectsUnsupportedStorage
+[symbolize_elf.inc : 1097] RAW: /proc/self/task/1517/maps: errno=2
+[       OK ] SpdzWiseIo.RoutesByDomainAndRejectsUnsupportedStorage (0 ms)
+[ RUN      ] SpdzWiseIo.EveryReplicatedCopyIsChecked
+[       OK ] SpdzWiseIo.EveryReplicatedCopyIsChecked (0 ms)
+[ RUN      ] SpdzWiseIo.RejectsMetadataAndNoncanonicalShares
+[       OK ] SpdzWiseIo.RejectsMetadataAndNoncanonicalShares (0 ms)
+[ RUN      ] SpdzWiseIo.BindsOutputsToExecution
+[       OK ] SpdzWiseIo.BindsOutputsToExecution (0 ms)
+[ RUN      ] SpdzWiseIo.RejectsUnsupportedConfigurationsAndRanges
+[       OK ] SpdzWiseIo.RejectsUnsupportedConfigurationsAndRanges (0 ms)
+[ RUN      ] SpdzWiseIo.ExternalTypesRoundTripButAuthenticationCannotBeForged
+[       OK ] SpdzWiseIo.ExternalTypesRoundTripButAuthenticationCannotBeForged (0 ms)
+[ RUN      ] SpdzWiseIo.EmptyAndNoncontiguousBuffers
+[       OK ] SpdzWiseIo.EmptyAndNoncontiguousBuffers (0 ms)
+[----------] 8 tests from SpdzWiseIo (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 8 tests from 1 test suite ran. (2 ms total)
+[  PASSED  ] 8 tests.
